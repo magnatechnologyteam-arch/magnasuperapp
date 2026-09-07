@@ -13,14 +13,14 @@ export function MobileNav() {
   const pathname = usePathname();
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto border-b border-slate-200 bg-white px-4 py-3 md:hidden">
+    <div className="flex items-center gap-2 overflow-x-auto border-b border-black/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-950 md:hidden">
       <Link
         href={HUB_HREF}
         className={cn(
-          "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+          "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors",
           pathname === HUB_HREF
-            ? "bg-slate-900 text-white"
-            : "bg-slate-100 text-slate-600"
+            ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+            : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"
         )}
       >
         Hub
@@ -32,9 +32,12 @@ export function MobileNav() {
             key={mod.id}
             href={mod.href}
             className={cn(
-              "shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
-              isActive ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"
+              "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-transform active:scale-95",
+              isActive
+                ? "text-white shadow-sm"
+                : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"
             )}
+            style={isActive ? { background: mod.gradient } : undefined}
           >
             {mod.label}
           </Link>

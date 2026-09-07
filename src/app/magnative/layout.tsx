@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { SubNav } from "@/components/layout/SubNav";
 import { MODULES } from "@/lib/navigation";
 
-const subnav = MODULES.find((mod) => mod.id === "magnative")!.subnav;
+const mod = MODULES.find((m) => m.id === "magnative")!;
 
 /**
  * Layout modul Magnative — dirender sekali dan tetap berada di pohon rute
@@ -12,7 +12,7 @@ const subnav = MODULES.find((mod) => mod.id === "magnative")!.subnav;
 export default function MagnativeLayout({ children }: { children: ReactNode }) {
   return (
     <div>
-      <SubNav items={subnav} />
+      <SubNav items={mod.subnav} gradient={mod.gradient} />
       <div className="p-4 md:p-8">{children}</div>
     </div>
   );

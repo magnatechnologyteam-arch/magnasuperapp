@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
-import { ACCENT_CLASSES, HUB_HREF, MODULES } from "@/lib/navigation";
+import { BRAND_GRADIENT, HUB_HREF, MODULES } from "@/lib/navigation";
 import { cn } from "@/lib/cn";
 
 /**
@@ -15,39 +15,41 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
-      <div className="flex h-16 items-center gap-2 border-b border-slate-200 px-5">
-        <div className="grid h-8 w-8 place-items-center rounded-lg bg-slate-900 text-sm font-bold text-white">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-black/5 bg-white dark:border-white/10 dark:bg-zinc-950 md:flex">
+      <div className="flex h-16 items-center gap-3 border-b border-black/5 px-5 dark:border-white/10">
+        <div
+          className="grid h-9 w-9 place-items-center rounded-xl text-sm font-extrabold text-white shadow-sm"
+          style={{ background: BRAND_GRADIENT }}
+        >
           M
         </div>
-        <span className="text-sm font-semibold tracking-tight text-slate-900">
+        <span className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">
           MagnaSuperApp
         </span>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      <nav className="flex-1 overflow-y-auto px-3 py-5">
         <Link
           href={HUB_HREF}
           className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
             pathname === HUB_HREF
-              ? "bg-slate-100 text-slate-900"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              ? "bg-zinc-100 text-zinc-900 dark:bg-white/10 dark:text-white"
+              : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
           )}
         >
-          <LayoutGrid className="h-4 w-4" />
+          <LayoutGrid className="h-[18px] w-[18px]" />
           Dashboard Hub
         </Link>
 
-        <div className="pt-4">
-          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        <div className="pt-5">
+          <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
             Modul
           </p>
           <ul className="space-y-1">
             {MODULES.map((mod) => {
               const isActive =
                 pathname === mod.href || pathname.startsWith(`${mod.href}/`);
-              const accent = ACCENT_CLASSES[mod.accent];
               const Icon = mod.icon;
 
               return (
@@ -55,14 +57,23 @@ export function Sidebar() {
                   <Link
                     href={mod.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all",
                       isActive
-                        ? accent.active
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        ? mod.soft
+                        : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
                     )}
                   >
-                    <Icon className={cn("h-4 w-4", isActive ? accent.icon : "text-slate-400")} />
+                    <Icon
+                      className="h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110"
+                      style={isActive ? { color: mod.solid } : undefined}
+                    />
                     {mod.label}
+                    {isActive && (
+                      <span
+                        className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full"
+                        style={{ background: mod.gradient }}
+                      />
+                    )}
                   </Link>
                 </li>
               );
