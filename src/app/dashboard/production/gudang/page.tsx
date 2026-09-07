@@ -1,10 +1,11 @@
-import { ModuleHeader } from "@/components/layout/ModuleHeader";
+import { redirect } from "next/navigation";
 
-export default function ProductionGudangPage() {
-  return (
-    <ModuleHeader
-      title="Gudang"
-      description="Stok material & peralatan produksi di gudang."
-    />
-  );
+/**
+ * Rute lama — "Gudang" dan "Material" sekarang digabung jadi satu tab
+ * "Material" (lihat src/lib/navigation.ts). File ini dibiarkan sebagai
+ * redirect, bukan dihapus, supaya bookmark/link lama ke /gudang tidak
+ * berakhir 404.
+ */
+export default function ProductionGudangRedirectPage() {
+  redirect("/dashboard/production/material");
 }

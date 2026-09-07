@@ -67,8 +67,8 @@ export const MODULES: ModuleConfig[] = [
     soft: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300",
     subnav: [
       { label: "Ringkasan", href: "/dashboard/production" },
-      { label: "Gudang", href: "/dashboard/production/gudang" },
       { label: "Material", href: "/dashboard/production/material" },
+      { label: "Proyek Booth", href: "/dashboard/production/proyek" },
       { label: "Jadwal", href: "/dashboard/production/jadwal" },
     ],
   },
