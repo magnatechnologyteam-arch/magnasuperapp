@@ -1,17 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { ReactNode } from "react";
 import "./globals.css";
-import { AppShell } from "@/components/layout/AppShell";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "MagnaSuperApp",
@@ -19,18 +8,15 @@ export const metadata: Metadata = {
 };
 
 /**
- * <AppShell> dipasang di sini (root layout) — Sidebar & MobileNav di dalamnya
- * jadi persist di semua rute, termasuk /dashboard dan ketiga modul.
+ * Root layout — sengaja diminimalkan (hanya font & metadata global).
+ * AppShell (Sidebar/MobileNav) TIDAK dipasang di sini lagi — pindah ke
+ * `src/app/dashboard/layout.tsx` supaya rute "/" tetap bebas dipakai untuk
+ * halaman publik (landing page, dsb.) tanpa ikut membawa chrome dashboard.
  */
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html
-      lang="id"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col">
-        <AppShell>{children}</AppShell>
-      </body>
+    <html lang="id">
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
