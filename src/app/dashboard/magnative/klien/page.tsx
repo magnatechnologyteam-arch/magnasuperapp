@@ -1,10 +1,14 @@
 import { ModuleHeader } from "@/components/layout/ModuleHeader";
+import { ClientManager } from "@/components/magnative/ClientManager";
 
 export default function MagnativeKlienPage() {
   return (
-    <ModuleHeader
-      title="Klien"
-      description="Daftar klien EO & creative agency beserta status kerja sama."
-    />
+    <div className="space-y-6">
+      <ModuleHeader
+        title="Klien"
+        description="Daftar klien EO & creative agency beserta status kerja sama."
+      />
+      <ClientManager />
+    </div>
   );
 }

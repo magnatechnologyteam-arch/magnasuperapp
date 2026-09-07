@@ -1,0 +1,117 @@
+import type { Client, ContentPost, Project } from "./types";
+
+export const INITIAL_CLIENTS: Client[] = [
+  {
+    id: "cl-1",
+    name: "PT Nusantara Digital",
+    industry: "Teknologi",
+    picName: "Rangga Prasetyo",
+    picPhone: "0813-1111-2222",
+    picEmail: "rangga@nusantaradigital.co.id",
+    status: "Aktif",
+  },
+  {
+    id: "cl-2",
+    name: "Bank Mitra Sejahtera",
+    industry: "Perbankan",
+    picName: "Sari Wulandari",
+    picPhone: "0812-3333-4444",
+    picEmail: "sari.w@mitrasejahtera.co.id",
+    status: "Aktif",
+  },
+  {
+    id: "cl-3",
+    name: "Kopi Kenangan Lokal",
+    industry: "F&B",
+    picName: "Dimas Anugrah",
+    picPhone: "0857-5555-6666",
+    status: "Prospek",
+  },
+  {
+    id: "cl-4",
+    name: "Yayasan Peduli Anak",
+    industry: "Non-Profit",
+    picName: "Retno Ambarwati",
+    picPhone: "0821-7777-8888",
+    picEmail: "retno@pedulianak.org",
+    status: "Selesai",
+  },
+];
+
+export const INITIAL_PROJECTS: Project[] = [
+  {
+    id: "pr-1",
+    clientId: "cl-1",
+    name: "Product Launch Nusantara App v2",
+    type: "Event Organizer",
+    tanggalMulai: "2026-09-20",
+    tanggalSelesai: "2026-09-20",
+    budget: 350_000_000,
+    status: "Perencanaan",
+  },
+  {
+    id: "pr-2",
+    clientId: "cl-2",
+    name: "Rebranding Visual Identity 2026",
+    type: "Creative Agency",
+    tanggalMulai: "2026-08-15",
+    tanggalSelesai: "2026-10-01",
+    budget: 220_000_000,
+    status: "Berjalan",
+  },
+  {
+    id: "pr-3",
+    clientId: "cl-4",
+    name: "Gala Dinner Amal Tahunan",
+    type: "Event Organizer",
+    tanggalMulai: "2026-07-10",
+    tanggalSelesai: "2026-07-10",
+    budget: 180_000_000,
+    status: "Selesai",
+  },
+  {
+    id: "pr-4",
+    clientId: "cl-1",
+    name: "Konten Bulanan Media Sosial",
+    type: "Media Sosial",
+    tanggalMulai: "2026-09-01",
+    tanggalSelesai: "2026-09-30",
+    budget: 45_000_000,
+    status: "Berjalan",
+  },
+];
+
+export const INITIAL_CONTENT_POSTS: ContentPost[] = [
+  {
+    id: "cp-1",
+    clientId: "cl-1",
+    title: "Teaser Product Launch",
+    platform: "Instagram",
+    tanggalPosting: "2026-09-15",
+    status: "Terjadwal",
+  },
+  {
+    id: "cp-2",
+    clientId: "cl-1",
+    title: "Behind the Scenes Kantor",
+    platform: "TikTok",
+    tanggalPosting: "2026-09-10",
+    status: "Draft",
+  },
+  {
+    id: "cp-3",
+    clientId: "cl-2",
+    title: "Pengumuman Logo Baru",
+    platform: "LinkedIn",
+    tanggalPosting: "2026-09-08",
+    status: "Review",
+  },
+  {
+    id: "cp-4",
+    clientId: "cl-3",
+    title: "Promo Pembukaan Cabang",
+    platform: "Instagram",
+    tanggalPosting: "2026-09-05",
+    status: "Tayang",
+  },
+];

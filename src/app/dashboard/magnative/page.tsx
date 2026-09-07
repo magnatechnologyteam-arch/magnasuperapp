@@ -1,10 +1,14 @@
 import { ModuleHeader } from "@/components/layout/ModuleHeader";
+import { MagnativeOverview } from "@/components/magnative/MagnativeOverview";
 
 export default function MagnativeOverviewPage() {
   return (
-    <ModuleHeader
-      title="Ringkasan Magnative"
-      description="Ganti konten ini dengan ringkasan EO, creative agency, dan media sosial."
-    />
+    <div className="space-y-6">
+      <ModuleHeader
+        title="Ringkasan Magnative"
+        description="Klien aktif, proyek berjalan, dan konten yang akan datang."
+      />
+      <MagnativeOverview />
+    </div>
   );
 }
