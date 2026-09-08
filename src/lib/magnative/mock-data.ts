@@ -48,6 +48,7 @@ export const INITIAL_PROJECTS: Project[] = [
     tanggalSelesai: "2026-09-20",
     budget: 350_000_000,
     status: "Perencanaan",
+    statusPembayaran: "DP",
   },
   {
     id: "pr-2",
@@ -58,6 +59,7 @@ export const INITIAL_PROJECTS: Project[] = [
     tanggalSelesai: "2026-10-01",
     budget: 220_000_000,
     status: "Berjalan",
+    statusPembayaran: "DP",
   },
   {
     id: "pr-3",
@@ -68,6 +70,7 @@ export const INITIAL_PROJECTS: Project[] = [
     tanggalSelesai: "2026-07-10",
     budget: 180_000_000,
     status: "Selesai",
+    statusPembayaran: "Lunas",
   },
   {
     id: "pr-4",
@@ -78,6 +81,7 @@ export const INITIAL_PROJECTS: Project[] = [
     tanggalSelesai: "2026-09-30",
     budget: 45_000_000,
     status: "Berjalan",
+    statusPembayaran: "Belum Bayar",
   },
 ];
 

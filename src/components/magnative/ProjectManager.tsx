@@ -9,7 +9,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID, formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
-import type { Project, ProjectStatus, ProjectType } from "@/lib/magnative/types";
+import type { PaymentStatus, Project, ProjectStatus, ProjectType } from "@/lib/magnative/types";
 
 const GRADIENT = "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)";
 
@@ -18,6 +18,12 @@ const STATUS_STYLES: Record<ProjectStatus, string> = {
   Berjalan: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
   Selesai: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
   Dibatalkan: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
+};
+
+const PAYMENT_STYLES: Record<PaymentStatus, string> = {
+  "Belum Bayar": "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
+  DP: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  Lunas: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
 };
 
 const ALL_TYPES: ProjectType[] = ["Event Organizer", "Creative Agency", "Media Sosial", "Lainnya"];
@@ -33,6 +39,7 @@ function emptyForm() {
     tanggalSelesai: "",
     budget: "0",
     status: "Perencanaan" as ProjectStatus,
+    statusPembayaran: "Belum Bayar" as PaymentStatus,
     catatan: "",
   };
 }
@@ -46,6 +53,7 @@ function projectToForm(p: Project) {
     tanggalSelesai: p.tanggalSelesai,
     budget: String(p.budget),
     status: p.status,
+    statusPembayaran: p.statusPembayaran,
     catatan: p.catatan ?? "",
   };
 }
@@ -141,6 +149,7 @@ export function ProjectManager() {
       tanggalSelesai: form.tanggalSelesai,
       budget,
       status: form.status,
+      statusPembayaran: form.statusPembayaran,
       catatan: form.catatan.trim() || undefined,
     };
 
@@ -227,13 +236,14 @@ export function ProjectManager() {
                 <th className="px-5 py-3">Selesai</th>
                 <th className="px-5 py-3 text-right">Budget</th>
                 <th className="px-5 py-3">Status</th>
+                <th className="px-5 py-3">Pembayaran</th>
                 <th className="px-5 py-3 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody>
               {filteredProjects.length === 0 && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={9}>
                     <EmptyState
                       icon={Briefcase}
                       title={projects.length === 0 ? "Belum ada proyek" : "Tidak ada hasil"}
@@ -268,6 +278,16 @@ export function ProjectManager() {
                   <td className="px-5 py-3">
                     <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", STATUS_STYLES[p.status])}>
                       {p.status}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3">
+                    <span
+                      className={cn(
+                        "rounded-full px-2.5 py-1 text-xs font-semibold",
+                        PAYMENT_STYLES[p.statusPembayaran]
+                      )}
+                    >
+                      {p.statusPembayaran}
                     </span>
                   </td>
                   <td className="px-5 py-3">
@@ -389,18 +409,34 @@ export function ProjectManager() {
             </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-              Budget (Rp)
-            </label>
-            <input
-              type="number"
-              min={0}
-              step={1_000_000}
-              value={form.budget}
-              onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))}
-              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Budget (Rp)
+              </label>
+              <input
+                type="number"
+                min={0}
+                step={1_000_000}
+                value={form.budget}
+                onChange={(e) => setForm((f) => ({ ...f, budget: e.target.value }))}
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Status Pembayaran
+              </label>
+              <select
+                value={form.statusPembayaran}
+                onChange={(e) => setForm((f) => ({ ...f, statusPembayaran: e.target.value as PaymentStatus }))}
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
+              >
+                <option value="Belum Bayar">Belum Bayar</option>
+                <option value="DP">DP</option>
+                <option value="Lunas">Lunas</option>
+              </select>
+            </div>
           </div>
 
           <div>

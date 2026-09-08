@@ -42,6 +42,14 @@ export type BoothStatus =
   | "Selesai"
   | "Dibatalkan";
 
+/**
+ * Sama persis dengan `PaymentStatus` di `src/lib/magnarent/types.ts` dan
+ * `src/lib/magnative/types.ts` — didefinisikan ulang di sini (bukan
+ * di-import lintas modul) supaya tiap modul tetap berdiri sendiri, konsisten
+ * dengan pola yang sudah ada (lihat migrasi 0011).
+ */
+export type PaymentStatus = "Belum Bayar" | "DP" | "Lunas";
+
 export type BoothProject = {
   id: string;
   name: string;
@@ -55,6 +63,8 @@ export type BoothProject = {
   /** Deadline instalasi booth di lokasi acara. */
   tanggalInstalasi: string;
   budget: number;
+  /** Status tagihan ke klien — terpisah dari `status` (tahapan produksi). Lihat migrasi 0011. */
+  statusPembayaran: PaymentStatus;
   materials: MaterialUsage[];
   catatan?: string;
 };

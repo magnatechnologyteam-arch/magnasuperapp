@@ -73,6 +73,7 @@ export const INITIAL_BOOTH_PROJECTS: BoothProject[] = [
     tanggalMulai: "2026-08-25",
     tanggalInstalasi: "2026-09-14",
     budget: 185_000_000,
+    statusPembayaran: "DP",
     materials: [
       { materialId: "mt-1", qty: 40 },
       { materialId: "mt-3", qty: 20 },
@@ -88,6 +89,7 @@ export const INITIAL_BOOTH_PROJECTS: BoothProject[] = [
     tanggalMulai: "2026-09-05",
     tanggalInstalasi: "2026-09-25",
     budget: 65_000_000,
+    statusPembayaran: "Belum Bayar",
     materials: [
       { materialId: "mt-1", qty: 15 },
       { materialId: "mt-6", qty: 20 },
@@ -102,6 +104,7 @@ export const INITIAL_BOOTH_PROJECTS: BoothProject[] = [
     tanggalMulai: "2026-08-15",
     tanggalInstalasi: "2026-09-10",
     budget: 220_000_000,
+    statusPembayaran: "DP",
     materials: [
       { materialId: "mt-1", qty: 30 },
       { materialId: "mt-3", qty: 25 },
@@ -118,6 +121,7 @@ export const INITIAL_BOOTH_PROJECTS: BoothProject[] = [
     tanggalMulai: "2026-07-20",
     tanggalInstalasi: "2026-08-05",
     budget: 40_000_000,
+    statusPembayaran: "Lunas",
     materials: [
       { materialId: "mt-1", qty: 10 },
       { materialId: "mt-2", qty: 5 },
@@ -132,6 +136,7 @@ export const INITIAL_BOOTH_PROJECTS: BoothProject[] = [
     tanggalMulai: "2026-09-01",
     tanggalInstalasi: "2026-09-20",
     budget: 30_000_000,
+    statusPembayaran: "Belum Bayar",
     materials: [],
     catatan: "Dibatalkan klien karena perubahan anggaran acara.",
   },

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
@@ -13,6 +13,29 @@ const jakarta = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "MagnaSuperApp",
   description: "Unified dashboard untuk Magnative, Magnarent, dan Production",
+  // `manifest.ts` (file convention) sudah otomatis di-link Next.js — baris
+  // ini eksplisit saja supaya jelas dan aman kalau suatu saat convention-nya
+  // berubah. Icon Apple TIDAK ikut convention manifest (iOS Safari
+  // mengabaikan `icons` di web manifest untuk Add to Home Screen), jadi
+  // wajib didaftarkan terpisah di sini lewat `apple-touch-icon`.
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "MagnaSuperApp",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#6366F1",
 };
 
 /**

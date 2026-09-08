@@ -2,6 +2,13 @@
 // File ini WAJIB ada di /public (root static) supaya scope-nya "/" (bisa
 // menerima push untuk seluruh app, bukan cuma satu folder).
 
+// Handler "fetch" kosong (passthrough, tidak `respondWith`) — bukan untuk
+// offline caching, cuma supaya kriteria "installable" (Add to Home
+// Screen/Install App) di browser lama tetap terpenuhi (sebagian versi
+// Chrome/Android dulu mensyaratkan Service Worker punya listener fetch).
+// Tidak mengubah perilaku network sama sekali.
+self.addEventListener("fetch", () => {});
+
 self.addEventListener("push", (event) => {
   let payload = { title: "MagnaSuperApp", body: "Ada pembaruan baru." };
 

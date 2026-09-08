@@ -1,4 +1,14 @@
-import type { Client, ClientStatus, ContentPost, ContentStatus, Platform, Project, ProjectStatus, ProjectType } from "./types";
+import type {
+  Client,
+  ClientStatus,
+  ContentPost,
+  ContentStatus,
+  Platform,
+  PaymentStatus,
+  Project,
+  ProjectStatus,
+  ProjectType,
+} from "./types";
 
 /**
  * Bentuk baris mentah dari Supabase (snake_case, sesuai kolom di migrasi
@@ -25,6 +35,7 @@ export type ProjectRow = {
   tanggal_selesai: string;
   budget: number;
   status: ProjectStatus;
+  status_pembayaran: PaymentStatus;
   catatan: string | null;
 };
 
@@ -64,6 +75,7 @@ export function rowToProject(row: ProjectRow): Project {
     tanggalSelesai: row.tanggal_selesai,
     budget: row.budget,
     status: row.status,
+    statusPembayaran: row.status_pembayaran,
     catatan: row.catatan ?? undefined,
   };
 }

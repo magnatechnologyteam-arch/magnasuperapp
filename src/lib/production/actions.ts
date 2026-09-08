@@ -6,7 +6,7 @@ import { notifyDivision } from "@/lib/push/notify";
 import { logActivity } from "@/lib/activity/log";
 import { ACTIVE_BOOTH_STATUSES, findMaterialConflicts, type MaterialConflict } from "./availability";
 import { rowToBoothProject, rowToMaterial, type BoothProjectRow, type MaterialRow } from "./mappers";
-import type { BoothStatus, MaterialItem, MaterialUsage } from "./types";
+import type { BoothStatus, MaterialItem, MaterialUsage, PaymentStatus } from "./types";
 
 const MODULE_PATH = "/dashboard/production";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
@@ -142,6 +142,7 @@ export type NewBoothProjectInput = {
   tanggalMulai: string;
   tanggalInstalasi: string;
   budget: number;
+  statusPembayaran: PaymentStatus;
   materials: MaterialUsage[];
   catatan?: string;
 };
@@ -200,6 +201,7 @@ export async function addProject(input: NewBoothProjectInput): Promise<SaveBooth
     tanggal_mulai: input.tanggalMulai,
     tanggal_instalasi: input.tanggalInstalasi,
     budget: input.budget,
+    status_pembayaran: input.statusPembayaran,
     materials: input.materials,
     catatan: input.catatan ?? null,
   });
@@ -257,6 +259,7 @@ export async function updateProject(id: string, input: NewBoothProjectInput): Pr
       tanggal_mulai: input.tanggalMulai,
       tanggal_instalasi: input.tanggalInstalasi,
       budget: input.budget,
+      status_pembayaran: input.statusPembayaran,
       materials: input.materials,
       catatan: input.catatan ?? null,
     })

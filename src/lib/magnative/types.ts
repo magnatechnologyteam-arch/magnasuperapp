@@ -14,6 +14,14 @@ export type Client = {
 export type ProjectType = "Event Organizer" | "Creative Agency" | "Media Sosial" | "Lainnya";
 export type ProjectStatus = "Perencanaan" | "Berjalan" | "Selesai" | "Dibatalkan";
 
+/**
+ * Sama persis dengan `PaymentStatus` di `src/lib/magnarent/types.ts` dan
+ * `src/lib/production/types.ts` — didefinisikan ulang di sini (bukan
+ * di-import lintas modul) supaya tiap modul tetap berdiri sendiri, konsisten
+ * dengan pola yang sudah ada (lihat migrasi 0011).
+ */
+export type PaymentStatus = "Belum Bayar" | "DP" | "Lunas";
+
 export type Project = {
   id: string;
   clientId: string;
@@ -23,6 +31,8 @@ export type Project = {
   tanggalSelesai: string;
   budget: number;
   status: ProjectStatus;
+  /** Status tagihan ke klien — terpisah dari `status` (tahapan proyek). Lihat migrasi 0011. */
+  statusPembayaran: PaymentStatus;
   catatan?: string;
 };
 

@@ -5,6 +5,7 @@ import type {
   MaterialItem,
   MaterialUnit,
   MaterialUsage,
+  PaymentStatus,
 } from "./types";
 
 /**
@@ -33,6 +34,7 @@ export type BoothProjectRow = {
   tanggal_mulai: string;
   tanggal_instalasi: string;
   budget: number;
+  status_pembayaran: PaymentStatus;
   // supabase-js mengembalikan kolom jsonb sudah ter-parse jadi objek JS.
   materials: MaterialUsage[];
   catatan: string | null;
@@ -62,6 +64,7 @@ export function rowToBoothProject(row: BoothProjectRow): BoothProject {
     tanggalMulai: row.tanggal_mulai,
     tanggalInstalasi: row.tanggal_instalasi,
     budget: row.budget,
+    statusPembayaran: row.status_pembayaran,
     materials: row.materials ?? [],
     catatan: row.catatan ?? undefined,
   };

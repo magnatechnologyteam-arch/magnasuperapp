@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
 import { Topbar } from "./Topbar";
+import { PwaInstallPrompt } from "./PwaInstallPrompt";
 import type { Profile } from "@/lib/supabase/types";
 
 /**
@@ -28,6 +29,7 @@ export function AppShell({
         <MobileNav division={user?.division} />
         <main className="flex-1">{children}</main>
       </div>
+      <PwaInstallPrompt />
     </div>
   );
 }

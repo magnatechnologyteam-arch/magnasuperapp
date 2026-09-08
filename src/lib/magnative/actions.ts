@@ -107,6 +107,7 @@ export async function addProject(input: Omit<Project, "id">): Promise<MutationRe
     tanggal_selesai: input.tanggalSelesai,
     budget: input.budget,
     status: input.status,
+    status_pembayaran: input.statusPembayaran,
     catatan: input.catatan ?? null,
   });
 
@@ -147,6 +148,7 @@ export async function updateProject(id: string, input: Omit<Project, "id">): Pro
       tanggal_selesai: input.tanggalSelesai,
       budget: input.budget,
       status: input.status,
+      status_pembayaran: input.statusPembayaran,
       catatan: input.catatan ?? null,
     })
     .eq("id", id);
