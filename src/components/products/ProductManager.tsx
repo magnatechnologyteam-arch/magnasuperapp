@@ -308,7 +308,11 @@ export function ProductManager({ products }: { products: Product[] }) {
       const workbook = XLSX.read(new Uint8Array(buffer), { type: "array" });
       const firstSheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[firstSheetName];
-      const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
+      // Tanpa argumen generik di sini dengan sengaja: `XLSX` bertipe `any`
+      // (lihat komentar di atas), dan TypeScript menolak argumen generik
+      // eksplisit pada pemanggilan fungsi yang untyped (error TS2347) — jadi
+      // hasilnya di-cast lewat `as` setelah pemanggilan, bukan lewat `<...>`.
+      const json = XLSX.utils.sheet_to_json(sheet, { defval: "" }) as Record<string, unknown>[];
       const rows = rowsFromParsedSheet(json).filter((r) => r.name);
 
       if (rows.length === 0) {
