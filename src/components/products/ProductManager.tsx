@@ -295,14 +295,17 @@ export function ProductManager({ products }: { products: Product[] }) {
     setImportFileName(file.name);
     try {
       // Import dinamis supaya "xlsx" tidak ikut ke bundle awal halaman ini
-      // (cuma dipakai saat user benar-benar buka modal import). `.default`
-      // di-fallback ke modul itu sendiri karena "xlsx" adalah paket
-      // CommonJS — cara bundler meng-interop-nya bisa beda-beda tergantung
-      // versi/tooling, jadi dua kemungkinan bentuk ini dicoba berurutan.
-      const xlsxModule = await import("xlsx");
-      const XLSX = ((xlsxModule as { default?: typeof xlsxModule }).default ?? xlsxModule) as typeof xlsxModule;
+      // (cuma dipakai saat user benar-benar buka modal import). Di-typing
+      // `any` dengan sengaja: "xlsx" paket CommonJS, dan versi TypeScript
+      // yang dipakai Vercel (build kemarin sempat gagal type-check karena
+      // ini) tidak konsisten soal bentuk `default` di hasil dynamic import
+      // CJS — `.default` di-fallback ke modul itu sendiri di RUNTIME, dan
+      // `any` di sini menghindari TypeScript memvonis salah satu bentuk
+      // sebagai satu-satunya yang benar.
+      const xlsxModule: any = await import("xlsx");
+      const XLSX = xlsxModule.default ?? xlsxModule;
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: "array" });
+      const workbook = XLSX.read(new Uint8Array(buffer), { type: "array" });
       const firstSheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[firstSheetName];
       const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" });
