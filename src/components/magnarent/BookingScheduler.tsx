@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { AlertTriangle, Check, Pencil, Plus, Search, Trash2, X as XIcon } from "lucide-react";
+import { AlertTriangle, Calendar, Check, Pencil, Plus, Search, Trash2, X as XIcon } from "lucide-react";
 import { useMagnarentData, type BookingConflict } from "./MagnarentDataProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
 import type { Booking, BookingStatus, PaymentStatus } from "@/lib/magnarent/types";
 import { formatDateID, todayISO } from "@/lib/magnarent/date";
@@ -102,6 +103,7 @@ export function BookingScheduler() {
   const [form, setForm] = useState(emptyForm);
   const [conflict, setConflict] = useState<BookingConflict | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
@@ -161,7 +163,7 @@ export function BookingScheduler() {
     setError(null);
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setConflict(null);
     setError(null);
@@ -200,10 +202,16 @@ export function BookingScheduler() {
       catatan: form.catatan.trim() || undefined,
     };
 
-    const result = editingId ? updateBooking(editingId, payload) : addBooking(payload);
+    setSubmitting(true);
+    const result = editingId ? await updateBooking(editingId, payload) : await addBooking(payload);
+    setSubmitting(false);
 
     if (!result.ok) {
-      setConflict(result.conflict);
+      if ("conflict" in result) {
+        setConflict(result.conflict);
+      } else {
+        setError(result.error);
+      }
       return;
     }
 
@@ -211,15 +219,24 @@ export function BookingScheduler() {
     closeFormModal();
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return;
-    deleteBooking(deleteTarget.id);
+    const result = await deleteBooking(deleteTarget.id);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      setDeleteTarget(null);
+      return;
+    }
     showToast(`Pesanan "${deleteTarget.namaKlien}" berhasil dihapus.`);
     setDeleteTarget(null);
   }
 
-  function handleQuickStatus(b: Booking, status: BookingStatus) {
-    updateBookingStatus(b.id, status);
+  async function handleQuickStatus(b: Booking, status: BookingStatus) {
+    const result = await updateBookingStatus(b.id, status);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
     showToast(
       status === "Dikonfirmasi" ? `Pesanan "${b.namaKlien}" dikonfirmasi.` : `Pesanan "${b.namaKlien}" dibatalkan.`,
       status === "Dikonfirmasi" ? "success" : "error"
@@ -289,8 +306,16 @@ export function BookingScheduler() {
             <tbody>
               {filteredBookings.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-5 py-10 text-center text-sm text-zinc-400">
-                    {bookings.length === 0 ? "Belum ada pesanan." : "Tidak ada pesanan yang cocok dengan pencarian/filter."}
+                  <td colSpan={9}>
+                    <EmptyState
+                      icon={Calendar}
+                      title={bookings.length === 0 ? "Belum ada pesanan" : "Tidak ada hasil"}
+                      description={
+                        bookings.length === 0
+                          ? "Klik \"Buat Pesanan\" untuk menjadwalkan booking pertama."
+                          : "Coba ubah kata kunci pencarian atau filter status."
+                      }
+                    />
                   </td>
                 </tr>
               )}
@@ -548,10 +573,11 @@ export function BookingScheduler() {
             </button>
             <button
               type="submit"
-              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              disabled={submitting}
+              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
               style={{ background: GRADIENT }}
             >
-              {editingId ? "Simpan Perubahan" : "Buat Pesanan"}
+              {submitting ? "Menyimpan…" : editingId ? "Simpan Perubahan" : "Buat Pesanan"}
             </button>
           </div>
         </form>

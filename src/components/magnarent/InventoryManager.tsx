@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { getAvailableUnitsInRange, getInventoryStatus } from "@/lib/magnarent/availability";
 import { formatRupiah } from "@/lib/magnarent/pricing";
 import { todayISO } from "@/lib/magnarent/date";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
 import type { InventoryItem, InventoryStatus } from "@/lib/magnarent/types";
 
@@ -52,6 +53,7 @@ export function InventoryManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
@@ -93,7 +95,7 @@ export function InventoryManager() {
     setError(null);
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
     const totalUnit = Number(form.totalUnit);
@@ -126,22 +128,32 @@ export function InventoryManager() {
       unitMaintenance,
     };
 
-    if (editingId) {
-      updateInventoryItem(editingId, payload);
-      showToast(`"${payload.name}" berhasil diperbarui.`);
-    } else {
-      addInventoryItem(payload);
-      showToast(`"${payload.name}" berhasil ditambahkan.`);
+    setSubmitting(true);
+    const result = editingId
+      ? await updateInventoryItem(editingId, payload)
+      : await addInventoryItem(payload);
+    setSubmitting(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
     }
+
+    showToast(editingId ? `"${payload.name}" berhasil diperbarui.` : `"${payload.name}" berhasil ditambahkan.`);
     closeFormModal();
   }
 
   const activeBookingsForDeleteTarget = deleteTarget ? getActiveBookingsForItem(deleteTarget.id) : [];
   const deleteBlocked = activeBookingsForDeleteTarget.length > 0;
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget || deleteBlocked) return;
-    deleteInventoryItem(deleteTarget.id);
+    const result = await deleteInventoryItem(deleteTarget.id);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      setDeleteTarget(null);
+      return;
+    }
     showToast(`"${deleteTarget.name}" berhasil dihapus.`);
     setDeleteTarget(null);
   }
@@ -209,10 +221,16 @@ export function InventoryManager() {
             <tbody>
               {filteredInventory.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-5 py-10 text-center text-sm text-zinc-400">
-                    {inventory.length === 0
-                      ? "Belum ada alat terdaftar."
-                      : "Tidak ada alat yang cocok dengan pencarian/filter."}
+                  <td colSpan={9}>
+                    <EmptyState
+                      icon={Package}
+                      title={inventory.length === 0 ? "Belum ada alat terdaftar" : "Tidak ada hasil"}
+                      description={
+                        inventory.length === 0
+                          ? "Klik \"Tambah Alat\" untuk mulai mengisi inventaris."
+                          : "Coba ubah kata kunci pencarian atau filter kategori."
+                      }
+                    />
                   </td>
                 </tr>
               )}
@@ -378,10 +396,11 @@ export function InventoryManager() {
             </button>
             <button
               type="submit"
-              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              disabled={submitting}
+              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
               style={{ background: GRADIENT }}
             >
-              {editingId ? "Simpan Perubahan" : "Simpan Alat"}
+              {submitting ? "Menyimpan…" : editingId ? "Simpan Perubahan" : "Simpan Alat"}
             </button>
           </div>
         </form>

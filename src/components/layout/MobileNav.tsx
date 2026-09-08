@@ -2,15 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HUB_HREF, MODULES } from "@/lib/navigation";
+import { HUB_HREF, getVisibleModules } from "@/lib/navigation";
 import { cn } from "@/lib/cn";
+import type { Division } from "@/lib/supabase/types";
 
 /**
  * Pengganti Sidebar di layar kecil: strip module switcher yang bisa discroll
- * horizontal, tetap tampil di semua halaman lewat root layout.
+ * horizontal, tetap tampil di semua halaman lewat root layout. Modul yang
+ * muncul mengikuti divisi pengguna, sama seperti Sidebar.
  */
-export function MobileNav() {
+export function MobileNav({ division }: { division?: Division | null }) {
   const pathname = usePathname();
+  const modules = getVisibleModules(division);
+  const isFullAccess = division === "all";
 
   return (
     <div className="flex items-center gap-2 overflow-x-auto border-b border-black/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-950 md:hidden">
@@ -25,7 +29,7 @@ export function MobileNav() {
       >
         Hub
       </Link>
-      {MODULES.map((mod) => {
+      {modules.map((mod) => {
         const isActive = pathname === mod.href || pathname.startsWith(`${mod.href}/`);
         return (
           <Link
@@ -43,6 +47,19 @@ export function MobileNav() {
           </Link>
         );
       })}
+      {isFullAccess && (
+        <Link
+          href="/dashboard/admin/pengguna"
+          className={cn(
+            "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-transform active:scale-95",
+            pathname.startsWith("/dashboard/admin")
+              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+              : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"
+          )}
+        >
+          Pengguna
+        </Link>
+      )}
     </div>
   );
 }

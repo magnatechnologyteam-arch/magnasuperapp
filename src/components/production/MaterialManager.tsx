@@ -6,6 +6,7 @@ import { useProductionData } from "./ProductionDataProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatRupiah } from "@/lib/shared/utils";
 import { isLowStock } from "@/lib/production/availability";
 import { cn } from "@/lib/cn";
@@ -225,10 +226,16 @@ export function MaterialManager() {
             <tbody>
               {filteredMaterials.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-5 py-10 text-center text-sm text-zinc-400">
-                    {materials.length === 0
-                      ? "Belum ada material terdaftar."
-                      : "Tidak ada material yang cocok dengan pencarian/filter."}
+                  <td colSpan={8}>
+                    <EmptyState
+                      icon={Boxes}
+                      title={materials.length === 0 ? "Belum ada material terdaftar" : "Tidak ada hasil"}
+                      description={
+                        materials.length === 0
+                          ? "Klik \"Tambah Material\" untuk mulai mengisi data gudang."
+                          : "Coba ubah kata kunci pencarian atau filter."
+                      }
+                    />
                   </td>
                 </tr>
               )}

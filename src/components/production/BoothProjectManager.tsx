@@ -6,6 +6,7 @@ import { useProductionData } from "./ProductionDataProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID, formatRupiah, todayISO } from "@/lib/shared/utils";
 import type { MaterialConflict } from "@/lib/production/availability";
 import { cn } from "@/lib/cn";
@@ -285,8 +286,16 @@ export function BoothProjectManager() {
             <tbody>
               {filteredProjects.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-5 py-10 text-center text-sm text-zinc-400">
-                    {projects.length === 0 ? "Belum ada proyek booth." : "Tidak ada proyek yang cocok dengan pencarian/filter."}
+                  <td colSpan={7}>
+                    <EmptyState
+                      icon={Hammer}
+                      title={projects.length === 0 ? "Belum ada proyek booth" : "Tidak ada hasil"}
+                      description={
+                        projects.length === 0
+                          ? "Klik \"Buat Proyek\" untuk mulai melacak proyek booth pertama."
+                          : "Coba ubah kata kunci pencarian atau filter status."
+                      }
+                    />
                   </td>
                 </tr>
               )}

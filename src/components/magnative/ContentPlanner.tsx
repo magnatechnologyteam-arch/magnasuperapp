@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Rss, Search, Trash2 } from "lucide-react";
 import { useMagnativeData } from "./MagnativeDataProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID, todayISO } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { ContentPost, ContentStatus, Platform } from "@/lib/magnative/types";
@@ -221,8 +222,16 @@ export function ContentPlanner() {
             <tbody>
               {filteredPosts.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-zinc-400">
-                    {contentPosts.length === 0 ? "Belum ada konten terjadwal." : "Tidak ada konten yang cocok dengan pencarian/filter."}
+                  <td colSpan={6}>
+                    <EmptyState
+                      icon={Rss}
+                      title={contentPosts.length === 0 ? "Belum ada konten terjadwal" : "Tidak ada hasil"}
+                      description={
+                        contentPosts.length === 0
+                          ? "Klik \"Tambah Konten\" untuk mulai mengisi kalender konten."
+                          : "Coba ubah kata kunci pencarian atau filter."
+                      }
+                    />
                   </td>
                 </tr>
               )}

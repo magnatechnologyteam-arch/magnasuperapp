@@ -79,3 +79,16 @@ export function getModuleByPath(pathname: string): ModuleConfig | undefined {
     (mod) => pathname === mod.href || pathname.startsWith(`${mod.href}/`)
   );
 }
+
+/**
+ * Modul yang boleh dilihat pengguna sesuai divisinya — dipakai Sidebar,
+ * MobileNav, dan Hub supaya staf satu bagian tidak melihat tautan ke modul
+ * lain yang toh akan diblokir middleware kalau diklik. `division` "all"
+ * (Owner/Finance/Investor) atau kosong (fallback aman) melihat semuanya.
+ */
+export function getVisibleModules(division?: string | null): ModuleConfig[] {
+  if (division === "all") return MODULES;
+  // Fail-closed: divisi tidak dikenali/kosong dianggap akses paling
+  // terbatas, konsisten dengan default di getCurrentProfile().
+  return MODULES.filter((mod) => mod.id === (division ?? "production"));
+}

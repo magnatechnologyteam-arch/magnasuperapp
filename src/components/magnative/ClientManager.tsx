@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, Users } from "lucide-react";
 import { useMagnativeData } from "./MagnativeDataProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { getAvatarColor, getInitials } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { Client, ClientStatus } from "@/lib/magnative/types";
@@ -197,8 +198,16 @@ export function ClientManager() {
             <tbody>
               {filteredClients.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-10 text-center text-sm text-zinc-400">
-                    {clients.length === 0 ? "Belum ada klien terdaftar." : "Tidak ada klien yang cocok dengan pencarian/filter."}
+                  <td colSpan={5}>
+                    <EmptyState
+                      icon={Users}
+                      title={clients.length === 0 ? "Belum ada klien terdaftar" : "Tidak ada hasil"}
+                      description={
+                        clients.length === 0
+                          ? "Klik \"Tambah Klien\" untuk mulai membangun daftar klien."
+                          : "Coba ubah kata kunci pencarian atau filter status."
+                      }
+                    />
                   </td>
                 </tr>
               )}
