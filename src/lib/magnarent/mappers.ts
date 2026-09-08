@@ -21,6 +21,7 @@ export type InventoryRow = {
 export type BookingRow = {
   id: string;
   item_id: string | null;
+  client_id: string | null;
   nama_klien: string;
   telepon_klien: string | null;
   tanggal_mulai: string;
@@ -51,6 +52,7 @@ export function rowToBooking(row: BookingRow): Booking {
     // yang sudah ada (mis. `itemName` di BookingScheduler.tsx) sudah
     // menangani id yang tidak ketemu di daftar inventaris dengan fallback "—".
     itemId: row.item_id ?? "",
+    clientId: row.client_id ?? undefined,
     namaKlien: row.nama_klien,
     teleponKlien: row.telepon_klien ?? undefined,
     tanggalMulai: row.tanggal_mulai,

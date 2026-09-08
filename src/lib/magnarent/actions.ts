@@ -21,6 +21,7 @@ export type SaveBookingResult =
 
 export type BookingInput = {
   itemId: string;
+  clientId?: string;
   namaKlien: string;
   teleponKlien?: string;
   tanggalMulai: string;
@@ -192,6 +193,7 @@ export async function addBooking(input: BookingInput): Promise<SaveBookingResult
 
   const { error } = await supabase.from("magnarent_bookings").insert({
     item_id: input.itemId,
+    client_id: input.clientId ?? null,
     nama_klien: input.namaKlien,
     telepon_klien: input.teleponKlien ?? null,
     tanggal_mulai: input.tanggalMulai,
@@ -251,6 +253,7 @@ export async function updateBooking(id: string, input: BookingInput): Promise<Sa
     .from("magnarent_bookings")
     .update({
       item_id: input.itemId,
+      client_id: input.clientId ?? null,
       nama_klien: input.namaKlien,
       telepon_klien: input.teleponKlien ?? null,
       tanggal_mulai: input.tanggalMulai,

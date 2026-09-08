@@ -45,6 +45,8 @@ export type BoothStatus =
 export type BoothProject = {
   id: string;
   name: string;
+  /** Tautan opsional ke klien terdaftar di Magnative (`magnative_clients`) — lihat migrasi 0010. */
+  clientId?: string;
   namaKlien: string;
   lokasiAcara: string;
   status: BoothStatus;

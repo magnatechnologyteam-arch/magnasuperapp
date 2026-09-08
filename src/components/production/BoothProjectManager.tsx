@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { AlertTriangle, Hammer, MapPin, Pencil, Plus, Search, Trash2, X as XIcon } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Hammer, MapPin, Pencil, Plus, Search, Trash2, X as XIcon } from "lucide-react";
 import { useProductionData } from "./ProductionDataProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -32,6 +32,7 @@ function emptyForm() {
   const today = todayISO();
   return {
     name: "",
+    clientId: "",
     namaKlien: "",
     lokasiAcara: "",
     status: "Desain" as BoothStatus,
@@ -45,6 +46,7 @@ function emptyForm() {
 function projectToForm(p: BoothProject) {
   return {
     name: p.name,
+    clientId: p.clientId ?? "",
     namaKlien: p.namaKlien,
     lokasiAcara: p.lokasiAcara,
     status: p.status,
@@ -68,7 +70,7 @@ function projectToMaterialRows(p: BoothProject): MaterialRow[] {
  * sama dengan pencegahan bentrok jadwal booking di Magnarent.
  */
 export function BoothProjectManager() {
-  const { materials, projects, addProject, updateProject, deleteProject, getAvailableStockFor } =
+  const { materials, projects, clients, addProject, updateProject, deleteProject, getAvailableStockFor } =
     useProductionData();
   const { showToast } = useToast();
 
@@ -84,6 +86,13 @@ export function BoothProjectManager() {
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
 
   const materialName = (id: string) => materials.find((m) => m.id === id)?.name ?? "—";
+  const clientById = (id?: string) => (id ? clients.find((c) => c.id === id) : undefined);
+
+  /** Pilih klien terdaftar → auto-isi nama klien (bisa tetap diedit manual sesudahnya). */
+  function handlePickClient(clientId: string) {
+    const picked = clients.find((c) => c.id === clientId);
+    setForm((f) => ({ ...f, clientId, namaKlien: picked ? picked.name : f.namaKlien }));
+  }
 
   const sortedProjects = useMemo(
     () => [...projects].sort((a, b) => a.tanggalInstalasi.localeCompare(b.tanggalInstalasi)),
@@ -198,6 +207,7 @@ export function BoothProjectManager() {
 
     const payload = {
       name: form.name.trim(),
+      clientId: form.clientId || undefined,
       namaKlien: form.namaKlien.trim(),
       lokasiAcara: form.lokasiAcara.trim(),
       status: form.status,
@@ -319,7 +329,17 @@ export function BoothProjectManager() {
                       {p.name}
                     </span>
                   </td>
-                  <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">{p.namaKlien}</td>
+                  <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">
+                    <span className="inline-flex items-center gap-1">
+                      {p.namaKlien}
+                      {clientById(p.clientId) && (
+                        <BadgeCheck
+                          className="h-3.5 w-3.5 shrink-0 text-amber-500"
+                          aria-label="Klien terdaftar di Magnative"
+                        />
+                      )}
+                    </span>
+                  </td>
                   <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">
                     <span className="inline-flex items-center gap-1.5">
                       <MapPin className="h-3.5 w-3.5 shrink-0 text-zinc-400" />
@@ -371,29 +391,52 @@ export function BoothProjectManager() {
         maxWidth="max-w-2xl"
       >
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Nama Proyek
+            </label>
+            <input
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="mis. Booth Pameran IIMS 2026"
+              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+            />
+          </div>
+
+          {clients.length > 0 && (
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                Nama Proyek
+                Klien Terdaftar (opsional)
               </label>
-              <input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="mis. Booth Pameran IIMS 2026"
-                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
-              />
+              <select
+                value={form.clientId}
+                onChange={(e) => handlePickClient(e.target.value)}
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
+              >
+                <option value="">— Bukan dari daftar klien (isi manual) —</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.industry})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                Memilih klien di sini menautkan proyek ini ke riwayat klien lintas modul (lihat Admin → Direktori
+                Klien Terpadu).
+              </p>
             </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                Nama Klien
-              </label>
-              <input
-                value={form.namaKlien}
-                onChange={(e) => setForm((f) => ({ ...f, namaKlien: e.target.value }))}
-                placeholder="mis. PT Auto Perkasa"
-                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
-              />
-            </div>
+          )}
+
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Nama Klien
+            </label>
+            <input
+              value={form.namaKlien}
+              onChange={(e) => setForm((f) => ({ ...f, namaKlien: e.target.value, clientId: "" }))}
+              placeholder="mis. PT Auto Perkasa"
+              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

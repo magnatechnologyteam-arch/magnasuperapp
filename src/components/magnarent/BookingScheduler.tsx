@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { AlertTriangle, Calendar, Check, Pencil, Plus, Search, Trash2, X as XIcon } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Calendar, Check, Pencil, Plus, Search, Trash2, X as XIcon } from "lucide-react";
 import { useMagnarentData, type BookingConflict } from "./MagnarentDataProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -56,6 +56,7 @@ function emptyForm() {
   const today = todayISO();
   return {
     itemId: "",
+    clientId: "",
     namaKlien: "",
     teleponKlien: "",
     tanggalMulai: today,
@@ -69,6 +70,7 @@ function emptyForm() {
 function bookingToForm(booking: Booking) {
   return {
     itemId: booking.itemId,
+    clientId: booking.clientId ?? "",
     namaKlien: booking.namaKlien,
     teleponKlien: booking.teleponKlien ?? "",
     tanggalMulai: booking.tanggalMulai,
@@ -90,6 +92,7 @@ export function BookingScheduler() {
   const {
     inventory,
     bookings,
+    clients,
     addBooking,
     updateBooking,
     deleteBooking,
@@ -109,6 +112,18 @@ export function BookingScheduler() {
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
 
   const itemName = (id: string) => inventory.find((i) => i.id === id)?.name ?? "—";
+  const clientById = (id?: string) => (id ? clients.find((c) => c.id === id) : undefined);
+
+  /** Pilih klien terdaftar → auto-isi nama/telepon (bisa tetap diedit manual sesudahnya). */
+  function handlePickClient(clientId: string) {
+    const picked = clients.find((c) => c.id === clientId);
+    setForm((f) => ({
+      ...f,
+      clientId,
+      namaKlien: picked ? picked.name : f.namaKlien,
+      teleponKlien: picked?.picPhone ? picked.picPhone : f.teleponKlien,
+    }));
+  }
 
   const sortedBookings = useMemo(
     () => [...bookings].sort((a, b) => a.tanggalMulai.localeCompare(b.tanggalMulai)),
@@ -193,6 +208,7 @@ export function BookingScheduler() {
 
     const payload = {
       itemId: form.itemId,
+      clientId: form.clientId || undefined,
       namaKlien: form.namaKlien.trim(),
       teleponKlien: form.teleponKlien.trim() || undefined,
       tanggalMulai: form.tanggalMulai,
@@ -335,7 +351,15 @@ export function BookingScheduler() {
                           {getInitials(b.namaKlien)}
                         </span>
                         <div className="min-w-0">
-                          <p className="truncate font-medium text-zinc-900 dark:text-white">{b.namaKlien}</p>
+                          <p className="flex items-center gap-1 truncate font-medium text-zinc-900 dark:text-white">
+                            <span className="truncate">{b.namaKlien}</span>
+                            {clientById(b.clientId) && (
+                              <BadgeCheck
+                                className="h-3.5 w-3.5 shrink-0 text-blue-500"
+                                aria-label="Klien terdaftar di Magnative"
+                              />
+                            )}
+                          </p>
                           {b.teleponKlien && (
                             <p className="truncate text-xs text-zinc-400 dark:text-zinc-500">{b.teleponKlien}</p>
                           )}
@@ -428,6 +452,30 @@ export function BookingScheduler() {
             </select>
           </div>
 
+          {clients.length > 0 && (
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Klien Terdaftar (opsional)
+              </label>
+              <select
+                value={form.clientId}
+                onChange={(e) => handlePickClient(e.target.value)}
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-blue-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
+              >
+                <option value="">— Bukan dari daftar klien (isi manual) —</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} ({c.industry})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                Memilih klien di sini otomatis mengisi nama & telepon, dan menautkan booking ini ke riwayat klien
+                lintas modul (lihat Admin → Direktori Klien Terpadu).
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
@@ -435,7 +483,7 @@ export function BookingScheduler() {
               </label>
               <input
                 value={form.namaKlien}
-                onChange={(e) => setForm((f) => ({ ...f, namaKlien: e.target.value }))}
+                onChange={(e) => setForm((f) => ({ ...f, namaKlien: e.target.value, clientId: "" }))}
                 placeholder="mis. PT Sinergi Membangun"
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-blue-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
               />

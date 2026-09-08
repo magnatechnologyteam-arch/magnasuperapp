@@ -26,6 +26,7 @@ export type MaterialRow = {
 export type BoothProjectRow = {
   id: string;
   name: string;
+  client_id: string | null;
   nama_klien: string;
   lokasi_acara: string;
   status: BoothStatus;
@@ -54,6 +55,7 @@ export function rowToBoothProject(row: BoothProjectRow): BoothProject {
   return {
     id: row.id,
     name: row.name,
+    clientId: row.client_id ?? undefined,
     namaKlien: row.nama_klien,
     lokasiAcara: row.lokasi_acara,
     status: row.status,

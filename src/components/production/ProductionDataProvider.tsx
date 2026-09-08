@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import type { BoothProject, BoothStatus, MaterialItem } from "@/lib/production/types";
+import type { Client } from "@/lib/magnative/types";
 import { ACTIVE_BOOTH_STATUSES, getAvailableStock } from "@/lib/production/availability";
 import * as actions from "@/lib/production/actions";
 import type { MutationResult, NewBoothProjectInput, SaveBoothProjectResult } from "@/lib/production/actions";
@@ -9,6 +10,8 @@ import type { MutationResult, NewBoothProjectInput, SaveBoothProjectResult } fro
 type ProductionDataContextValue = {
   materials: MaterialItem[];
   projects: BoothProject[];
+  /** Daftar klien terdaftar di Magnative — dipakai picker "Klien Terdaftar" di form proyek booth (migrasi 0010). */
+  clients: Client[];
 
   addMaterial: (input: Omit<MaterialItem, "id">) => Promise<MutationResult>;
   updateMaterial: (id: string, input: Omit<MaterialItem, "id">) => Promise<MutationResult>;
@@ -36,10 +39,12 @@ const ProductionDataContext = createContext<ProductionDataContextValue | null>(n
 export function ProductionDataProvider({
   materials,
   projects,
+  clients,
   children,
 }: {
   materials: MaterialItem[];
   projects: BoothProject[];
+  clients: Client[];
   children: ReactNode;
 }) {
   const addMaterial = useCallback((input: Omit<MaterialItem, "id">) => actions.addMaterial(input), []);
@@ -82,6 +87,7 @@ export function ProductionDataProvider({
     () => ({
       materials,
       projects,
+      clients,
       addMaterial,
       updateMaterial,
       deleteMaterial,
@@ -95,6 +101,7 @@ export function ProductionDataProvider({
     [
       materials,
       projects,
+      clients,
       addMaterial,
       updateMaterial,
       deleteMaterial,

@@ -2,12 +2,14 @@
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
 import type { Booking, BookingStatus, InventoryItem, PaymentStatus } from "@/lib/magnarent/types";
+import type { Client } from "@/lib/magnative/types";
 import { ACTIVE_BOOKING_STATUSES, getAvailableUnitsInRange } from "@/lib/magnarent/availability";
 import * as actions from "@/lib/magnarent/actions";
 import type { BookingConflict, MutationResult, SaveBookingResult } from "@/lib/magnarent/actions";
 
 export type NewBookingInput = {
   itemId: string;
+  clientId?: string;
   namaKlien: string;
   teleponKlien?: string;
   tanggalMulai: string;
@@ -22,6 +24,8 @@ export type { BookingConflict };
 type MagnarentDataContextValue = {
   inventory: InventoryItem[];
   bookings: Booking[];
+  /** Daftar klien terdaftar di Magnative — dipakai picker "Klien Terdaftar" di form booking (migrasi 0010). */
+  clients: Client[];
   addInventoryItem: (input: Omit<InventoryItem, "id">) => Promise<MutationResult>;
   updateInventoryItem: (id: string, input: Omit<InventoryItem, "id">) => Promise<MutationResult>;
   deleteInventoryItem: (id: string) => Promise<MutationResult>;
@@ -49,10 +53,12 @@ const MagnarentDataContext = createContext<MagnarentDataContextValue | null>(nul
 export function MagnarentDataProvider({
   inventory,
   bookings,
+  clients,
   children,
 }: {
   inventory: InventoryItem[];
   bookings: Booking[];
+  clients: Client[];
   children: ReactNode;
 }) {
   const addInventoryItem = useCallback((input: Omit<InventoryItem, "id">) => actions.addInventoryItem(input), []);
@@ -89,6 +95,7 @@ export function MagnarentDataProvider({
     () => ({
       inventory,
       bookings,
+      clients,
       addInventoryItem,
       updateInventoryItem,
       deleteInventoryItem,
@@ -102,6 +109,7 @@ export function MagnarentDataProvider({
     [
       inventory,
       bookings,
+      clients,
       addInventoryItem,
       updateInventoryItem,
       deleteInventoryItem,

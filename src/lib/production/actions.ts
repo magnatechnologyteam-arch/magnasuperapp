@@ -135,6 +135,7 @@ export async function deleteMaterial(id: string): Promise<MutationResult> {
 
 export type NewBoothProjectInput = {
   name: string;
+  clientId?: string;
   namaKlien: string;
   lokasiAcara: string;
   status: BoothStatus;
@@ -192,6 +193,7 @@ export async function addProject(input: NewBoothProjectInput): Promise<SaveBooth
 
   const { error } = await supabase.from("production_booth_projects").insert({
     name: input.name,
+    client_id: input.clientId ?? null,
     nama_klien: input.namaKlien,
     lokasi_acara: input.lokasiAcara,
     status: input.status,
@@ -248,6 +250,7 @@ export async function updateProject(id: string, input: NewBoothProjectInput): Pr
     .from("production_booth_projects")
     .update({
       name: input.name,
+      client_id: input.clientId ?? null,
       nama_klien: input.namaKlien,
       lokasi_acara: input.lokasiAcara,
       status: input.status,

@@ -5,6 +5,7 @@ import { MagnarentDataProvider } from "@/components/magnarent/MagnarentDataProvi
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { createClient } from "@/lib/supabase/server";
 import { rowToBooking, rowToInventory, type BookingRow, type InventoryRow } from "@/lib/magnarent/mappers";
+import { rowToClient, type ClientRow } from "@/lib/magnative/mappers";
 
 const mod = MODULES.find((m) => m.id === "magnarent")!;
 
@@ -24,7 +25,7 @@ const mod = MODULES.find((m) => m.id === "magnarent")!;
  */
 export default async function MagnarentLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient();
-  const [inventoryResult, bookingsResult] = await Promise.all([
+  const [inventoryResult, bookingsResult, clientsResult] = await Promise.all([
     supabase
       .from("magnarent_inventory")
       .select("*")
@@ -35,6 +36,10 @@ export default async function MagnarentLayout({ children }: { children: ReactNod
       .select("*")
       .order("tanggal_mulai", { ascending: true })
       .returns<BookingRow[]>(),
+    // Daftar klien Magnative — dibaca di sini cuma untuk pilihan "Klien
+    // Terdaftar" di form booking (migrasi 0010 sudah mengizinkan siapa pun
+    // yang login membaca tabel ini). Kepemilikan datanya tetap di Magnative.
+    supabase.from("magnative_clients").select("*").order("name", { ascending: true }).returns<ClientRow[]>(),
   ]);
 
   if (inventoryResult.error) {
@@ -43,13 +48,17 @@ export default async function MagnarentLayout({ children }: { children: ReactNod
   if (bookingsResult.error) {
     console.error("[magnarent] Gagal memuat booking:", bookingsResult.error.message);
   }
+  if (clientsResult.error) {
+    console.error("[magnarent] Gagal memuat daftar klien:", clientsResult.error.message);
+  }
 
   const inventory = (inventoryResult.data ?? []).map(rowToInventory);
   const bookings = (bookingsResult.data ?? []).map(rowToBooking);
+  const clients = (clientsResult.data ?? []).map(rowToClient);
 
   return (
     <ToastProvider>
-      <MagnarentDataProvider inventory={inventory} bookings={bookings}>
+      <MagnarentDataProvider inventory={inventory} bookings={bookings} clients={clients}>
         <div>
           <SubNav items={mod.subnav} gradient={mod.gradient} />
           <div className="p-4 md:p-8">{children}</div>

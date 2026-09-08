@@ -21,6 +21,8 @@ export type PaymentStatus = "Belum Bayar" | "DP" | "Lunas";
 export type Booking = {
   id: string;
   itemId: string;
+  /** Tautan opsional ke klien terdaftar di Magnative (`magnative_clients`) — lihat migrasi 0010. */
+  clientId?: string;
   namaKlien: string;
   teleponKlien?: string;
   /** Format ISO yyyy-mm-dd, inklusif di kedua ujung. */
