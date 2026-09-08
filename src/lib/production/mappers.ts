@@ -1,0 +1,66 @@
+import type {
+  BoothProject,
+  BoothStatus,
+  MaterialCategory,
+  MaterialItem,
+  MaterialUnit,
+  MaterialUsage,
+} from "./types";
+
+/**
+ * Bentuk baris mentah dari Supabase (snake_case, sesuai kolom di migrasi
+ * 0006) — dipisah dari `actions.ts` karena file itu ber-"use server" dan
+ * semua export-nya wajib fungsi async (aturan Next.js).
+ */
+export type MaterialRow = {
+  id: string;
+  name: string;
+  category: MaterialCategory;
+  unit: MaterialUnit;
+  location: string;
+  stock: number;
+  min_stock: number;
+  price_per_unit: number;
+};
+
+export type BoothProjectRow = {
+  id: string;
+  name: string;
+  nama_klien: string;
+  lokasi_acara: string;
+  status: BoothStatus;
+  tanggal_mulai: string;
+  tanggal_instalasi: string;
+  budget: number;
+  // supabase-js mengembalikan kolom jsonb sudah ter-parse jadi objek JS.
+  materials: MaterialUsage[];
+  catatan: string | null;
+};
+
+export function rowToMaterial(row: MaterialRow): MaterialItem {
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    unit: row.unit,
+    location: row.location,
+    stock: row.stock,
+    minStock: row.min_stock,
+    pricePerUnit: row.price_per_unit,
+  };
+}
+
+export function rowToBoothProject(row: BoothProjectRow): BoothProject {
+  return {
+    id: row.id,
+    name: row.name,
+    namaKlien: row.nama_klien,
+    lokasiAcara: row.lokasi_acara,
+    status: row.status,
+    tanggalMulai: row.tanggal_mulai,
+    tanggalInstalasi: row.tanggal_instalasi,
+    budget: row.budget,
+    materials: row.materials ?? [],
+    catatan: row.catatan ?? undefined,
+  };
+}

@@ -41,11 +41,15 @@ export function ProductionSchedule() {
     }));
   }, [projects]);
 
-  function advance(p: BoothProject) {
+  async function advance(p: BoothProject) {
     const idx = STAGE_ORDER.indexOf(p.status);
     if (idx === -1 || idx === STAGE_ORDER.length - 1) return;
     const next = STAGE_ORDER[idx + 1];
-    updateProjectStatus(p.id, next);
+    const result = await updateProjectStatus(p.id, next);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
     showToast(`"${p.name}" dipindah ke tahap ${next}.`);
   }
 

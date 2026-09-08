@@ -69,6 +69,7 @@ export function ContentPlanner() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ContentPost | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
@@ -112,7 +113,7 @@ export function ContentPlanner() {
     setError(null);
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
     if (!form.title.trim()) {
@@ -133,19 +134,27 @@ export function ContentPlanner() {
       catatan: form.catatan.trim() || undefined,
     };
 
-    if (editingId) {
-      updateContentPost(editingId, payload);
-      showToast(`Konten "${payload.title}" berhasil diperbarui.`);
-    } else {
-      addContentPost(payload);
-      showToast(`Konten "${payload.title}" berhasil ditambahkan.`);
+    setSubmitting(true);
+    const result = editingId ? await updateContentPost(editingId, payload) : await addContentPost(payload);
+    setSubmitting(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
     }
+
+    showToast(editingId ? `Konten "${payload.title}" berhasil diperbarui.` : `Konten "${payload.title}" berhasil ditambahkan.`);
     closeFormModal();
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return;
-    deleteContentPost(deleteTarget.id);
+    const result = await deleteContentPost(deleteTarget.id);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      setDeleteTarget(null);
+      return;
+    }
     showToast(`Konten "${deleteTarget.title}" berhasil dihapus.`);
     setDeleteTarget(null);
   }
@@ -386,10 +395,11 @@ export function ContentPlanner() {
             </button>
             <button
               type="submit"
-              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              disabled={submitting}
+              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
               style={{ background: GRADIENT }}
             >
-              {editingId ? "Simpan Perubahan" : "Simpan Konten"}
+              {submitting ? "Menyimpan…" : editingId ? "Simpan Perubahan" : "Simpan Konten"}
             </button>
           </div>
         </form>

@@ -64,6 +64,7 @@ export function MaterialManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MaterialItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>(CATEGORY_FILTER_ALL);
@@ -101,7 +102,7 @@ export function MaterialManager() {
     setError(null);
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
     const stock = Number(form.stock);
@@ -135,22 +136,30 @@ export function MaterialManager() {
       pricePerUnit,
     };
 
-    if (editingId) {
-      updateMaterial(editingId, payload);
-      showToast(`"${payload.name}" berhasil diperbarui.`);
-    } else {
-      addMaterial(payload);
-      showToast(`"${payload.name}" berhasil ditambahkan.`);
+    setSubmitting(true);
+    const result = editingId ? await updateMaterial(editingId, payload) : await addMaterial(payload);
+    setSubmitting(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
     }
+
+    showToast(editingId ? `"${payload.name}" berhasil diperbarui.` : `"${payload.name}" berhasil ditambahkan.`);
     closeFormModal();
   }
 
   const activeProjectsForDeleteTarget = deleteTarget ? getActiveProjectsForMaterial(deleteTarget.id) : [];
   const deleteBlocked = activeProjectsForDeleteTarget.length > 0;
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget || deleteBlocked) return;
-    deleteMaterial(deleteTarget.id);
+    const result = await deleteMaterial(deleteTarget.id);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      setDeleteTarget(null);
+      return;
+    }
     showToast(`"${deleteTarget.name}" berhasil dihapus.`);
     setDeleteTarget(null);
   }
@@ -423,10 +432,11 @@ export function MaterialManager() {
             </button>
             <button
               type="submit"
-              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              disabled={submitting}
+              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
               style={{ background: GRADIENT }}
             >
-              {editingId ? "Simpan Perubahan" : "Simpan Material"}
+              {submitting ? "Menyimpan…" : editingId ? "Simpan Perubahan" : "Simpan Material"}
             </button>
           </div>
         </form>

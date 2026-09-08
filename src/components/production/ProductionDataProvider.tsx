@@ -1,88 +1,70 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
-import type { BoothProject, BoothStatus, MaterialItem, MaterialUsage } from "@/lib/production/types";
-import { INITIAL_BOOTH_PROJECTS, INITIAL_MATERIALS } from "@/lib/production/mock-data";
-import { genId } from "@/lib/shared/utils";
-import {
-  ACTIVE_BOOTH_STATUSES,
-  findMaterialConflicts,
-  getAvailableStock,
-  type MaterialConflict,
-} from "@/lib/production/availability";
-
-export type NewBoothProjectInput = {
-  name: string;
-  namaKlien: string;
-  lokasiAcara: string;
-  status: BoothStatus;
-  tanggalMulai: string;
-  tanggalInstalasi: string;
-  budget: number;
-  materials: MaterialUsage[];
-  catatan?: string;
-};
-
-type SaveBoothProjectResult = { ok: true } | { ok: false; conflicts: MaterialConflict[] };
+import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
+import type { BoothProject, BoothStatus, MaterialItem } from "@/lib/production/types";
+import { ACTIVE_BOOTH_STATUSES, getAvailableStock } from "@/lib/production/availability";
+import * as actions from "@/lib/production/actions";
+import type { MutationResult, NewBoothProjectInput, SaveBoothProjectResult } from "@/lib/production/actions";
 
 type ProductionDataContextValue = {
   materials: MaterialItem[];
   projects: BoothProject[];
 
-  addMaterial: (input: Omit<MaterialItem, "id">) => void;
-  updateMaterial: (id: string, input: Omit<MaterialItem, "id">) => void;
-  deleteMaterial: (id: string) => void;
+  addMaterial: (input: Omit<MaterialItem, "id">) => Promise<MutationResult>;
+  updateMaterial: (id: string, input: Omit<MaterialItem, "id">) => Promise<MutationResult>;
+  deleteMaterial: (id: string) => Promise<MutationResult>;
   getActiveProjectsForMaterial: (materialId: string) => BoothProject[];
   getAvailableStockFor: (materialId: string, excludeProjectId?: string) => number;
 
-  addProject: (input: NewBoothProjectInput) => SaveBoothProjectResult;
-  updateProject: (id: string, input: NewBoothProjectInput) => SaveBoothProjectResult;
-  deleteProject: (id: string) => void;
-  updateProjectStatus: (id: string, status: BoothStatus) => void;
+  addProject: (input: NewBoothProjectInput) => Promise<SaveBoothProjectResult>;
+  updateProject: (id: string, input: NewBoothProjectInput) => Promise<SaveBoothProjectResult>;
+  deleteProject: (id: string) => Promise<MutationResult>;
+  updateProjectStatus: (id: string, status: BoothStatus) => Promise<MutationResult>;
 };
 
 const ProductionDataContext = createContext<ProductionDataContextValue | null>(null);
 
 /**
- * Sumber state operasional modul Production (material gudang + proyek
- * booth), dipasang SEKALI di `src/app/dashboard/production/layout.tsx` —
- * pola yang sama dengan MagnarentDataProvider/MagnativeDataProvider.
- * Stok material tidak dikurangi permanen saat dialokasikan ke proyek —
- * "tersedia" dihitung ulang tiap render dari proyek-proyek yang masih aktif
- * (lihat src/lib/production/availability.ts), persis seperti ketersediaan
- * unit alat sewa di Magnarent. (MVP: state hanya di memori, belum
- * tersambung Supabase.)
+ * Sumber data modul Production (material gudang + proyek booth) —
+ * SEKARANG datanya datang dari Supabase, di-fetch di
+ * `src/app/dashboard/production/layout.tsx` (Server Component) dan
+ * diteruskan lewat props. Pola persis sama dengan `MagnarentDataProvider`/
+ * `MagnativeDataProvider`: tidak ada state duplikat, tiap mutasi memanggil
+ * Server Action di `src/lib/production/actions.ts` yang `revalidatePath`
+ * setelah menulis ke DB.
  */
-export function ProductionDataProvider({ children }: { children: ReactNode }) {
-  const [materials, setMaterials] = useState<MaterialItem[]>(INITIAL_MATERIALS);
-  const [projects, setProjects] = useState<BoothProject[]>(INITIAL_BOOTH_PROJECTS);
+export function ProductionDataProvider({
+  materials,
+  projects,
+  children,
+}: {
+  materials: MaterialItem[];
+  projects: BoothProject[];
+  children: ReactNode;
+}) {
+  const addMaterial = useCallback((input: Omit<MaterialItem, "id">) => actions.addMaterial(input), []);
+  const updateMaterial = useCallback(
+    (id: string, input: Omit<MaterialItem, "id">) => actions.updateMaterial(id, input),
+    []
+  );
+  const deleteMaterial = useCallback((id: string) => actions.deleteMaterial(id), []);
 
-  const addMaterial = useCallback((input: Omit<MaterialItem, "id">) => {
-    setMaterials((prev) => [...prev, { ...input, id: genId("mt") }]);
-  }, []);
-
-  const updateMaterial = useCallback((id: string, input: Omit<MaterialItem, "id">) => {
-    setMaterials((prev) => prev.map((m) => (m.id === id ? { ...input, id } : m)));
-  }, []);
-
-  const deleteMaterial = useCallback((id: string) => {
-    setMaterials((prev) => prev.filter((m) => m.id !== id));
-  }, []);
+  const addProject = useCallback((input: NewBoothProjectInput) => actions.addProject(input), []);
+  const updateProject = useCallback(
+    (id: string, input: NewBoothProjectInput) => actions.updateProject(id, input),
+    []
+  );
+  const deleteProject = useCallback((id: string) => actions.deleteProject(id), []);
+  const updateProjectStatus = useCallback(
+    (id: string, status: BoothStatus) => actions.updateProjectStatus(id, status),
+    []
+  );
 
   /** Dipakai UI untuk memblokir hapus material yang masih dialokasikan proyek aktif. */
   const getActiveProjectsForMaterial = useCallback(
     (materialId: string) =>
       projects.filter(
-        (p) =>
-          ACTIVE_BOOTH_STATUSES.includes(p.status) &&
-          p.materials.some((m) => m.materialId === materialId)
+        (p) => ACTIVE_BOOTH_STATUSES.includes(p.status) && p.materials.some((m) => m.materialId === materialId)
       ),
     [projects]
   );
@@ -95,51 +77,6 @@ export function ProductionDataProvider({ children }: { children: ReactNode }) {
     },
     [materials, projects]
   );
-
-  const addProject = useCallback(
-    (input: NewBoothProjectInput): SaveBoothProjectResult => {
-      // Hanya alokasi proyek yang statusnya aktif yang benar-benar menahan
-      // stok — proyek baru dengan status Selesai/Dibatalkan tidak perlu dicek.
-      if (ACTIVE_BOOTH_STATUSES.includes(input.status)) {
-        const conflicts = findMaterialConflicts(input.materials, materials, projects);
-        if (conflicts.length > 0) {
-          return { ok: false, conflicts };
-        }
-      }
-      setProjects((prev) => [...prev, { ...input, id: genId("bp") }]);
-      return { ok: true };
-    },
-    [materials, projects]
-  );
-
-  const updateProject = useCallback(
-    (id: string, input: NewBoothProjectInput): SaveBoothProjectResult => {
-      // Proyek ini sendiri dikecualikan dari perhitungan alokasinya
-      // (excludeProjectId) supaya tidak "bentrok dengan dirinya sendiri".
-      if (ACTIVE_BOOTH_STATUSES.includes(input.status)) {
-        const conflicts = findMaterialConflicts(input.materials, materials, projects, id);
-        if (conflicts.length > 0) {
-          return { ok: false, conflicts };
-        }
-      }
-      setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, ...input } : p)));
-      return { ok: true };
-    },
-    [materials, projects]
-  );
-
-  const deleteProject = useCallback((id: string) => {
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-  }, []);
-
-  /**
-   * Aksi cepat dari papan Jadwal (kanban) untuk memajukan tahap produksi.
-   * Sengaja tidak melalui pengecekan konflik material — proyek yang sudah
-   * disetujui alokasinya boleh berpindah tahap tanpa harus mengisi ulang form.
-   */
-  const updateProjectStatus = useCallback((id: string, status: BoothStatus) => {
-    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
-  }, []);
 
   const value = useMemo<ProductionDataContextValue>(
     () => ({

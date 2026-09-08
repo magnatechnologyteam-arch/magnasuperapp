@@ -78,6 +78,7 @@ export function BoothProjectManager() {
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>([]);
   const [conflicts, setConflicts] = useState<MaterialConflict[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<BoothProject | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
@@ -164,7 +165,7 @@ export function BoothProjectManager() {
     return materials.filter((m) => !usedElsewhere.has(m.id));
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setConflicts([]);
     setError(null);
@@ -207,10 +208,16 @@ export function BoothProjectManager() {
       catatan: form.catatan.trim() || undefined,
     };
 
-    const result = editingId ? updateProject(editingId, payload) : addProject(payload);
+    setSubmitting(true);
+    const result = editingId ? await updateProject(editingId, payload) : await addProject(payload);
+    setSubmitting(false);
 
     if (!result.ok) {
-      setConflicts(result.conflicts);
+      if ("conflicts" in result) {
+        setConflicts(result.conflicts);
+      } else {
+        setError(result.error);
+      }
       return;
     }
 
@@ -218,9 +225,14 @@ export function BoothProjectManager() {
     closeFormModal();
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return;
-    deleteProject(deleteTarget.id);
+    const result = await deleteProject(deleteTarget.id);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      setDeleteTarget(null);
+      return;
+    }
     showToast(`Proyek "${deleteTarget.name}" berhasil dihapus.`);
     setDeleteTarget(null);
   }
@@ -585,10 +597,11 @@ export function BoothProjectManager() {
             </button>
             <button
               type="submit"
-              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              disabled={submitting}
+              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
               style={{ background: GRADIENT }}
             >
-              {editingId ? "Simpan Perubahan" : "Buat Proyek"}
+              {submitting ? "Menyimpan…" : editingId ? "Simpan Perubahan" : "Buat Proyek"}
             </button>
           </div>
         </form>

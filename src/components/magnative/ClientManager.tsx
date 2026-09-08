@@ -59,6 +59,7 @@ export function ClientManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
@@ -97,7 +98,7 @@ export function ClientManager() {
     setError(null);
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
 
     if (!form.name.trim() || !form.industry.trim() || !form.picName.trim()) {
@@ -119,22 +120,30 @@ export function ClientManager() {
       catatan: form.catatan.trim() || undefined,
     };
 
-    if (editingId) {
-      updateClient(editingId, payload);
-      showToast(`Klien "${payload.name}" berhasil diperbarui.`);
-    } else {
-      addClient(payload);
-      showToast(`Klien "${payload.name}" berhasil ditambahkan.`);
+    setSubmitting(true);
+    const result = editingId ? await updateClient(editingId, payload) : await addClient(payload);
+    setSubmitting(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
     }
+
+    showToast(editingId ? `Klien "${payload.name}" berhasil diperbarui.` : `Klien "${payload.name}" berhasil ditambahkan.`);
     closeFormModal();
   }
 
   const activeProjectsForDeleteTarget = deleteTarget ? getActiveProjectsForClient(deleteTarget.id) : [];
   const deleteBlocked = activeProjectsForDeleteTarget.length > 0;
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget || deleteBlocked) return;
-    deleteClient(deleteTarget.id);
+    const result = await deleteClient(deleteTarget.id);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      setDeleteTarget(null);
+      return;
+    }
     showToast(`Klien "${deleteTarget.name}" berhasil dihapus.`);
     setDeleteTarget(null);
   }
@@ -376,10 +385,11 @@ export function ClientManager() {
             </button>
             <button
               type="submit"
-              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm"
+              disabled={submitting}
+              className="rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
               style={{ background: GRADIENT }}
             >
-              {editingId ? "Simpan Perubahan" : "Simpan Klien"}
+              {submitting ? "Menyimpan…" : editingId ? "Simpan Perubahan" : "Simpan Klien"}
             </button>
           </div>
         </form>
