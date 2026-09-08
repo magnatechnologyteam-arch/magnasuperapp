@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, LogOut, ShieldCheck } from "lucide-react";
+import { ChevronDown, LogOut, ShieldCheck, User as UserIcon } from "lucide-react";
 import { signOut } from "@/lib/supabase/actions";
-import { getAvatarColor, getInitials } from "@/lib/shared/utils";
+import { formatDisplayName } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import { DIVISION_LABELS, type Profile } from "@/lib/supabase/types";
 import { PushNotificationBell } from "@/components/push/PushNotificationBell";
@@ -43,7 +43,7 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  const displayName = user?.full_name?.trim() || user?.email?.split("@")[0] || "Pengguna";
+  const displayName = formatDisplayName(user?.full_name, user?.email) || "Pengguna";
   const email = user?.email ?? "";
 
   return (
@@ -61,13 +61,10 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
           className="flex items-center gap-2.5 rounded-full border border-black/5 bg-white py-1.5 pl-1.5 pr-3 shadow-sm transition-colors hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-900 dark:hover:bg-white/5"
         >
           <span className="relative shrink-0">
-            <span
-              className={cn(
-                "grid h-8 w-8 place-items-center rounded-full text-xs font-bold text-white",
-                getAvatarColor(displayName)
-              )}
-            >
-              {getInitials(displayName)}
+            {/* Foto profil belum ada — placeholder template siluet, tinggal
+                ganti dengan foto asli staf begitu fitur upload foto tersedia. */}
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-zinc-200 text-zinc-400 dark:bg-white/10 dark:text-zinc-500">
+              <UserIcon className="h-4 w-4" strokeWidth={2.5} />
             </span>
             <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-zinc-950">
               <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-75" />

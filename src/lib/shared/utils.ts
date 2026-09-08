@@ -50,3 +50,26 @@ export function getAvatarColor(name: string): string {
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
   return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
 }
+
+/**
+ * Nama yang ditampilkan di UI. Kalau `full_name` sudah diisi (lewat
+ * halaman Kelola Pengguna), itu yang dipakai apa adanya. Kalau belum —
+ * daripada tampil mentah seperti username/email ("aliefaditiyo.n") —
+ * di-"rapikan" dulu (titik/underscore jadi spasi, tiap kata dikapital)
+ * jadi lebih mirip nama sungguhan ("Aliefaditiyo N"), sambil tetap
+ * jelas ini cuma tebakan sementara sampai `full_name` staf yang
+ * bersangkutan diisi lengkap oleh admin.
+ */
+export function formatDisplayName(fullName?: string | null, email?: string | null): string {
+  const trimmed = fullName?.trim();
+  if (trimmed) return trimmed;
+
+  const local = email?.split("@")[0]?.trim();
+  if (!local) return "";
+
+  return local
+    .split(/[.\-_]+/)
+    .filter(Boolean)
+    .map((part) => part[0].toUpperCase() + part.slice(1))
+    .join(" ");
+}

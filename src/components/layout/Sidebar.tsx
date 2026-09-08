@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, History, LayoutGrid, Users } from "lucide-react";
-import { BRAND_GRADIENT, HUB_HREF, getVisibleModules } from "@/lib/navigation";
+import { HUB_HREF, getVisibleModules } from "@/lib/navigation";
+import { BrandLogo } from "@/components/layout/BrandLogo";
 import { cn } from "@/lib/cn";
 import type { Division } from "@/lib/supabase/types";
 
@@ -31,12 +32,7 @@ export function Sidebar({ division }: { division?: Division | null }) {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-black/5 bg-white dark:border-white/10 dark:bg-zinc-950 md:flex">
       <div className="flex h-16 items-center gap-3 border-b border-black/5 px-5 dark:border-white/10">
-        <div
-          className="grid h-9 w-9 place-items-center rounded-xl text-sm font-extrabold text-white shadow-sm"
-          style={{ background: BRAND_GRADIENT }}
-        >
-          M
-        </div>
+        <BrandLogo size={36} />
         <span className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">
           MagnaSuperApp
         </span>

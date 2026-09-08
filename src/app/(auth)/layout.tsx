@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { BRAND_GRADIENT } from "@/lib/navigation";
+import { BrandLogo } from "@/components/layout/BrandLogo";
 
 /**
  * Shell untuk halaman publik /login & /register — sengaja terpisah dari
@@ -23,12 +24,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
 
       <div className="relative w-full max-w-md animate-fade-up">
         <div className="mb-8 flex flex-col items-center text-center">
-          <div
-            className="grid h-12 w-12 place-items-center rounded-2xl text-lg font-extrabold text-white shadow-lg"
-            style={{ background: BRAND_GRADIENT }}
-          >
-            M
-          </div>
+          <BrandLogo size={56} rounded="rounded-2xl" />
           <h1 className="mt-4 text-xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
             MagnaSuperApp
           </h1>
