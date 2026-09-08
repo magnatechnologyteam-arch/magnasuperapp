@@ -10,6 +10,9 @@ const ADMIN_LINKS = [
   { href: "/dashboard/admin/pengguna", label: "Pengguna" },
   { href: "/dashboard/admin/laporan", label: "Laporan" },
   { href: "/dashboard/admin/aktivitas", label: "Aktivitas" },
+  { href: "/dashboard/admin/klien", label: "Klien" },
+  { href: "/dashboard/admin/keuangan", label: "Piutang" },
+  { href: "/dashboard/admin/produk", label: "Produk" },
 ];
 
 /**
