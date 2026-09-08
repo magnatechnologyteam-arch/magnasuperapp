@@ -1,21 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { History } from "lucide-react";
+import { AlertCircle, CheckCircle2, History } from "lucide-react";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
-import { EmptyState } from "@/components/ui/EmptyState";
+import { ActivityLogTable, type ActivityRow } from "@/components/admin/ActivityLogTable";
 import { cn } from "@/lib/cn";
-
-type ActivityRow = {
-  id: string;
-  actor_name: string;
-  division: string;
-  module: string;
-  action: string;
-  entity_type: string;
-  entity_label: string | null;
-  detail: string | null;
-  created_at: string;
-};
 
 const MODULE_LABEL: Record<string, string> = {
   magnarent: "Magnarent",
@@ -24,58 +12,31 @@ const MODULE_LABEL: Record<string, string> = {
   admin: "Admin",
 };
 
-const MODULE_BADGE: Record<string, string> = {
-  magnarent: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
-  magnative: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300",
-  production: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300",
-  admin: "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300",
-};
-
-const ACTION_LABEL: Record<string, string> = {
-  create: "Tambah",
-  update: "Ubah",
-  delete: "Hapus",
-  status_change: "Ubah Status",
-};
-
-const ACTION_BADGE: Record<string, string> = {
-  create: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-  update: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  delete: "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-300",
-  status_change: "bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300",
-};
-
 const MODULE_FILTERS = ["magnarent", "magnative", "production", "admin"] as const;
-
-function formatWaktu(iso: string): string {
-  return new Date(iso).toLocaleString("id-ID", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 /**
  * Halaman "Aktivitas" — log audit lintas modul, HANYA untuk akun akses
  * penuh (division "all"), sama seperti "Kelola Pengguna" & "Laporan".
  * Sumbernya tabel `activity_log` (migrasi 0008) yang diisi Server Action
- * tiap modul lewat `logActivity()` (src/lib/activity/log.ts) — baris di
- * sini TIDAK BISA diubah/dihapus lewat aplikasi (tidak ada tombol edit),
- * konsisten dengan RLS yang cuma mengizinkan select+insert.
+ * tiap modul lewat `logActivity()` (src/lib/activity/log.ts).
+ *
+ * Baris di sini dulunya tidak bisa dihapus lewat aplikasi sama sekali —
+ * sekarang akses penuh BISA menghapus (per baris atau semua sekaligus)
+ * lewat ActivityLogTable, ditambahkan lewat migrasi 0009 atas permintaan
+ * eksplisit supaya log yang menumpuk bisa dibersihkan. Tetap tidak ada
+ * policy UPDATE — baris yang tersisa tidak bisa diubah, cuma dihapus.
  */
 export default async function AktivitasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ modul?: string }>;
+  searchParams: Promise<{ modul?: string; notice?: string; error?: string }>;
 }) {
   const profile = await getCurrentProfile();
   if (!profile || profile.division !== "all") {
     redirect("/dashboard");
   }
 
-  const { modul } = await searchParams;
+  const { modul, notice, error } = await searchParams;
   const activeFilter = MODULE_FILTERS.includes(modul as (typeof MODULE_FILTERS)[number]) ? modul : undefined;
 
   const supabase = await createClient();
@@ -117,6 +78,19 @@ export default async function AktivitasPage({
         </div>
       </div>
 
+      {notice && (
+        <div className="mt-5 flex items-start gap-2 rounded-xl bg-emerald-50 px-3.5 py-2.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+          {notice}
+        </div>
+      )}
+      {error && (
+        <div className="mt-5 flex items-start gap-2 rounded-xl bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      )}
+
       <div className="mt-5 flex flex-wrap gap-2">
         <Link
           href="/dashboard/admin/aktivitas"
@@ -145,66 +119,8 @@ export default async function AktivitasPage({
         ))}
       </div>
 
-      <div className="mt-5 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
-        {rows.length === 0 ? (
-          <EmptyState
-            icon={History}
-            title="Belum ada aktivitas tercatat"
-            description="Aktivitas baru (tambah, ubah, hapus, ubah status) di ketiga modul akan muncul di sini."
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead>
-                <tr className="border-b border-black/5 text-xs font-semibold uppercase tracking-wider text-zinc-400 dark:border-white/10 dark:text-zinc-500">
-                  <th className="px-5 py-3">Waktu</th>
-                  <th className="px-5 py-3">Modul</th>
-                  <th className="px-5 py-3">Aksi</th>
-                  <th className="px-5 py-3">Entitas</th>
-                  <th className="px-5 py-3">Pelaku</th>
-                  <th className="px-5 py-3">Detail</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-black/5 dark:divide-white/5">
-                {rows.map((row) => (
-                  <tr key={row.id}>
-                    <td className="whitespace-nowrap px-5 py-3 text-xs text-zinc-500 dark:text-zinc-400">
-                      {formatWaktu(row.created_at)}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span
-                        className={cn(
-                          "rounded-full px-2.5 py-1 text-xs font-semibold",
-                          MODULE_BADGE[row.module] ?? "bg-zinc-100 text-zinc-600"
-                        )}
-                      >
-                        {MODULE_LABEL[row.module] ?? row.module}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3">
-                      <span
-                        className={cn(
-                          "rounded-full px-2.5 py-1 text-xs font-semibold",
-                          ACTION_BADGE[row.action] ?? "bg-zinc-100 text-zinc-600"
-                        )}
-                      >
-                        {ACTION_LABEL[row.action] ?? row.action}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-sm text-zinc-700 dark:text-zinc-200">
-                      <span className="font-semibold">{row.entity_label ?? "—"}</span>
-                      <span className="ml-1.5 text-xs text-zinc-400 dark:text-zinc-500">({row.entity_type})</span>
-                    </td>
-                    <td className="whitespace-nowrap px-5 py-3 text-sm text-zinc-600 dark:text-zinc-300">
-                      {row.actor_name}
-                    </td>
-                    <td className="px-5 py-3 text-xs text-zinc-500 dark:text-zinc-400">{row.detail ?? "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <div className="mt-5">
+        <ActivityLogTable rows={rows} />
       </div>
     </div>
   );

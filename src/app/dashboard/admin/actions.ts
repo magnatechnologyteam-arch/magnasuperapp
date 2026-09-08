@@ -16,7 +16,7 @@ const USERNAME_PATTERN = /^[a-z0-9._-]{3,20}$/;
  * WAJIB mengecek ulang di server bahwa pemanggilnya memang division "all",
  * TIDAK cukup mengandalkan middleware atau UI yang menyembunyikan tombol.
  */
-async function requireFullAccess() {
+export async function requireFullAccess() {
   const profile = await getCurrentProfile();
   if (!profile || profile.division !== "all") {
     redirect("/dashboard");
