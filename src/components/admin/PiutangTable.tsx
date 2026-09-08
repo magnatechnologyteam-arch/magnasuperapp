@@ -18,7 +18,7 @@ export type PiutangRow = {
 
 const MODULE_LABEL: Record<PiutangModule, string> = {
   magnarent: "Magnarent",
-  magnative: "Magnative",
+  magnative: "Magnativ",
   production: "Production",
 };
 

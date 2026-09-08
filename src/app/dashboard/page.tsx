@@ -30,7 +30,7 @@ type StatCard = {
 
 // Foto sampul per modul — placeholder/dummy on-brand sementara (lihat
 // public/images/placeholders/ dan PlaceholderGallery di halaman
-// Inventaris/Proyek Booth/Ringkasan Magnative untuk keterangan foto asli).
+// Inventaris/Proyek Booth untuk keterangan foto asli).
 const MODULE_BANNERS: Record<string, string> = {
   magnarent: "/images/placeholders/module-magnarent.jpg",
   magnative: "/images/placeholders/module-magnative.jpg",
@@ -168,14 +168,11 @@ export default async function DashboardHubPage() {
           aria-hidden
         />
         <div className="relative animate-fade-up">
-          <p className="text-xs font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
-            Unified Dashboard
-          </p>
           <h1 className="text-shine mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">
-            {firstName ? `Selamat datang, ${firstName}` : "Dashboard Hub"}
+            {firstName ? `Selamat Datang ${firstName}!` : "Selamat Datang di MagnaSuperApp!"}
           </h1>
           <p className="mt-2 max-w-xl text-sm text-zinc-500 dark:text-zinc-400">
-            Pilih modul untuk mulai bekerja.
+            Semangat kerja hari ini — yuk pilih menu di bawah.
           </p>
         </div>
       </div>
@@ -238,7 +235,7 @@ export default async function DashboardHubPage() {
       )}
 
       <p className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-        Modul
+        Menu Kerja
       </p>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {modules.map((mod, i) => {
@@ -309,11 +306,6 @@ export default async function DashboardHubPage() {
           );
         })}
       </div>
-
-      <p className="mb-3 mt-2 text-[11px] text-zinc-400 dark:text-zinc-500">
-        *Foto sampul modul di atas masih placeholder/dummy on-brand, belum foto asli — lihat halaman Inventaris,
-        Proyek Booth, dan Ringkasan Magnative untuk galeri contoh & keterangan foto yang perlu diambil.
-      </p>
     </div>
   );
 }

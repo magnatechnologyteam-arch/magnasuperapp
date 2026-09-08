@@ -54,7 +54,7 @@ export function LaporanStatGrid({
         delayMs={40}
       />
       <StatCard
-        label="Budget Proyek Magnative Aktif"
+        label="Budget Proyek Magnativ Aktif"
         value={formatRupiah(budgetProyekAktif)}
         icon={Hammer}
         accent={ACCENT_VIOLET}

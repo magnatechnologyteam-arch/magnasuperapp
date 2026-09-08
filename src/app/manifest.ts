@@ -21,7 +21,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "MagnaSuperApp",
     short_name: "MagnaSuperApp",
-    description: "Dashboard terpadu untuk Magnative, Magnarent, dan Production — Magna Technology.",
+    description: "Dashboard terpadu untuk Magnativ, Magnarent, dan Production — Magna Technology.",
     start_url: "/dashboard",
     scope: "/",
     display: "standalone",

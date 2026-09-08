@@ -26,7 +26,7 @@ export const BRAND_GRADIENT =
 export const MODULES: ModuleConfig[] = [
   {
     id: "magnative",
-    label: "Magnative",
+    label: "Magnativ",
     href: "/dashboard/magnative",
     description: "Manajemen EO, creative agency & media sosial",
     icon: Megaphone,

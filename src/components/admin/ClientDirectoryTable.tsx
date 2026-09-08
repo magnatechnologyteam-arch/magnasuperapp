@@ -107,7 +107,7 @@ export function ClientDirectoryTable({ clients }: { clients: ClientSummary[] }) 
         <EmptyState
           icon={Building2}
           title="Belum ada klien terdaftar"
-          description="Tambahkan klien lewat modul Magnative — klien akan otomatis muncul di sini dan bisa ditautkan ke booking Magnarent & proyek booth Production."
+          description="Tambahkan klien lewat modul Magnativ — klien akan otomatis muncul di sini dan bisa ditautkan ke booking Magnarent & proyek booth Production."
         />
       ) : (
         <div className="overflow-x-auto">
@@ -188,7 +188,7 @@ export function ClientDirectoryTable({ clients }: { clients: ClientSummary[] }) 
                               />
                               <ModuleGroup
                                 icon={Palette}
-                                label="Magnative"
+                                label="Magnativ"
                                 accent="text-fuchsia-600 dark:text-fuchsia-400"
                                 items={client.magnativeProjects}
                               />

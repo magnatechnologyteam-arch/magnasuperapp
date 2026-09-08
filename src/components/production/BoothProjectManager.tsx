@@ -345,7 +345,7 @@ export function BoothProjectManager() {
                       {clientById(p.clientId) && (
                         <BadgeCheck
                           className="h-3.5 w-3.5 shrink-0 text-amber-500"
-                          aria-label="Klien terdaftar di Magnative"
+                          aria-label="Klien terdaftar di Magnativ"
                         />
                       )}
                     </span>

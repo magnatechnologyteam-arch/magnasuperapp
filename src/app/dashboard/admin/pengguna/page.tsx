@@ -53,7 +53,7 @@ export default async function KelolaPenggunaPage({
             Kelola Pengguna
           </h1>
           <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Buat akun tim — mereka masuk pakai username &amp; password ini, bukan daftar sendiri.
+            Tambahkan anggota tim di sini — mereka tinggal login pakai username &amp; password yang Anda buatkan.
           </p>
         </div>
       </div>

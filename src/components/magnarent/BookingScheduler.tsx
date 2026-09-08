@@ -356,7 +356,7 @@ export function BookingScheduler() {
                             {clientById(b.clientId) && (
                               <BadgeCheck
                                 className="h-3.5 w-3.5 shrink-0 text-blue-500"
-                                aria-label="Klien terdaftar di Magnative"
+                                aria-label="Klien terdaftar di Magnativ"
                               />
                             )}
                           </p>

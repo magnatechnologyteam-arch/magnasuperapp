@@ -73,7 +73,7 @@ export function KeuanganStatGrid({
         delayMs={120}
       />
       <StatCard
-        label="Piutang Magnative"
+        label="Piutang Magnativ"
         value={formatRupiah(piutangMagnative)}
         icon={Boxes}
         accent={ACCENT_FUCHSIA}

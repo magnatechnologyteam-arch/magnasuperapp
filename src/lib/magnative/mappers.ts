@@ -5,6 +5,7 @@ import type {
   ContentStatus,
   Platform,
   PaymentStatus,
+  PortfolioPhoto,
   Project,
   ProjectStatus,
   ProjectType,
@@ -89,5 +90,23 @@ export function rowToContentPost(row: ContentPostRow): ContentPost {
     tanggalPosting: row.tanggal_posting,
     status: row.status,
     catatan: row.catatan ?? undefined,
+  };
+}
+
+export type PortfolioPhotoRow = {
+  id: string;
+  photo_url: string;
+  storage_path: string;
+  title: string;
+  caption: string | null;
+};
+
+export function rowToPortfolioPhoto(row: PortfolioPhotoRow): PortfolioPhoto {
+  return {
+    id: row.id,
+    photoUrl: row.photo_url,
+    storagePath: row.storage_path,
+    title: row.title,
+    caption: row.caption ?? undefined,
   };
 }

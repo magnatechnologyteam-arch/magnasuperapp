@@ -29,7 +29,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
             MagnaSuperApp
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Magnative &middot; Magnarent &middot; Production
+            Magnativ &middot; Magnarent &middot; Production
           </p>
         </div>
 

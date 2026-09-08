@@ -19,7 +19,7 @@ export type ActivityRow = {
 
 const MODULE_LABEL: Record<string, string> = {
   magnarent: "Magnarent",
-  magnative: "Magnative",
+  magnative: "Magnativ",
   production: "Production",
   admin: "Admin",
 };

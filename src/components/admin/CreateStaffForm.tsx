@@ -8,7 +8,7 @@ import { DIVISION_LABELS, type Division } from "@/lib/supabase/types";
 const DIVISION_OPTIONS: Array<{ value: Division; hint: string }> = [
   { value: "production", hint: "Hanya modul Production" },
   { value: "magnarent", hint: "Hanya modul Magnarent" },
-  { value: "magnative", hint: "Hanya modul Magnative" },
+  { value: "magnative", hint: "Hanya modul Magnativ" },
   { value: "all", hint: "Semua modul (Finance/Investor/Owner)" },
 ];
 

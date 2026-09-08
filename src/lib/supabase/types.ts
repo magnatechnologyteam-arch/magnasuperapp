@@ -2,7 +2,7 @@ export type Division = "magnarent" | "magnative" | "production" | "all";
 
 export const DIVISION_LABELS: Record<Division, string> = {
   magnarent: "Magnarent",
-  magnative: "Magnative",
+  magnative: "Magnativ",
   production: "Production",
   all: "Akses Penuh",
 };

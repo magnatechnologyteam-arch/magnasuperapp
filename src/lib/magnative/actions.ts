@@ -8,6 +8,7 @@ import type { Client, ContentPost, Project } from "./types";
 
 const MODULE_PATH = "/dashboard/magnative";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
+const PORTFOLIO_BUCKET = "magnative-portfolio";
 
 export type MutationResult = { ok: true } | { ok: false; error: string };
 
@@ -125,7 +126,7 @@ export async function addProject(input: Omit<Project, "id">): Promise<MutationRe
   void notifyDivision(
     "magnative",
     {
-      title: "Proyek Baru — Magnative",
+      title: "Proyek Baru — Magnativ",
       body: `Proyek "${input.name}" (${input.type}) baru dibuat.`,
       url: "/dashboard/magnative/proyek",
     },
@@ -240,5 +241,113 @@ export async function deleteContentPost(id: string): Promise<MutationResult> {
   }
   revalidatePath(MODULE_PATH);
   void logActivity({ module: "magnative", action: "delete", entityType: "konten", entityLabel: postRow?.title });
+  return { ok: true };
+}
+
+/**
+ * Galeri portofolio (migrasi 0012) — menggantikan PlaceholderGallery statis
+ * di halaman Ringkasan Magnative. Pakai `FormData` (bukan objek biasa
+ * seperti action lain di file ini) karena ini satu-satunya action yang
+ * perlu membawa `File` lewat batas Server Action — payload JSON tidak bisa
+ * membawa data biner.
+ *
+ * Urutan upload-lalu-insert (bukan sebaliknya) sengaja dipilih supaya kalau
+ * insert baris metadata gagal, file yang sudah terlanjur ter-upload
+ * langsung dibersihkan (`storage.remove`) — tidak ada file yatim piatu di
+ * bucket yang tidak tercatat di tabel.
+ */
+export async function addPortfolioPhoto(formData: FormData): Promise<MutationResult> {
+  const supabase = await createClient();
+  const file = formData.get("photo");
+  const title = String(formData.get("title") ?? "").trim();
+  const caption = String(formData.get("caption") ?? "").trim();
+
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Pilih foto terlebih dahulu." };
+  }
+  if (!title) {
+    return { ok: false, error: "Judul foto wajib diisi." };
+  }
+  if (!file.type.startsWith("image/")) {
+    return { ok: false, error: "File yang dipilih bukan gambar." };
+  }
+
+  const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "jpg";
+  const storagePath = `${crypto.randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(PORTFOLIO_BUCKET)
+    .upload(storagePath, file, { contentType: file.type || undefined });
+
+  if (uploadError) {
+    console.error("[magnative] Upload foto portofolio gagal:", uploadError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(PORTFOLIO_BUCKET).getPublicUrl(storagePath);
+
+  const { error: insertError } = await supabase.from("magnative_portfolio").insert({
+    photo_url: publicUrl,
+    storage_path: storagePath,
+    title,
+    caption: caption || null,
+  });
+
+  if (insertError) {
+    console.error("[magnative] Simpan data foto portofolio gagal:", insertError.message);
+    await supabase.storage.from(PORTFOLIO_BUCKET).remove([storagePath]);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "create", entityType: "portofolio", entityLabel: title });
+  return { ok: true };
+}
+
+export async function updatePortfolioPhoto(
+  id: string,
+  input: { title: string; caption?: string }
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const title = input.title.trim();
+  if (!title) {
+    return { ok: false, error: "Judul foto wajib diisi." };
+  }
+
+  const { error } = await supabase
+    .from("magnative_portfolio")
+    .update({ title, caption: input.caption?.trim() || null })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[magnative] updatePortfolioPhoto gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "update", entityType: "portofolio", entityLabel: title });
+  return { ok: true };
+}
+
+export async function deletePortfolioPhoto(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: photoRow } = await supabase
+    .from("magnative_portfolio")
+    .select("title, storage_path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("magnative_portfolio").delete().eq("id", id);
+  if (error) {
+    console.error("[magnative] deletePortfolioPhoto gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  if (photoRow?.storage_path) {
+    await supabase.storage.from(PORTFOLIO_BUCKET).remove([photoRow.storage_path]);
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "delete", entityType: "portofolio", entityLabel: photoRow?.title });
   return { ok: true };
 }

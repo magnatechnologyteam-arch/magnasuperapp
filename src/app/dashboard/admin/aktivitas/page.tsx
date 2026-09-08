@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 
 const MODULE_LABEL: Record<string, string> = {
   magnarent: "Magnarent",
-  magnative: "Magnative",
+  magnative: "Magnativ",
   production: "Production",
   admin: "Admin",
 };
@@ -73,7 +73,7 @@ export default async function AktivitasPage({
             Aktivitas
           </h1>
           <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Siapa mengubah apa dan kapan, di ketiga divisi.
+            Catatan semua perubahan dari tim, biar gampang dilacak siapa ngapain dan kapan.
           </p>
         </div>
       </div>

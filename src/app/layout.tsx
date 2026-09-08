@@ -12,7 +12,7 @@ const jakarta = Plus_Jakarta_Sans({
 
 export const metadata: Metadata = {
   title: "MagnaSuperApp",
-  description: "Unified dashboard untuk Magnative, Magnarent, dan Production",
+  description: "Dashboard terpadu untuk Magnativ, Magnarent, dan Production",
   // `manifest.ts` (file convention) sudah otomatis di-link Next.js — baris
   // ini eksplisit saja supaya jelas dan aman kalau suatu saat convention-nya
   // berubah. Icon Apple TIDAK ikut convention manifest (iOS Safari

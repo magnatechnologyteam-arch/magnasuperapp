@@ -36,6 +36,20 @@ export type Project = {
   catatan?: string;
 };
 
+/**
+ * Satu foto di galeri portofolio Magnativ (migrasi 0012) — menggantikan
+ * PlaceholderGallery statis. `storagePath` disimpan terpisah dari
+ * `photoUrl` supaya file di Supabase Storage bisa dihapus lewat path-nya
+ * saat foto dihapus/gagal disimpan, tanpa perlu parsing URL publik.
+ */
+export type PortfolioPhoto = {
+  id: string;
+  photoUrl: string;
+  storagePath: string;
+  title: string;
+  caption?: string;
+};
+
 export type Platform = "Instagram" | "TikTok" | "Facebook" | "YouTube" | "LinkedIn" | "Lainnya";
 export type ContentStatus = "Draft" | "Review" | "Terjadwal" | "Tayang";
 

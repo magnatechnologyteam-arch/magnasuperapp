@@ -161,7 +161,7 @@ export default async function KeuanganPage() {
             Piutang &amp; Pendapatan
           </h1>
           <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Status pembayaran digabung dari Magnarent, Magnative, dan Production.
+            Status pembayaran digabung dari Magnarent, Magnativ, dan Production.
           </p>
         </div>
       </div>

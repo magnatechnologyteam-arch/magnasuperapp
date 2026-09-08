@@ -116,7 +116,7 @@ export default async function KlienTerpaduPage() {
             Direktori Klien Terpadu
           </h1>
           <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Riwayat & nilai satu klien digabung dari Magnarent, Magnative, dan Production.
+            Riwayat & nilai satu klien digabung dari Magnarent, Magnativ, dan Production.
           </p>
         </div>
       </div>

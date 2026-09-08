@@ -88,7 +88,7 @@ export default async function LaporanPage() {
             Laporan Lintas Divisi
           </h1>
           <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Gambaran Magnarent, Magnative &amp; Production dalam satu halaman.
+            Gambaran Magnarent, Magnativ &amp; Production dalam satu halaman.
           </p>
         </div>
       </div>
@@ -123,7 +123,7 @@ export default async function LaporanPage() {
 
         <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
           <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
-            <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Status Proyek Magnative</h3>
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Status Proyek Magnativ</h3>
           </div>
           <div className="px-5 py-5">
             <DonutChart
