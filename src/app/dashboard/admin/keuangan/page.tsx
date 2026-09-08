@@ -1,0 +1,202 @@
+import { redirect } from "next/navigation";
+import { Wallet2 } from "lucide-react";
+import { createClient, getCurrentProfile } from "@/lib/supabase/server";
+import { rowToBooking, rowToInventory, type BookingRow, type InventoryRow } from "@/lib/magnarent/mappers";
+import { rowToClient, rowToProject, type ClientRow, type ProjectRow } from "@/lib/magnative/mappers";
+import { rowToBoothProject, type BoothProjectRow } from "@/lib/production/mappers";
+import { calculateBookingTotal } from "@/lib/magnarent/pricing";
+import { formatRupiah } from "@/lib/shared/utils";
+import { KeuanganStatGrid } from "./KeuanganStatGrid";
+import { PiutangTable, type PiutangModule, type PiutangRow, type PiutangStatus } from "@/components/admin/PiutangTable";
+import { TrendBarChart } from "@/components/ui/TrendBarChart";
+
+type PaymentStatusLike = "Belum Bayar" | "DP" | "Lunas";
+
+/**
+ * Satu baris gabungan lintas 3 modul — dipakai internal di halaman ini
+ * untuk menghitung KPI, daftar piutang, dan tren pendapatan dari satu
+ * sumber yang sama, supaya angkanya konsisten di semua bagian halaman.
+ */
+type Entry = {
+  id: string;
+  module: PiutangModule;
+  label: string;
+  namaKlien: string;
+  date: string;
+  value: number;
+  statusPembayaran: PaymentStatusLike;
+};
+
+const MONTHS_BACK = 6;
+
+/**
+ * Dashboard Piutang & Pendapatan — HANYA akses penuh, pola sama seperti
+ * "Laporan" dan "Klien Terpadu". Menyatukan `status_pembayaran` yang
+ * sekarang konsisten di ketiga modul (migrasi 0011) jadi satu gambaran
+ * arus kas: siapa yang belum bayar, berapa totalnya per modul, dan tren
+ * pendapatan bulanan dari transaksi yang sudah "Lunas".
+ *
+ * Batasan yang jujur perlu diketahui pemakai (lihat juga komentar di
+ * `PiutangTable.tsx`): modul belum mencatat NOMINAL yang sudah masuk untuk
+ * status "DP", cuma label status-nya — jadi "Total Piutang" di sini adalah
+ * NILAI PENUH booking/proyek yang belum "Lunas", bukan sisa tagihan
+ * sesungguhnya. Cukup akurat untuk melihat mana klien yang perlu ditagih,
+ * tapi bukan angka piutang final untuk pembukuan.
+ *
+ * Proyek/booking berstatus "Dibatalkan" sengaja dikeluarkan dari semua
+ * perhitungan di halaman ini — itu bukan potensi pendapatan yang batal
+ * ditagih, jadi tidak masuk hitungan piutang maupun pendapatan.
+ */
+export default async function KeuanganPage() {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.division !== "all") {
+    redirect("/dashboard");
+  }
+
+  const supabase = await createClient();
+  const [bookingsRes, inventoryRes, projectsRes, boothRes, clientsRes] = await Promise.all([
+    supabase.from("magnarent_bookings").select("*").returns<BookingRow[]>(),
+    supabase.from("magnarent_inventory").select("*").returns<InventoryRow[]>(),
+    supabase.from("magnative_projects").select("*").returns<ProjectRow[]>(),
+    supabase.from("production_booth_projects").select("*").returns<BoothProjectRow[]>(),
+    supabase.from("magnative_clients").select("*").returns<ClientRow[]>(),
+  ]);
+
+  const bookings = (bookingsRes.data ?? []).map(rowToBooking);
+  const inventory = (inventoryRes.data ?? []).map(rowToInventory);
+  const projects = (projectsRes.data ?? []).map(rowToProject);
+  const boothProjects = (boothRes.data ?? []).map(rowToBoothProject);
+  const clients = (clientsRes.data ?? []).map(rowToClient);
+
+  const entries: Entry[] = [
+    ...bookings
+      .filter((b) => b.status !== "Dibatalkan")
+      .map((b): Entry => ({
+        id: b.id,
+        module: "magnarent",
+        label: inventory.find((i) => i.id === b.itemId)?.name ?? "—",
+        namaKlien: b.namaKlien,
+        date: b.tanggalMulai,
+        value: calculateBookingTotal(b, inventory.find((i) => i.id === b.itemId)),
+        statusPembayaran: b.statusPembayaran,
+      })),
+    ...projects
+      .filter((p) => p.status !== "Dibatalkan")
+      .map((p): Entry => ({
+        id: p.id,
+        module: "magnative",
+        label: p.name,
+        namaKlien: clients.find((c) => c.id === p.clientId)?.name ?? "—",
+        date: p.tanggalMulai,
+        value: p.budget,
+        statusPembayaran: p.statusPembayaran,
+      })),
+    ...boothProjects
+      .filter((p) => p.status !== "Dibatalkan")
+      .map((p): Entry => ({
+        id: p.id,
+        module: "production",
+        label: p.name,
+        namaKlien: p.namaKlien,
+        date: p.tanggalMulai,
+        value: p.budget,
+        statusPembayaran: p.statusPembayaran,
+      })),
+  ];
+
+  const belumLunas = entries.filter((e) => e.statusPembayaran !== "Lunas");
+  const totalPiutang = belumLunas.reduce((sum, e) => sum + e.value, 0);
+  const totalPendapatan = entries
+    .filter((e) => e.statusPembayaran === "Lunas")
+    .reduce((sum, e) => sum + e.value, 0);
+
+  const piutangPerModul = (mod: PiutangModule) =>
+    belumLunas.filter((e) => e.module === mod).reduce((sum, e) => sum + e.value, 0);
+
+  const piutangRows: PiutangRow[] = belumLunas
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((e) => ({
+      id: `${e.module}-${e.id}`,
+      module: e.module,
+      label: e.label,
+      namaKlien: e.namaKlien,
+      date: e.date,
+      value: e.value,
+      statusPembayaran: e.statusPembayaran as PiutangStatus,
+    }));
+
+  const now = new Date();
+  const monthBuckets = Array.from({ length: MONTHS_BACK }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (MONTHS_BACK - 1 - i), 1);
+    return {
+      key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+      label: d.toLocaleDateString("id-ID", { month: "short", year: "2-digit" }),
+    };
+  });
+  const revenueTrend = monthBuckets.map(({ key, label }) => ({
+    label,
+    value: entries
+      .filter((e) => e.statusPembayaran === "Lunas" && e.date.slice(0, 7) === key)
+      .reduce((sum, e) => sum + e.value, 0),
+  }));
+
+  return (
+    <div className="p-4 md:p-8">
+      <div className="animate-fade-up flex items-start gap-4">
+        <div className="relative shrink-0">
+          <span
+            className="absolute -inset-1.5 animate-pulse rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 opacity-30 blur-lg"
+            aria-hidden
+          />
+          <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 text-white shadow-sm">
+            <Wallet2 className="h-6 w-6" />
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-rose-500 dark:text-rose-400">
+            Admin
+          </p>
+          <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
+            Piutang &amp; Pendapatan
+          </h1>
+          <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+            Status pembayaran digabung dari Magnarent, Magnative, dan Production.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-6">
+        <KeuanganStatGrid
+          totalPiutang={totalPiutang}
+          totalPendapatan={totalPendapatan}
+          piutangMagnarent={piutangPerModul("magnarent")}
+          piutangMagnative={piutangPerModul("magnative")}
+          piutangProduction={piutangPerModul("production")}
+          jumlahTertunda={belumLunas.length}
+        />
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-5">
+        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900 lg:col-span-2">
+          <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Tren Pendapatan (Lunas) 6 Bulan</h3>
+          </div>
+          <div className="px-5 py-5">
+            <TrendBarChart data={revenueTrend} formatValue={formatRupiah} />
+          </div>
+        </div>
+
+        <div className="lg:col-span-3">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <h3 className="text-sm font-bold text-zinc-900 dark:text-white">
+              Daftar Piutang ({piutangRows.length})
+            </h3>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">Diurutkan dari yang paling lama</p>
+          </div>
+          <PiutangTable rows={piutangRows} />
+        </div>
+      </div>
+    </div>
+  );
+}
