@@ -11,8 +11,13 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="app-backdrop relative flex min-h-screen items-center justify-center overflow-hidden bg-zinc-50 px-4 py-10 dark:bg-zinc-950">
       <div
-        className="pointer-events-none absolute -top-40 left-1/2 h-96 w-[42rem] -translate-x-1/2 rounded-full opacity-30 blur-3xl"
+        className="animate-blob pointer-events-none absolute -top-40 left-1/2 h-96 w-[42rem] -translate-x-1/2 rounded-full opacity-30 blur-3xl"
         style={{ background: BRAND_GRADIENT }}
+        aria-hidden
+      />
+      <div
+        className="animate-blob pointer-events-none absolute -bottom-32 left-1/2 h-72 w-[32rem] -translate-x-1/2 rounded-full opacity-20 blur-3xl"
+        style={{ background: BRAND_GRADIENT, animationDelay: "4s" }}
         aria-hidden
       />
 

@@ -15,9 +15,24 @@ import { PushNotificationBell } from "@/components/push/PushNotificationBell";
  * tombol "Keluar". `user` bisa null sesaat (mis. trigger profiles belum
  * sempat jalan) — ditangani dengan fallback yang tetap masuk akal.
  */
+function greetingForHour(hour: number): string {
+  if (hour < 11) return "Selamat pagi";
+  if (hour < 15) return "Selamat siang";
+  if (hour < 19) return "Selamat sore";
+  return "Selamat malam";
+}
+
 export function Topbar({ user }: { user: (Profile & { email: string }) | null }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  // Mulai dari sapaan netral (sama di server & klien) supaya tidak ada
+  // hydration mismatch akibat jam server vs jam browser — begitu mount,
+  // langsung disesuaikan ke jam sungguhan si pengguna.
+  const [greeting, setGreeting] = useState("Halo");
+
+  useEffect(() => {
+    setGreeting(greetingForHour(new Date().getHours()));
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -33,14 +48,9 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-black/5 bg-white/80 px-4 backdrop-blur-md dark:border-white/10 dark:bg-zinc-950/80 md:px-8">
-      <div>
-        <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-          Halo, {displayName.split(" ")[0]} 👋
-        </p>
-        <p className="hidden text-xs text-zinc-400 dark:text-zinc-500 sm:block">
-          Semoga harimu produktif.
-        </p>
-      </div>
+      <p className="text-sm font-semibold text-zinc-900 dark:text-white">
+        {greeting}, {displayName.split(" ")[0]}
+      </p>
 
       <div className="flex items-center gap-2.5">
       <PushNotificationBell />
@@ -50,13 +60,18 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
           onClick={() => setOpen((v) => !v)}
           className="flex items-center gap-2.5 rounded-full border border-black/5 bg-white py-1.5 pl-1.5 pr-3 shadow-sm transition-colors hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-900 dark:hover:bg-white/5"
         >
-          <span
-            className={cn(
-              "grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-bold text-white",
-              getAvatarColor(displayName)
-            )}
-          >
-            {getInitials(displayName)}
+          <span className="relative shrink-0">
+            <span
+              className={cn(
+                "grid h-8 w-8 place-items-center rounded-full text-xs font-bold text-white",
+                getAvatarColor(displayName)
+              )}
+            >
+              {getInitials(displayName)}
+            </span>
+            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-zinc-950">
+              <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-75" />
+            </span>
           </span>
           <span className="hidden text-left sm:block">
             <span className="block text-xs font-semibold leading-tight text-zinc-800 dark:text-zinc-100">

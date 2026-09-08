@@ -1,7 +1,30 @@
 import Link from "next/link";
-import { ArrowUpRight, Boxes, CalendarPlus, Hammer, UserPlus } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUpRight,
+  Boxes,
+  CalendarPlus,
+  CalendarRange,
+  ClipboardList,
+  Hammer,
+  PackageSearch,
+  UserPlus,
+  type LucideIcon,
+} from "lucide-react";
 import { getVisibleModules } from "@/lib/navigation";
 import { getCurrentProfile } from "@/lib/supabase/server";
+import { getMagnarentSummary, getMagnativeSummary, getProductionSummary } from "@/lib/dashboard/summary";
+import { QuickStatCard } from "@/components/dashboard/QuickStatCard";
+
+type StatCard = {
+  label: string;
+  value: number;
+  hint: string;
+  icon: LucideIcon;
+  accent: string;
+  href: string;
+  warn?: boolean;
+};
 
 const QUICK_ACTIONS = [
   {
@@ -38,7 +61,11 @@ const QUICK_ACTIONS = [
  * Dashboard Hub — membaca dari `getVisibleModules(division)` (sumber
  * kebenaran yang sama dengan Sidebar), jadi staf satu bagian cuma melihat
  * modul & aksi cepat untuk bagiannya sendiri, sementara akses penuh
- * (Owner/Finance/Investor) tetap melihat semuanya.
+ * (Owner/Finance/Investor) tetap melihat semuanya. "Ringkasan Cepat" di
+ * bawah judul membaca angka asli dari Supabase (bukan mock) lewat
+ * `src/lib/dashboard/summary.ts` — cuma diambil untuk modul yang memang
+ * terlihat oleh staf yang login, supaya tidak ada query sia-sia ke modul
+ * yang RLS-nya akan menolak kalau tetap dipanggil.
  */
 export default async function DashboardHubPage() {
   const profile = await getCurrentProfile();
@@ -48,20 +75,125 @@ export default async function DashboardHubPage() {
   const visibleModuleIds = new Set(modules.map((mod) => mod.id));
   const quickActions = QUICK_ACTIONS.filter((action) => visibleModuleIds.has(action.moduleId));
 
+  const [magnarentSummary, magnativeSummary, productionSummary] = await Promise.all([
+    visibleModuleIds.has("magnarent") ? getMagnarentSummary() : Promise.resolve(null),
+    visibleModuleIds.has("magnative") ? getMagnativeSummary() : Promise.resolve(null),
+    visibleModuleIds.has("production") ? getProductionSummary() : Promise.resolve(null),
+  ]);
+
+  const statCards: StatCard[] = [];
+  if (magnarentSummary) {
+    statCards.push(
+      {
+        label: "Booking Aktif",
+        value: magnarentSummary.bookingAktif,
+        hint: "Menunggu & dikonfirmasi",
+        icon: CalendarRange,
+        accent: "#3B82F6",
+        href: "/dashboard/magnarent/booking",
+      },
+      {
+        label: "Booking Bulan Ini",
+        value: magnarentSummary.bookingBulanIni,
+        hint: "Sejak tanggal 1 bulan ini",
+        icon: ClipboardList,
+        accent: "#06B6D4",
+        href: "/dashboard/magnarent/booking",
+      }
+    );
+  }
+  if (magnativeSummary) {
+    statCards.push(
+      {
+        label: "Proyek Berjalan",
+        value: magnativeSummary.proyekBerjalan,
+        hint: "Status: Berjalan",
+        icon: Hammer,
+        accent: "#8B5CF6",
+        href: "/dashboard/magnative/proyek",
+      },
+      {
+        label: "Konten 7 Hari Ke Depan",
+        value: magnativeSummary.kontenMingguIni,
+        hint: "Terjadwal tayang minggu ini",
+        icon: CalendarPlus,
+        accent: "#EC4899",
+        href: "/dashboard/magnative/sosial-media",
+      }
+    );
+  }
+  if (productionSummary) {
+    statCards.push(
+      {
+        label: "Proyek Booth Aktif",
+        value: productionSummary.proyekAktif,
+        hint: "Desain sampai Instalasi",
+        icon: PackageSearch,
+        accent: "#F59E0B",
+        href: "/dashboard/production/proyek",
+      },
+      {
+        label: "Stok Menipis",
+        value: productionSummary.stokMenipis,
+        hint: "Di titik minimum atau di bawahnya",
+        icon: AlertTriangle,
+        accent: "#EF4444",
+        href: "/dashboard/production/material",
+        warn: productionSummary.stokMenipis > 0,
+      }
+    );
+  }
+
   return (
     <div className="p-4 md:p-8">
-      <div className="mb-8 animate-fade-up">
-        <p className="text-xs font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
-          Unified Dashboard
-        </p>
-        <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
-          {firstName ? `Selamat datang, ${firstName}` : "Dashboard Hub"}
-        </h1>
-        <p className="mt-2 max-w-xl text-sm text-zinc-500 dark:text-zinc-400">
-          Pilih modul untuk masuk — navigasi di dalam modul akan tetap terbuka lewat
-          sub-navigation bar tanpa kembali ke sini.
-        </p>
+      <div className="relative mb-8 isolate overflow-hidden rounded-3xl border border-black/5 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900 md:p-8">
+        <span
+          className="animate-blob pointer-events-none absolute -top-16 left-10 -z-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl"
+          aria-hidden
+        />
+        <span
+          className="animate-blob pointer-events-none absolute -right-6 -bottom-16 -z-10 h-40 w-40 rounded-full bg-fuchsia-500/15 blur-3xl"
+          style={{ animationDelay: "3s" }}
+          aria-hidden
+        />
+        <div className="relative animate-fade-up">
+          <p className="text-xs font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400">
+            Unified Dashboard
+          </p>
+          <h1 className="text-shine mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">
+            {firstName ? `Selamat datang, ${firstName}` : "Dashboard Hub"}
+          </h1>
+          <p className="mt-2 max-w-xl text-sm text-zinc-500 dark:text-zinc-400">
+            Pilih modul untuk mulai bekerja.
+          </p>
+        </div>
       </div>
+
+      {statCards.length > 0 && (
+        <div className="mb-8" style={{ animationDelay: "30ms" }}>
+          <p className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+            Ringkasan Cepat
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {statCards.map((card, i) => {
+              const Icon = card.icon;
+              return (
+                <QuickStatCard
+                  key={card.label}
+                  label={card.label}
+                  value={card.value}
+                  hint={card.hint}
+                  accent={card.accent}
+                  href={card.href}
+                  warn={card.warn}
+                  delayMs={i * 60}
+                  icon={<Icon className="h-5 w-5" />}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {quickActions.length > 0 && (
         <div className="mb-8 animate-fade-up" style={{ animationDelay: "60ms" }}>

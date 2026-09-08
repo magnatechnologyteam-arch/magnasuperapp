@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentProfile } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/activity/log";
 import type { Division } from "@/lib/supabase/types";
 
 const VALID_DIVISIONS: Division[] = ["magnarent", "magnative", "production", "all"];
@@ -69,6 +70,13 @@ export async function createStaffAccount(formData: FormData) {
   }
 
   revalidatePath("/dashboard/admin/pengguna");
+  void logActivity({
+    module: "admin",
+    action: "create",
+    entityType: "staf",
+    entityLabel: fullName,
+    detail: `username: ${username}, divisi: ${division}`,
+  });
   redirect(`/dashboard/admin/pengguna?notice=${encodeURIComponent(`Akun ${fullName} berhasil dibuat.`)}`);
 }
 
@@ -102,6 +110,17 @@ export async function updateStaffDivision(formData: FormData) {
   }
 
   revalidatePath("/dashboard/admin/pengguna");
+  const staffName =
+    (existing?.user?.user_metadata as { full_name?: string } | null | undefined)?.full_name ||
+    existing?.user?.email ||
+    userId;
+  void logActivity({
+    module: "admin",
+    action: "update",
+    entityType: "staf",
+    entityLabel: staffName,
+    detail: `divisi → ${division}`,
+  });
   redirect(`/dashboard/admin/pengguna?notice=${encodeURIComponent("Divisi berhasil diperbarui.")}`);
 }
 
@@ -118,11 +137,18 @@ export async function deleteStaffAccount(formData: FormData) {
   }
 
   const admin = createAdminClient();
+  const { data: existing } = await admin.auth.admin.getUserById(userId);
+  const staffName =
+    (existing?.user?.user_metadata as { full_name?: string } | null | undefined)?.full_name ||
+    existing?.user?.email ||
+    userId;
+
   const { error } = await admin.auth.admin.deleteUser(userId);
   if (error) {
     redirect(`/dashboard/admin/pengguna?error=${encodeURIComponent(error.message)}`);
   }
 
   revalidatePath("/dashboard/admin/pengguna");
+  void logActivity({ module: "admin", action: "delete", entityType: "staf", entityLabel: staffName });
   redirect(`/dashboard/admin/pengguna?notice=${encodeURIComponent("Akun berhasil dihapus.")}`);
 }

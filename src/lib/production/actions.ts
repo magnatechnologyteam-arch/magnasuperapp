@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { notifyDivision } from "@/lib/push/notify";
+import { logActivity } from "@/lib/activity/log";
 import { ACTIVE_BOOTH_STATUSES, findMaterialConflicts, type MaterialConflict } from "./availability";
 import { rowToBoothProject, rowToMaterial, type BoothProjectRow, type MaterialRow } from "./mappers";
 import type { BoothStatus, MaterialItem, MaterialUsage } from "./types";
@@ -35,6 +37,8 @@ export async function addMaterial(input: Omit<MaterialItem, "id">): Promise<Muta
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "production", action: "create", entityType: "material", entityLabel: input.name });
+  await notifyLowStockIfNeeded(supabase, input.name, input.stock, input.minStock);
   return { ok: true };
 }
 
@@ -58,7 +62,37 @@ export async function updateMaterial(id: string, input: Omit<MaterialItem, "id">
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "production", action: "update", entityType: "material", entityLabel: input.name });
+  await notifyLowStockIfNeeded(supabase, input.name, input.stock, input.minStock);
   return { ok: true };
+}
+
+/**
+ * Dipanggil setelah tambah/ubah material — kalau stok sudah di titik minimum
+ * atau di bawahnya, kirim satu notifikasi ke tim Production (+ akses penuh).
+ * Tidak di-`await` oleh pemanggil (dipanggil dengan `await` di sini tapi
+ * `notifyDivision` sendiri tidak melempar error) supaya kegagalan kirim
+ * notifikasi tidak pernah membatalkan aksi simpan material yang sudah sukses.
+ */
+async function notifyLowStockIfNeeded(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  materialName: string,
+  stock: number,
+  minStock: number
+): Promise<void> {
+  if (stock > minStock) return;
+  const {
+    data: { user: materialActor },
+  } = await supabase.auth.getUser();
+  void notifyDivision(
+    "production",
+    {
+      title: "Stok Menipis — Production",
+      body: `Stok "${materialName}" tersisa ${stock}, sudah di titik minimum (${minStock}).`,
+      url: "/dashboard/production/gudang",
+    },
+    materialActor?.id
+  );
 }
 
 export async function deleteMaterial(id: string): Promise<MutationResult> {
@@ -87,12 +121,15 @@ export async function deleteMaterial(id: string): Promise<MutationResult> {
     return { ok: false, error: "Material masih dialokasikan ke proyek booth aktif, tidak bisa dihapus." };
   }
 
+  const { data: materialRow } = await supabase.from("production_materials").select("name").eq("id", id).maybeSingle();
+
   const { error } = await supabase.from("production_materials").delete().eq("id", id);
   if (error) {
     console.error("[production] deleteMaterial gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "production", action: "delete", entityType: "material", entityLabel: materialRow?.name });
   return { ok: true };
 }
 
@@ -170,6 +207,29 @@ export async function addProject(input: NewBoothProjectInput): Promise<SaveBooth
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+
+  // Beri tahu tim Production (+ akun akses penuh) ada proyek booth baru —
+  // tidak di-`await` supaya kegagalan kirim notifikasi tidak menahan respons.
+  const {
+    data: { user: boothActor },
+  } = await supabase.auth.getUser();
+  void notifyDivision(
+    "production",
+    {
+      title: "Proyek Booth Baru — Production",
+      body: `Proyek "${input.name}" untuk ${input.namaKlien} baru dibuat.`,
+      url: "/dashboard/production/proyek",
+    },
+    boothActor?.id
+  );
+  void logActivity({
+    module: "production",
+    action: "create",
+    entityType: "proyek booth",
+    entityLabel: input.name,
+    detail: input.namaKlien,
+  });
+
   return { ok: true };
 }
 
@@ -204,17 +264,36 @@ export async function updateProject(id: string, input: NewBoothProjectInput): Pr
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "production",
+    action: "update",
+    entityType: "proyek booth",
+    entityLabel: input.name,
+    detail: `status: ${input.status}`,
+  });
   return { ok: true };
 }
 
 export async function deleteProject(id: string): Promise<MutationResult> {
   const supabase = await createClient();
+  const { data: projectRow } = await supabase
+    .from("production_booth_projects")
+    .select("name")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("production_booth_projects").delete().eq("id", id);
   if (error) {
     console.error("[production] deleteProject gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "production",
+    action: "delete",
+    entityType: "proyek booth",
+    entityLabel: projectRow?.name,
+  });
   return { ok: true };
 }
 
@@ -225,11 +304,24 @@ export async function deleteProject(id: string): Promise<MutationResult> {
  */
 export async function updateProjectStatus(id: string, status: BoothStatus): Promise<MutationResult> {
   const supabase = await createClient();
+  const { data: projectRow } = await supabase
+    .from("production_booth_projects")
+    .select("name")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("production_booth_projects").update({ status }).eq("id", id);
   if (error) {
     console.error("[production] updateProjectStatus gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "production",
+    action: "status_change",
+    entityType: "proyek booth",
+    entityLabel: projectRow?.name,
+    detail: `status → ${status}`,
+  });
   return { ok: true };
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGrid, Users } from "lucide-react";
+import { BarChart3, History, LayoutGrid, Users } from "lucide-react";
 import { BRAND_GRADIENT, HUB_HREF, getVisibleModules } from "@/lib/navigation";
 import { cn } from "@/lib/cn";
 import type { Division } from "@/lib/supabase/types";
@@ -14,8 +14,15 @@ import type { Division } from "@/lib/supabase/types";
  *
  * `division` menentukan modul mana yang ditampilkan (lihat getVisibleModules)
  * — staf satu bagian cuma melihat tautan ke modulnya sendiri, sementara
- * akses penuh ("all") melihat semuanya plus tautan "Kelola Pengguna".
+ * akses penuh ("all") melihat semuanya plus tautan ke halaman Admin
+ * (Kelola Pengguna, Laporan, Aktivitas).
  */
+const ADMIN_LINKS = [
+  { href: "/dashboard/admin/pengguna", label: "Kelola Pengguna", icon: Users },
+  { href: "/dashboard/admin/laporan", label: "Laporan", icon: BarChart3 },
+  { href: "/dashboard/admin/aktivitas", label: "Aktivitas", icon: History },
+];
+
 export function Sidebar({ division }: { division?: Division | null }) {
   const pathname = usePathname();
   const modules = getVisibleModules(division);
@@ -93,18 +100,28 @@ export function Sidebar({ division }: { division?: Division | null }) {
             <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
               Admin
             </p>
-            <Link
-              href="/dashboard/admin/pengguna"
-              className={cn(
-                "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
-                pathname.startsWith("/dashboard/admin")
-                  ? "bg-zinc-100 text-zinc-900 dark:bg-white/10 dark:text-white"
-                  : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
-              )}
-            >
-              <Users className="h-[18px] w-[18px]" />
-              Kelola Pengguna
-            </Link>
+            <ul className="space-y-1">
+              {ADMIN_LINKS.map((link) => {
+                const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                const Icon = link.icon;
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                        isActive
+                          ? "bg-zinc-100 text-zinc-900 dark:bg-white/10 dark:text-white"
+                          : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+                      )}
+                    >
+                      <Icon className="h-[18px] w-[18px]" />
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
       </nav>

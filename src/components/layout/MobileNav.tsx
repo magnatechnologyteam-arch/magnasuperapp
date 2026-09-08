@@ -6,6 +6,12 @@ import { HUB_HREF, getVisibleModules } from "@/lib/navigation";
 import { cn } from "@/lib/cn";
 import type { Division } from "@/lib/supabase/types";
 
+const ADMIN_LINKS = [
+  { href: "/dashboard/admin/pengguna", label: "Pengguna" },
+  { href: "/dashboard/admin/laporan", label: "Laporan" },
+  { href: "/dashboard/admin/aktivitas", label: "Aktivitas" },
+];
+
 /**
  * Pengganti Sidebar di layar kecil: strip module switcher yang bisa discroll
  * horizontal, tetap tampil di semua halaman lewat root layout. Modul yang
@@ -47,19 +53,24 @@ export function MobileNav({ division }: { division?: Division | null }) {
           </Link>
         );
       })}
-      {isFullAccess && (
-        <Link
-          href="/dashboard/admin/pengguna"
-          className={cn(
-            "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-transform active:scale-95",
-            pathname.startsWith("/dashboard/admin")
-              ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-              : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"
-          )}
-        >
-          Pengguna
-        </Link>
-      )}
+      {isFullAccess &&
+        ADMIN_LINKS.map((link) => {
+          const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-transform active:scale-95",
+                isActive
+                  ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+                  : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"
+              )}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
     </div>
   );
 }

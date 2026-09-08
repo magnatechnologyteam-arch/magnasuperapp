@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { notifyDivision } from "@/lib/push/notify";
+import { logActivity } from "@/lib/activity/log";
 import { getAvailableUnitsInRange, getOverlappingBookings } from "./availability";
 import { rowToBooking, rowToInventory, type BookingRow, type InventoryRow } from "./mappers";
 import type { Booking, BookingStatus, InventoryItem, PaymentStatus } from "./types";
@@ -58,6 +60,7 @@ export async function addInventoryItem(input: Omit<InventoryItem, "id">): Promis
   }
 
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnarent", action: "create", entityType: "inventaris", entityLabel: input.name });
   return { ok: true };
 }
 
@@ -84,6 +87,7 @@ export async function updateInventoryItem(
   }
 
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnarent", action: "update", entityType: "inventaris", entityLabel: input.name });
   return { ok: true };
 }
 
@@ -108,6 +112,8 @@ export async function deleteInventoryItem(id: string): Promise<MutationResult> {
     return { ok: false, error: "Alat masih dipakai booking aktif, tidak bisa dihapus." };
   }
 
+  const { data: itemRow } = await supabase.from("magnarent_inventory").select("name").eq("id", id).maybeSingle();
+
   const { error } = await supabase.from("magnarent_inventory").delete().eq("id", id);
   if (error) {
     console.error("[magnarent] deleteInventoryItem gagal:", error.message);
@@ -115,6 +121,7 @@ export async function deleteInventoryItem(id: string): Promise<MutationResult> {
   }
 
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnarent", action: "delete", entityType: "inventaris", entityLabel: itemRow?.name });
   return { ok: true };
 }
 
@@ -201,6 +208,30 @@ export async function addBooking(input: BookingInput): Promise<SaveBookingResult
   }
 
   revalidatePath(MODULE_PATH);
+
+  // Beri tahu tim Magnarent (+ akun akses penuh) ada booking baru masuk.
+  // Sengaja tidak di-`await` — kegagalan kirim notifikasi tidak boleh
+  // menahan respons ke pengguna yang booking-nya sudah berhasil tersimpan.
+  const {
+    data: { user: bookingActor },
+  } = await supabase.auth.getUser();
+  void notifyDivision(
+    "magnarent",
+    {
+      title: "Booking Baru — Magnarent",
+      body: `${input.namaKlien} memesan ${capacity.item.name} (${input.jumlahUnit} unit).`,
+      url: "/dashboard/magnarent/booking",
+    },
+    bookingActor?.id
+  );
+  void logActivity({
+    module: "magnarent",
+    action: "create",
+    entityType: "booking",
+    entityLabel: input.namaKlien,
+    detail: `${capacity.item.name} × ${input.jumlahUnit} unit`,
+  });
+
   return { ok: true };
 }
 
@@ -236,11 +267,18 @@ export async function updateBooking(id: string, input: BookingInput): Promise<Sa
   }
 
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnarent", action: "update", entityType: "booking", entityLabel: input.namaKlien });
   return { ok: true };
 }
 
 export async function deleteBooking(id: string): Promise<MutationResult> {
   const supabase = await createClient();
+  const { data: bookingRow } = await supabase
+    .from("magnarent_bookings")
+    .select("nama_klien")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("magnarent_bookings").delete().eq("id", id);
   if (error) {
     console.error("[magnarent] deleteBooking gagal:", error.message);
@@ -248,11 +286,23 @@ export async function deleteBooking(id: string): Promise<MutationResult> {
   }
 
   revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "magnarent",
+    action: "delete",
+    entityType: "booking",
+    entityLabel: bookingRow?.nama_klien,
+  });
   return { ok: true };
 }
 
 export async function updateBookingStatus(id: string, status: BookingStatus): Promise<MutationResult> {
   const supabase = await createClient();
+  const { data: bookingRow } = await supabase
+    .from("magnarent_bookings")
+    .select("nama_klien")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("magnarent_bookings").update({ status }).eq("id", id);
   if (error) {
     console.error("[magnarent] updateBookingStatus gagal:", error.message);
@@ -260,5 +310,12 @@ export async function updateBookingStatus(id: string, status: BookingStatus): Pr
   }
 
   revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "magnarent",
+    action: "status_change",
+    entityType: "booking",
+    entityLabel: bookingRow?.nama_klien,
+    detail: `status → ${status}`,
+  });
   return { ok: true };
 }

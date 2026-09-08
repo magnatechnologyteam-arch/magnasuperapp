@@ -26,7 +26,14 @@ export function DonutChart({
 
   return (
     <div className="flex items-center gap-5">
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="-rotate-90 shrink-0">
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="animate-pop-in shrink-0"
+        style={{ transformOrigin: "center" }}
+      >
+        <title>Grafik distribusi</title>
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -65,7 +72,11 @@ export function DonutChart({
           {data
             .filter((d) => d.value > 0)
             .map((d, i) => (
-              <li key={i} className="flex items-center gap-2 text-xs">
+              <li
+                key={i}
+                className="animate-fade-up flex items-center gap-2 text-xs"
+                style={{ animationDelay: `${120 + i * 60}ms` }}
+              >
                 <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: d.color }} />
                 <span className="truncate text-zinc-500 dark:text-zinc-400">{d.label}</span>
                 <span className="font-semibold text-zinc-800 dark:text-zinc-200">{d.value}</span>

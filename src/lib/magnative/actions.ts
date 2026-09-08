@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { notifyDivision } from "@/lib/push/notify";
+import { logActivity } from "@/lib/activity/log";
 import type { Client, ContentPost, Project } from "./types";
 
 const MODULE_PATH = "/dashboard/magnative";
@@ -34,6 +36,7 @@ export async function addClient(input: Omit<Client, "id">): Promise<MutationResu
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "create", entityType: "klien", entityLabel: input.name });
   return { ok: true };
 }
 
@@ -57,6 +60,7 @@ export async function updateClient(id: string, input: Omit<Client, "id">): Promi
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "update", entityType: "klien", entityLabel: input.name });
   return { ok: true };
 }
 
@@ -81,12 +85,15 @@ export async function deleteClient(id: string): Promise<MutationResult> {
     return { ok: false, error: "Klien masih punya proyek aktif, tidak bisa dihapus." };
   }
 
+  const { data: clientRow } = await supabase.from("magnative_clients").select("name").eq("id", id).maybeSingle();
+
   const { error } = await supabase.from("magnative_clients").delete().eq("id", id);
   if (error) {
     console.error("[magnative] deleteClient gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "delete", entityType: "klien", entityLabel: clientRow?.name });
   return { ok: true };
 }
 
@@ -108,6 +115,23 @@ export async function addProject(input: Omit<Project, "id">): Promise<MutationRe
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+
+  // Beri tahu tim Magnative (+ akun akses penuh) ada proyek baru — tidak
+  // di-`await` supaya kegagalan kirim notifikasi tidak menahan respons.
+  const {
+    data: { user: projectActor },
+  } = await supabase.auth.getUser();
+  void notifyDivision(
+    "magnative",
+    {
+      title: "Proyek Baru — Magnative",
+      body: `Proyek "${input.name}" (${input.type}) baru dibuat.`,
+      url: "/dashboard/magnative/proyek",
+    },
+    projectActor?.id
+  );
+  void logActivity({ module: "magnative", action: "create", entityType: "proyek", entityLabel: input.name });
+
   return { ok: true };
 }
 
@@ -132,17 +156,27 @@ export async function updateProject(id: string, input: Omit<Project, "id">): Pro
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "magnative",
+    action: "update",
+    entityType: "proyek",
+    entityLabel: input.name,
+    detail: `status: ${input.status}`,
+  });
   return { ok: true };
 }
 
 export async function deleteProject(id: string): Promise<MutationResult> {
   const supabase = await createClient();
+  const { data: projectRow } = await supabase.from("magnative_projects").select("name").eq("id", id).maybeSingle();
+
   const { error } = await supabase.from("magnative_projects").delete().eq("id", id);
   if (error) {
     console.error("[magnative] deleteProject gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "delete", entityType: "proyek", entityLabel: projectRow?.name });
   return { ok: true };
 }
 
@@ -162,6 +196,7 @@ export async function addContentPost(input: Omit<ContentPost, "id">): Promise<Mu
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "create", entityType: "konten", entityLabel: input.title });
   return { ok: true };
 }
 
@@ -184,16 +219,24 @@ export async function updateContentPost(id: string, input: Omit<ContentPost, "id
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "update", entityType: "konten", entityLabel: input.title });
   return { ok: true };
 }
 
 export async function deleteContentPost(id: string): Promise<MutationResult> {
   const supabase = await createClient();
+  const { data: postRow } = await supabase
+    .from("magnative_content_posts")
+    .select("title")
+    .eq("id", id)
+    .maybeSingle();
+
   const { error } = await supabase.from("magnative_content_posts").delete().eq("id", id);
   if (error) {
     console.error("[magnative] deleteContentPost gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "delete", entityType: "konten", entityLabel: postRow?.title });
   return { ok: true };
 }

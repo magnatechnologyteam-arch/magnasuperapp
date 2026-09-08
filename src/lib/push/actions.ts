@@ -2,6 +2,7 @@
 
 import webpush from "web-push";
 import { createClient } from "@/lib/supabase/server";
+import { configureWebPush } from "./notify";
 
 export type SubscriptionInput = {
   endpoint: string;
@@ -9,17 +10,6 @@ export type SubscriptionInput = {
 };
 
 type ActionResult = { ok: true; message?: string } | { ok: false; message: string };
-
-function configureWebPush() {
-  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-
-  if (!publicKey || !privateKey) {
-    throw new Error("NEXT_PUBLIC_VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY belum diset di .env.local");
-  }
-
-  webpush.setVapidDetails("mailto:magnatechnology.team@gmail.com", publicKey, privateKey);
-}
 
 /** Dipanggil dari klien setelah `pushManager.subscribe()` berhasil. */
 export async function savePushSubscription(subscription: SubscriptionInput, userAgent: string): Promise<ActionResult> {
@@ -66,9 +56,12 @@ export async function removePushSubscription(endpoint: string): Promise<ActionRe
 
 /**
  * Kirim satu notifikasi tes ke semua perangkat milik pengguna yang sedang
- * login. Ini fondasi generiknya — pemicu otomatis dari kejadian bisnis
- * nyata (mis. "booking baru masuk", "stok material menipis") menyusul
- * setelah data modul-modul pindah dari mock in-memory ke Supabase.
+ * login. Pemicu OTOMATIS dari kejadian bisnis nyata (booking baru,
+ * stok menipis, proyek baru) sudah tersambung sejak data modul-modul
+ * pindah ke Supabase — lihat `notifyDivision` di `./notify.ts`, dipanggil
+ * dari Server Action masing-masing modul (magnarent/magnative/production).
+ * Tombol "Kirim Notifikasi Tes" ini tetap berguna untuk memastikan jalur
+ * pengiriman ke perangkat Anda sendiri masih hidup.
  */
 export async function sendTestPush(): Promise<ActionResult> {
   const supabase = await createClient();
