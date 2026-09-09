@@ -59,6 +59,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
     jumlahUnit: 3,
     status: "Dikonfirmasi",
     statusPembayaran: "DP",
+    dpAmount: 0,
   },
   {
     id: "bk-2",
@@ -70,6 +71,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
     jumlahUnit: 2,
     status: "Menunggu",
     statusPembayaran: "Belum Bayar",
+    dpAmount: 0,
   },
   {
     id: "bk-3",
@@ -81,6 +83,7 @@ export const INITIAL_BOOKINGS: Booking[] = [
     jumlahUnit: 150,
     status: "Dikonfirmasi",
     statusPembayaran: "Lunas",
+    dpAmount: 0,
   },
   {
     id: "bk-4",
@@ -92,5 +95,6 @@ export const INITIAL_BOOKINGS: Booking[] = [
     jumlahUnit: 2,
     status: "Dikonfirmasi",
     statusPembayaran: "DP",
+    dpAmount: 0,
   },
 ];
