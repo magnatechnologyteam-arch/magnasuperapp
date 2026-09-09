@@ -65,6 +65,8 @@ export type BoothProject = {
   budget: number;
   /** Status tagihan ke klien — terpisah dari `status` (tahapan produksi). Lihat migrasi 0011. */
   statusPembayaran: PaymentStatus;
+  /** Nominal DP yang SUDAH diterima (Rupiah) — cuma relevan kalau statusPembayaran "DP", 0 selain itu. Migrasi 0015. */
+  dpAmount: number;
   materials: MaterialUsage[];
   catatan?: string;
 };

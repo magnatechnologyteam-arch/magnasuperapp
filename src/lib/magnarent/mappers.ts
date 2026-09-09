@@ -29,6 +29,7 @@ export type BookingRow = {
   jumlah_unit: number;
   status: BookingStatus;
   status_pembayaran: PaymentStatus;
+  dp_amount: number;
   catatan: string | null;
 };
 
@@ -60,6 +61,7 @@ export function rowToBooking(row: BookingRow): Booking {
     jumlahUnit: row.jumlah_unit,
     status: row.status,
     statusPembayaran: row.status_pembayaran,
+    dpAmount: row.dp_amount ?? 0,
     catatan: row.catatan ?? undefined,
   };
 }

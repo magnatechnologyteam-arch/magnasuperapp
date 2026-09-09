@@ -28,6 +28,8 @@ export type BookingInput = {
   tanggalSelesai: string;
   jumlahUnit: number;
   statusPembayaran: PaymentStatus;
+  /** Nominal DP yang sudah diterima — lihat migrasi 0015. */
+  dpAmount?: number;
   catatan?: string;
 };
 
@@ -201,6 +203,7 @@ export async function addBooking(input: BookingInput): Promise<SaveBookingResult
     jumlah_unit: input.jumlahUnit,
     status: "Menunggu",
     status_pembayaran: input.statusPembayaran,
+    dp_amount: input.dpAmount ?? 0,
     catatan: input.catatan ?? null,
   });
 
@@ -260,6 +263,7 @@ export async function updateBooking(id: string, input: BookingInput): Promise<Sa
       tanggal_selesai: input.tanggalSelesai,
       jumlah_unit: input.jumlahUnit,
       status_pembayaran: input.statusPembayaran,
+      dp_amount: input.dpAmount ?? 0,
       catatan: input.catatan ?? null,
     })
     .eq("id", id);

@@ -31,5 +31,7 @@ export type Booking = {
   jumlahUnit: number;
   status: BookingStatus;
   statusPembayaran: PaymentStatus;
+  /** Nominal DP yang SUDAH diterima (Rupiah) — cuma relevan kalau statusPembayaran "DP", 0 selain itu. Migrasi 0015. */
+  dpAmount: number;
   catatan?: string;
 };

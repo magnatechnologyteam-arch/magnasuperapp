@@ -25,7 +25,18 @@ type Entry = {
   date: string;
   value: number;
   statusPembayaran: PaymentStatusLike;
+  /** Nominal DP yang sudah diterima (Rupiah) — 0 kalau bukan status "DP". Migrasi 0015. */
+  dpAmount: number;
 };
+
+/**
+ * Sisa tagihan yang SEBENARNYA untuk satu entry: nilai penuh dikurangi DP
+ * yang sudah diterima (kalau statusnya "DP"), tidak pernah negatif. Untuk
+ * status "Belum Bayar" ini sama saja dengan nilai penuh (dpAmount = 0).
+ */
+function outstandingValue(e: Entry): number {
+  return Math.max(e.value - e.dpAmount, 0);
+}
 
 const MONTHS_BACK = 6;
 
@@ -36,12 +47,16 @@ const MONTHS_BACK = 6;
  * arus kas: siapa yang belum bayar, berapa totalnya per modul, dan tren
  * pendapatan bulanan dari transaksi yang sudah "Lunas".
  *
- * Batasan yang jujur perlu diketahui pemakai (lihat juga komentar di
- * `PiutangTable.tsx`): modul belum mencatat NOMINAL yang sudah masuk untuk
- * status "DP", cuma label status-nya — jadi "Total Piutang" di sini adalah
- * NILAI PENUH booking/proyek yang belum "Lunas", bukan sisa tagihan
- * sesungguhnya. Cukup akurat untuk melihat mana klien yang perlu ditagih,
- * tapi bukan angka piutang final untuk pembukuan.
+ * Sejak migrasi 0015, ketiga modul mencatat `dp_amount` sebagai NOMINAL RIIL
+ * yang sudah diterima untuk status "DP" (bukan cuma label status seperti
+ * sebelumnya) — jadi "Total Piutang" & "Daftar Piutang" di halaman ini
+ * sekarang menghitung SISA TAGIHAN SEBENARNYA (nilai penuh dikurangi DP),
+ * bukan nilai penuh booking/proyek. Lihat `outstandingValue()` di bawah dan
+ * komentar di `PiutangTable.tsx`.
+ *
+ * "Total Pendapatan" (tren 6 bulan) tetap menghitung nilai penuh dari entry
+ * berstatus "Lunas" — sengaja tidak diubah di tahap ini, karena begitu lunas
+ * DP tidak lagi relevan (bayangan pendapatan sudah dianggap penuh masuk).
  *
  * Proyek/booking berstatus "Dibatalkan" sengaja dikeluarkan dari semua
  * perhitungan di halaman ini — itu bukan potensi pendapatan yang batal
@@ -79,6 +94,7 @@ export default async function KeuanganPage() {
         date: b.tanggalMulai,
         value: calculateBookingTotal(b, inventory.find((i) => i.id === b.itemId)),
         statusPembayaran: b.statusPembayaran,
+        dpAmount: b.dpAmount ?? 0,
       })),
     ...projects
       .filter((p) => p.status !== "Dibatalkan")
@@ -90,6 +106,7 @@ export default async function KeuanganPage() {
         date: p.tanggalMulai,
         value: p.budget,
         statusPembayaran: p.statusPembayaran,
+        dpAmount: p.dpAmount ?? 0,
       })),
     ...boothProjects
       .filter((p) => p.status !== "Dibatalkan")
@@ -101,17 +118,18 @@ export default async function KeuanganPage() {
         date: p.tanggalMulai,
         value: p.budget,
         statusPembayaran: p.statusPembayaran,
+        dpAmount: p.dpAmount ?? 0,
       })),
   ];
 
   const belumLunas = entries.filter((e) => e.statusPembayaran !== "Lunas");
-  const totalPiutang = belumLunas.reduce((sum, e) => sum + e.value, 0);
+  const totalPiutang = belumLunas.reduce((sum, e) => sum + outstandingValue(e), 0);
   const totalPendapatan = entries
     .filter((e) => e.statusPembayaran === "Lunas")
     .reduce((sum, e) => sum + e.value, 0);
 
   const piutangPerModul = (mod: PiutangModule) =>
-    belumLunas.filter((e) => e.module === mod).reduce((sum, e) => sum + e.value, 0);
+    belumLunas.filter((e) => e.module === mod).reduce((sum, e) => sum + outstandingValue(e), 0);
 
   const piutangRows: PiutangRow[] = belumLunas
     .slice()
@@ -122,7 +140,8 @@ export default async function KeuanganPage() {
       label: e.label,
       namaKlien: e.namaKlien,
       date: e.date,
-      value: e.value,
+      value: outstandingValue(e),
+      dpAmount: e.dpAmount,
       statusPembayaran: e.statusPembayaran as PiutangStatus,
     }));
 

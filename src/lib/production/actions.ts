@@ -143,6 +143,8 @@ export type NewBoothProjectInput = {
   tanggalInstalasi: string;
   budget: number;
   statusPembayaran: PaymentStatus;
+  /** Nominal DP yang sudah diterima — lihat migrasi 0015. */
+  dpAmount?: number;
   materials: MaterialUsage[];
   catatan?: string;
 };
@@ -202,6 +204,7 @@ export async function addProject(input: NewBoothProjectInput): Promise<SaveBooth
     tanggal_instalasi: input.tanggalInstalasi,
     budget: input.budget,
     status_pembayaran: input.statusPembayaran,
+    dp_amount: input.dpAmount ?? 0,
     materials: input.materials,
     catatan: input.catatan ?? null,
   });
@@ -260,6 +263,7 @@ export async function updateProject(id: string, input: NewBoothProjectInput): Pr
       tanggal_instalasi: input.tanggalInstalasi,
       budget: input.budget,
       status_pembayaran: input.statusPembayaran,
+      dp_amount: input.dpAmount ?? 0,
       materials: input.materials,
       catatan: input.catatan ?? null,
     })

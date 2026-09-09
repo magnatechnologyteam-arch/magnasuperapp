@@ -33,6 +33,8 @@ export type Project = {
   status: ProjectStatus;
   /** Status tagihan ke klien — terpisah dari `status` (tahapan proyek). Lihat migrasi 0011. */
   statusPembayaran: PaymentStatus;
+  /** Nominal DP yang SUDAH diterima (Rupiah) — cuma relevan kalau statusPembayaran "DP", 0 selain itu. Migrasi 0015. */
+  dpAmount: number;
   catatan?: string;
 };
 

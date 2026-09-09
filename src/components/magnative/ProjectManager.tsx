@@ -40,6 +40,7 @@ function emptyForm() {
     budget: "0",
     status: "Perencanaan" as ProjectStatus,
     statusPembayaran: "Belum Bayar" as PaymentStatus,
+    dpAmount: "0",
     catatan: "",
   };
 }
@@ -54,6 +55,7 @@ function projectToForm(p: Project) {
     budget: String(p.budget),
     status: p.status,
     statusPembayaran: p.statusPembayaran,
+    dpAmount: String(p.dpAmount ?? 0),
     catatan: p.catatan ?? "",
   };
 }
@@ -141,6 +143,18 @@ export function ProjectManager() {
       return;
     }
 
+    const dpAmount = Number(form.dpAmount) || 0;
+    if (form.statusPembayaran === "DP") {
+      if (dpAmount <= 0) {
+        setError("Isi nominal DP yang sudah diterima (harus lebih dari 0).");
+        return;
+      }
+      if (dpAmount > budget) {
+        setError("Nominal DP tidak boleh melebihi budget.");
+        return;
+      }
+    }
+
     const payload = {
       clientId: form.clientId,
       name: form.name.trim(),
@@ -150,6 +164,7 @@ export function ProjectManager() {
       budget,
       status: form.status,
       statusPembayaran: form.statusPembayaran,
+      dpAmount,
       catatan: form.catatan.trim() || undefined,
     };
 
@@ -289,6 +304,11 @@ export function ProjectManager() {
                     >
                       {p.statusPembayaran}
                     </span>
+                    {p.statusPembayaran === "DP" && p.dpAmount > 0 && (
+                      <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                        DP: {formatRupiah(p.dpAmount)}
+                      </p>
+                    )}
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex justify-end gap-1">
@@ -438,6 +458,28 @@ export function ProjectManager() {
               </select>
             </div>
           </div>
+
+          {form.statusPembayaran === "DP" && (
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Nominal DP Diterima (Rp)
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={form.dpAmount}
+                onChange={(e) => setForm((f) => ({ ...f, dpAmount: e.target.value }))}
+                placeholder="mis. 5000000"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+              {Number.isFinite(Number(form.budget)) && (
+                <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                  Sisa tagihan setelah DP:{" "}
+                  {formatRupiah(Math.max(Number(form.budget) - (Number(form.dpAmount) || 0), 0))}
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">

@@ -37,6 +37,7 @@ export type ProjectRow = {
   budget: number;
   status: ProjectStatus;
   status_pembayaran: PaymentStatus;
+  dp_amount: number;
   catatan: string | null;
 };
 
@@ -77,6 +78,7 @@ export function rowToProject(row: ProjectRow): Project {
     budget: row.budget,
     status: row.status,
     statusPembayaran: row.status_pembayaran,
+    dpAmount: row.dp_amount ?? 0,
     catatan: row.catatan ?? undefined,
   };
 }

@@ -35,6 +35,7 @@ export type BoothProjectRow = {
   tanggal_instalasi: string;
   budget: number;
   status_pembayaran: PaymentStatus;
+  dp_amount: number;
   // supabase-js mengembalikan kolom jsonb sudah ter-parse jadi objek JS.
   materials: MaterialUsage[];
   catatan: string | null;
@@ -65,6 +66,7 @@ export function rowToBoothProject(row: BoothProjectRow): BoothProject {
     tanggalInstalasi: row.tanggal_instalasi,
     budget: row.budget,
     statusPembayaran: row.status_pembayaran,
+    dpAmount: row.dp_amount ?? 0,
     materials: row.materials ?? [],
     catatan: row.catatan ?? undefined,
   };

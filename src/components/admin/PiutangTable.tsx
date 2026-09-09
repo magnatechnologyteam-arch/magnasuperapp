@@ -12,7 +12,10 @@ export type PiutangRow = {
   label: string;
   namaKlien: string;
   date: string;
+  /** Sisa tagihan sesungguhnya — nilai penuh dikurangi DP yang sudah diterima. Migrasi 0015. */
   value: number;
+  /** Nominal DP yang sudah diterima (Rupiah) — 0 kalau bukan status "DP". */
+  dpAmount: number;
   statusPembayaran: PiutangStatus;
 };
 
@@ -46,12 +49,11 @@ function formatTanggal(iso: string): string {
  * — dihitung & diurutkan di `page.tsx` (Server Component), komponen ini
  * murni presentasi, tidak ada interaksi jadi tidak perlu "use client".
  *
- * Catatan jujur: karena modul belum mencatat NOMINAL yang sudah dibayar
- * (cuma status "DP" sebagai label), nilai yang tampil di sini adalah NILAI
- * PENUH booking/proyek, bukan sisa tagihan sungguhan untuk yang berstatus
- * "DP" — itu sebabnya kolom kedua nilai bukan "sisa piutang", tapi "nilai
- * total". Tim finance tetap perlu cek manual berapa yang sudah masuk untuk
- * yang DP.
+ * Sejak migrasi 0015, `row.value` adalah SISA TAGIHAN SEBENARNYA (nilai
+ * penuh dikurangi DP yang sudah diterima untuk status "DP") — bukan lagi
+ * nilai penuh booking/proyek. Untuk baris yang DP-nya sudah tercatat,
+ * ditampilkan juga catatan kecil berapa DP yang sudah masuk supaya tim
+ * finance tetap bisa lihat nilai penuhnya kalau perlu.
  */
 export function PiutangTable({ rows }: { rows: PiutangRow[] }) {
   return (
@@ -72,7 +74,7 @@ export function PiutangTable({ rows }: { rows: PiutangRow[] }) {
                 <th className="px-5 py-3">Booking / Proyek</th>
                 <th className="px-5 py-3">Tanggal</th>
                 <th className="px-5 py-3">Status</th>
-                <th className="px-5 py-3 text-right">Nilai Total</th>
+                <th className="px-5 py-3 text-right">Sisa Piutang</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black/5 dark:divide-white/5">
@@ -100,6 +102,11 @@ export function PiutangTable({ rows }: { rows: PiutangRow[] }) {
                   </td>
                   <td className="px-5 py-3 text-right font-semibold tabular-nums text-zinc-800 dark:text-zinc-100">
                     {formatRupiah(row.value)}
+                    {row.dpAmount > 0 && (
+                      <p className="mt-0.5 text-[11px] font-normal text-zinc-400 dark:text-zinc-500">
+                        sudah DP {formatRupiah(row.dpAmount)}
+                      </p>
+                    )}
                   </td>
                 </tr>
               ))}
