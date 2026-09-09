@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Boxes, History, LayoutGrid, Users, Users2, Wallet2 } from "lucide-react";
+import { BarChart3, Boxes, History, LayoutGrid, Receipt, Users, Users2, Wallet2 } from "lucide-react";
 import { HUB_HREF, getVisibleModules } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { cn } from "@/lib/cn";
@@ -25,6 +25,7 @@ const ADMIN_LINKS = [
   { href: "/dashboard/admin/klien", label: "Klien Terpadu", icon: Users2 },
   { href: "/dashboard/admin/keuangan", label: "Piutang & Pendapatan", icon: Wallet2 },
   { href: "/dashboard/admin/produk", label: "Katalog Produk", icon: Boxes },
+  { href: "/dashboard/admin/faktur", label: "Faktur", icon: Receipt },
 ];
 
 export function Sidebar({ division }: { division?: Division | null }) {
