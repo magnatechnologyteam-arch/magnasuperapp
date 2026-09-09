@@ -6,7 +6,7 @@ import { notifyDivision } from "@/lib/push/notify";
 import { logActivity } from "@/lib/activity/log";
 import { ACTIVE_BOOTH_STATUSES, findMaterialConflicts, type MaterialConflict } from "./availability";
 import { rowToBoothProject, rowToMaterial, type BoothProjectRow, type MaterialRow } from "./mappers";
-import type { BoothStatus, MaterialItem, MaterialUsage, PaymentStatus } from "./types";
+import type { BoothStatus, MaterialItem, MaterialUsage, PaymentStatus, PurchaseOrder } from "./types";
 
 const MODULE_PATH = "/dashboard/production";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
@@ -303,6 +303,125 @@ export async function deleteProject(id: string): Promise<MutationResult> {
     action: "delete",
     entityType: "proyek booth",
     entityLabel: projectRow?.name,
+  });
+  return { ok: true };
+}
+
+/**
+ * Modul Pembelian/PO (migrasi 0018) — jawaban atas badge "stok menipis"
+ * yang sejauh ini tidak punya langkah lanjut di aplikasi.
+ */
+export async function addPurchaseOrder(
+  input: Omit<PurchaseOrder, "id" | "status" | "receivedDate">
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase.from("production_purchase_orders").insert({
+    material_id: input.materialId ?? null,
+    supplier_name: input.supplierName,
+    qty: input.qty,
+    unit_price: input.unitPrice,
+    order_date: input.orderDate,
+    expected_date: input.expectedDate || null,
+    catatan: input.catatan ?? null,
+    created_by: user?.id ?? null,
+  });
+
+  if (error) {
+    console.error("[production] addPurchaseOrder gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "production",
+    action: "create",
+    entityType: "purchase order",
+    entityLabel: input.supplierName,
+    detail: `qty: ${input.qty}`,
+  });
+  return { ok: true };
+}
+
+/**
+ * Panggil fungsi database `receive_purchase_order` (migrasi 0018) — SATU
+ * transaksi yang menandai PO "Diterima" SEKALIGUS menambah stok material
+ * terkait, supaya tidak ada celah "PO ke-mark Diterima tapi stok gagal
+ * ke-update" kalau dilakukan lewat dua UPDATE terpisah dari sini.
+ */
+export async function receivePurchaseOrder(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("receive_purchase_order", { po_id: id });
+
+  if (error) {
+    console.error("[production] receivePurchaseOrder gagal:", error.message);
+    return { ok: false, error: error.message || GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "production", action: "status_change", entityType: "purchase order", detail: "Diterima" });
+  return { ok: true };
+}
+
+export async function cancelPurchaseOrder(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: poRow } = await supabase
+    .from("production_purchase_orders")
+    .select("status, supplier_name")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (poRow && poRow.status !== "Dipesan") {
+    return { ok: false, error: "Purchase order ini sudah tidak berstatus Dipesan." };
+  }
+
+  const { error } = await supabase
+    .from("production_purchase_orders")
+    .update({ status: "Dibatalkan" })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[production] cancelPurchaseOrder gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "production",
+    action: "status_change",
+    entityType: "purchase order",
+    entityLabel: poRow?.supplier_name,
+    detail: "Dibatalkan",
+  });
+  return { ok: true };
+}
+
+export async function deletePurchaseOrder(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: poRow } = await supabase
+    .from("production_purchase_orders")
+    .select("status, supplier_name")
+    .eq("id", id)
+    .maybeSingle();
+
+  // PO yang sudah "Diterima" sudah mengubah stok fisik secara nyata —
+  // menghapus baris riwayatnya berisiko bikin perubahan stok itu tidak
+  // terlacak asal-usulnya, jadi sengaja tidak boleh dihapus dari sini.
+  if (poRow?.status === "Diterima") {
+    return { ok: false, error: "PO yang sudah Diterima tidak bisa dihapus (mengubah riwayat stok)." };
+  }
+
+  const { error } = await supabase.from("production_purchase_orders").delete().eq("id", id);
+  if (error) {
+    console.error("[production] deletePurchaseOrder gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "production",
+    action: "delete",
+    entityType: "purchase order",
+    entityLabel: poRow?.supplier_name,
   });
   return { ok: true };
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
-import type { BoothProject, BoothStatus, MaterialItem } from "@/lib/production/types";
+import type { BoothProject, BoothStatus, MaterialItem, PurchaseOrder } from "@/lib/production/types";
 import type { Client } from "@/lib/magnative/types";
 import { ACTIVE_BOOTH_STATUSES, getAvailableStock } from "@/lib/production/availability";
 import * as actions from "@/lib/production/actions";
@@ -12,6 +12,7 @@ type ProductionDataContextValue = {
   projects: BoothProject[];
   /** Daftar klien terdaftar di Magnative — dipakai picker "Klien Terdaftar" di form proyek booth (migrasi 0010). */
   clients: Client[];
+  purchaseOrders: PurchaseOrder[];
 
   addMaterial: (input: Omit<MaterialItem, "id">) => Promise<MutationResult>;
   updateMaterial: (id: string, input: Omit<MaterialItem, "id">) => Promise<MutationResult>;
@@ -23,6 +24,11 @@ type ProductionDataContextValue = {
   updateProject: (id: string, input: NewBoothProjectInput) => Promise<SaveBoothProjectResult>;
   deleteProject: (id: string) => Promise<MutationResult>;
   updateProjectStatus: (id: string, status: BoothStatus) => Promise<MutationResult>;
+
+  addPurchaseOrder: (input: Omit<PurchaseOrder, "id" | "status" | "receivedDate">) => Promise<MutationResult>;
+  receivePurchaseOrder: (id: string) => Promise<MutationResult>;
+  cancelPurchaseOrder: (id: string) => Promise<MutationResult>;
+  deletePurchaseOrder: (id: string) => Promise<MutationResult>;
 };
 
 const ProductionDataContext = createContext<ProductionDataContextValue | null>(null);
@@ -40,11 +46,13 @@ export function ProductionDataProvider({
   materials,
   projects,
   clients,
+  purchaseOrders,
   children,
 }: {
   materials: MaterialItem[];
   projects: BoothProject[];
   clients: Client[];
+  purchaseOrders: PurchaseOrder[];
   children: ReactNode;
 }) {
   const addMaterial = useCallback((input: Omit<MaterialItem, "id">) => actions.addMaterial(input), []);
@@ -83,11 +91,20 @@ export function ProductionDataProvider({
     [materials, projects]
   );
 
+  const addPurchaseOrder = useCallback(
+    (input: Omit<PurchaseOrder, "id" | "status" | "receivedDate">) => actions.addPurchaseOrder(input),
+    []
+  );
+  const receivePurchaseOrder = useCallback((id: string) => actions.receivePurchaseOrder(id), []);
+  const cancelPurchaseOrder = useCallback((id: string) => actions.cancelPurchaseOrder(id), []);
+  const deletePurchaseOrder = useCallback((id: string) => actions.deletePurchaseOrder(id), []);
+
   const value = useMemo<ProductionDataContextValue>(
     () => ({
       materials,
       projects,
       clients,
+      purchaseOrders,
       addMaterial,
       updateMaterial,
       deleteMaterial,
@@ -97,11 +114,16 @@ export function ProductionDataProvider({
       updateProject,
       deleteProject,
       updateProjectStatus,
+      addPurchaseOrder,
+      receivePurchaseOrder,
+      cancelPurchaseOrder,
+      deletePurchaseOrder,
     }),
     [
       materials,
       projects,
       clients,
+      purchaseOrders,
       addMaterial,
       updateMaterial,
       deleteMaterial,
@@ -111,6 +133,10 @@ export function ProductionDataProvider({
       updateProject,
       deleteProject,
       updateProjectStatus,
+      addPurchaseOrder,
+      receivePurchaseOrder,
+      cancelPurchaseOrder,
+      deletePurchaseOrder,
     ]
   );
 

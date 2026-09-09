@@ -6,6 +6,8 @@ import type {
   MaterialUnit,
   MaterialUsage,
   PaymentStatus,
+  PurchaseOrder,
+  PurchaseOrderStatus,
 } from "./types";
 
 /**
@@ -51,6 +53,34 @@ export function rowToMaterial(row: MaterialRow): MaterialItem {
     stock: row.stock,
     minStock: row.min_stock,
     pricePerUnit: row.price_per_unit,
+  };
+}
+
+export type PurchaseOrderRow = {
+  id: string;
+  material_id: string | null;
+  supplier_name: string;
+  qty: number;
+  unit_price: number;
+  status: PurchaseOrderStatus;
+  order_date: string;
+  expected_date: string | null;
+  received_date: string | null;
+  catatan: string | null;
+};
+
+export function rowToPurchaseOrder(row: PurchaseOrderRow): PurchaseOrder {
+  return {
+    id: row.id,
+    materialId: row.material_id ?? undefined,
+    supplierName: row.supplier_name,
+    qty: row.qty,
+    unitPrice: row.unit_price,
+    status: row.status,
+    orderDate: row.order_date,
+    expectedDate: row.expected_date ?? undefined,
+    receivedDate: row.received_date ?? undefined,
+    catatan: row.catatan ?? undefined,
   };
 }
 

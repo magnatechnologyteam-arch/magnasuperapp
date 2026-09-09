@@ -50,6 +50,32 @@ export type BoothStatus =
  */
 export type PaymentStatus = "Belum Bayar" | "DP" | "Lunas";
 
+export type PurchaseOrderStatus = "Dipesan" | "Diterima" | "Dibatalkan";
+
+/**
+ * Satu pesanan pembelian material ke supplier (migrasi 0018) — jawaban atas
+ * badge "stok menipis" yang sejauh ini tidak punya langkah lanjut di
+ * aplikasi (harus dicatat manual di luar sistem begitu ada pemesanan ulang).
+ * `materialId` opsional: PO tetap bisa dicatat untuk barang yang belum
+ * terdaftar di Gudang & Material. Begitu status berubah jadi "Diterima",
+ * stok material terkait (kalau ada) otomatis bertambah lewat fungsi
+ * database `receive_purchase_order` — TIDAK dihitung ulang di aplikasi
+ * seperti pola "alokasi" material ke proyek booth, karena ini penambahan
+ * stok fisik yang nyata dan permanen, bukan alokasi sementara.
+ */
+export type PurchaseOrder = {
+  id: string;
+  materialId?: string;
+  supplierName: string;
+  qty: number;
+  unitPrice: number;
+  status: PurchaseOrderStatus;
+  orderDate: string;
+  expectedDate?: string;
+  receivedDate?: string;
+  catatan?: string;
+};
+
 export type BoothProject = {
   id: string;
   name: string;

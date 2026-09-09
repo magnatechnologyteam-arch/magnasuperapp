@@ -72,6 +72,7 @@ export const MODULES: ModuleConfig[] = [
       { label: "Proyek Booth", href: "/dashboard/production/proyek" },
       { label: "Jadwal", href: "/dashboard/production/jadwal" },
       { label: "Pemakaian", href: "/dashboard/production/pemakaian" },
+      { label: "Pembelian", href: "/dashboard/production/pembelian" },
     ],
   },
 ];
