@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, HandCoins, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock, HandCoins, MapPin, XCircle } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -16,12 +16,26 @@ const STATUS_STYLES: Record<CapitalRequestStatus, string> = {
   Ditolak: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
 };
 
+/** Warna avatar ikon per kartu — status "Menunggu" pakai warna netral/amber
+ * supaya kontras dengan kartu yang sudah diputuskan (hijau/merah), konsisten
+ * dengan pola avatar-berwarna di `InvestorSectionHeader`/`ClientDirectoryTable`. */
+const ICON_BG: Record<CapitalRequestStatus, string> = {
+  Menunggu: "#F59E0B",
+  Disetujui: "#10B981",
+  Ditolak: "#EF4444",
+};
+
 /**
  * Kotak masuk investor untuk "Pengajuan Modal" (rancangan Owner: "Notifikasi
  * = notif masuk untuk event dalam pengajuan modal, Approve/Reject dan
  * berikan note untuk keterangan"). Keputusan lewat `decideCapitalRequest`,
  * yang di baliknya memanggil fungsi database `decide_capital_request`
  * (migrasi 0019) — mengunci baris supaya tidak bisa diputuskan dua kali.
+ *
+ * Dipisah jadi dua seksi ("Menunggu Keputusan"/"Riwayat Keputusan") dan
+ * dibatasi lebarnya (max-w-3xl) supaya tidak terasa kosong/berantakan kalau
+ * cuma ada sedikit pengajuan — sebelumnya satu daftar rata kiri selebar
+ * layar dengan ruang kosong besar di bawah kartu terakhir.
  */
 export function CapitalRequestInbox({ requests }: { requests: CapitalRequest[] }) {
   const { showToast } = useToast();
@@ -32,12 +46,17 @@ export function CapitalRequestInbox({ requests }: { requests: CapitalRequest[] }
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const sorted = useMemo(() => {
-    const rank: Record<CapitalRequestStatus, number> = { Menunggu: 0, Disetujui: 1, Ditolak: 1 };
-    return [...requests].sort((a, b) => rank[a.status] - rank[b.status] || b.createdAt.localeCompare(a.createdAt));
-  }, [requests]);
-
-  const pendingCount = requests.filter((r) => r.status === "Menunggu").length;
+  const pending = useMemo(
+    () => requests.filter((r) => r.status === "Menunggu").sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+    [requests]
+  );
+  const decided = useMemo(
+    () =>
+      requests
+        .filter((r) => r.status !== "Menunggu")
+        .sort((a, b) => (b.decidedAt ?? b.createdAt).localeCompare(a.decidedAt ?? a.createdAt)),
+    [requests]
+  );
 
   function openDecision(request: CapitalRequest, status: CapitalRequestStatus) {
     setDecisionTarget({ request, status });
@@ -68,16 +87,16 @@ export function CapitalRequestInbox({ requests }: { requests: CapitalRequest[] }
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-3xl">
       <div className="mb-5">
         <h2 className="text-base font-bold text-zinc-900 dark:text-white">Kotak Masuk Pengajuan Modal</h2>
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          {pendingCount > 0 ? `${pendingCount} menunggu keputusan Anda` : "Tidak ada yang menunggu keputusan"} —{" "}
+          {pending.length > 0 ? `${pending.length} menunggu keputusan Anda` : "Tidak ada yang menunggu keputusan"} —{" "}
           {requests.length} total tercatat.
         </p>
       </div>
 
-      {sorted.length === 0 ? (
+      {requests.length === 0 ? (
         <div className="rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
           <EmptyState
             icon={HandCoins}
@@ -86,78 +105,32 @@ export function CapitalRequestInbox({ requests }: { requests: CapitalRequest[] }
           />
         </div>
       ) : (
-        <div className="space-y-3">
-          {sorted.map((req) => {
-            const margin = calculateMargin(req.billingEstimate, req.modalEstimate);
-            return (
-              <div
-                key={req.id}
-                className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-5"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-base font-bold text-zinc-900 dark:text-white">{req.eventName}</h3>
-                      <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", STATUS_STYLES[req.status])}>
-                        {req.status}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-                      {req.location || "Lokasi belum diisi"} ·{" "}
-                      {req.eventDate ? formatDateID(req.eventDate) : "Tanggal belum pasti"}
-                    </p>
-                  </div>
-                  {req.status === "Menunggu" && (
-                    <div className="flex shrink-0 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openDecision(req, "Ditolak")}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 px-3.5 py-1.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10"
-                      >
-                        <XCircle className="h-4 w-4" />
-                        Reject
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openDecision(req, "Disetujui")}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-500"
-                      >
-                        <CheckCircle2 className="h-4 w-4" />
-                        Approve
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-zinc-50 p-3 text-sm dark:bg-white/5">
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                      Billing (A1)
-                    </p>
-                    <p className="font-bold text-zinc-800 dark:text-zinc-100">{formatRupiah(req.billingEstimate)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                      Modal (A2)
-                    </p>
-                    <p className="font-bold text-zinc-800 dark:text-zinc-100">{formatRupiah(req.modalEstimate)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                      Margin
-                    </p>
-                    <p className="font-bold text-emerald-600 dark:text-emerald-400">{margin.toFixed(1)}%</p>
-                  </div>
-                </div>
-
-                {req.investorNote && (
-                  <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:bg-white/5 dark:text-zinc-300">
-                    Catatan Anda: &ldquo;{req.investorNote}&rdquo;
-                  </p>
-                )}
+        <div className="space-y-8">
+          {pending.length > 0 && (
+            <section>
+              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                Menunggu Keputusan
+              </p>
+              <div className="space-y-3">
+                {pending.map((req) => (
+                  <RequestCard key={req.id} request={req} onDecide={openDecision} />
+                ))}
               </div>
-            );
-          })}
+            </section>
+          )}
+
+          {decided.length > 0 && (
+            <section>
+              <p className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                Riwayat Keputusan
+              </p>
+              <div className="space-y-3">
+                {decided.map((req) => (
+                  <RequestCard key={req.id} request={req} onDecide={openDecision} />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       )}
 
@@ -215,6 +188,110 @@ export function CapitalRequestInbox({ requests }: { requests: CapitalRequest[] }
           </div>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function RequestCard({
+  request: req,
+  onDecide,
+}: {
+  request: CapitalRequest;
+  onDecide: (request: CapitalRequest, status: CapitalRequestStatus) => void;
+}) {
+  const margin = calculateMargin(req.billingEstimate, req.modalEstimate);
+
+  return (
+    <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-white/10 dark:bg-zinc-900 sm:p-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <div
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white shadow-sm"
+            style={{ background: ICON_BG[req.status] }}
+          >
+            <HandCoins className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">{req.eventName}</h3>
+              <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", STATUS_STYLES[req.status])}>
+                {req.status}
+              </span>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                {req.location || "Lokasi belum diisi"}
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                {req.eventDate ? formatDateID(req.eventDate) : "Tanggal belum pasti"}
+              </span>
+            </div>
+          </div>
+        </div>
+        {req.status === "Menunggu" && (
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => onDecide(req, "Ditolak")}
+              className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 px-3.5 py-1.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-300 dark:hover:bg-rose-500/10"
+            >
+              <XCircle className="h-4 w-4" />
+              Reject
+            </button>
+            <button
+              type="button"
+              onClick={() => onDecide(req, "Disetujui")}
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3.5 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-emerald-500"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Approve
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-zinc-50 p-3 text-sm dark:bg-white/5">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+            Billing (A1)
+          </p>
+          <p className="truncate font-bold text-zinc-800 dark:text-zinc-100">{formatRupiah(req.billingEstimate)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+            Modal (A2)
+          </p>
+          <p className="truncate font-bold text-zinc-800 dark:text-zinc-100">{formatRupiah(req.modalEstimate)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+            Margin
+          </p>
+          <p
+            className={cn(
+              "truncate font-bold",
+              margin >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
+            )}
+          >
+            {margin.toFixed(1)}%
+          </p>
+        </div>
+      </div>
+
+      {req.status !== "Menunggu" && req.decidedAt && (
+        <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-zinc-400 dark:text-zinc-500">
+          <Clock className="h-3.5 w-3.5" />
+          Diputuskan {formatDateID(req.decidedAt.slice(0, 10))}
+        </p>
+      )}
+
+      {req.investorNote && (
+        <p className="mt-3 rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-600 dark:bg-white/5 dark:text-zinc-300">
+          Catatan Anda: &ldquo;{req.investorNote}&rdquo;
+        </p>
+      )}
     </div>
   );
 }

@@ -35,6 +35,7 @@ export function QuickStatCard({
   href,
   warn,
   delayMs = 0,
+  format,
 }: {
   label: string;
   value: number;
@@ -49,6 +50,10 @@ export function QuickStatCard({
   href: string;
   warn?: boolean;
   delayMs?: number;
+  /** Kalau `value` sebenarnya nominal Rupiah (mis. Ringkasan Investor), format
+   * angka yang lagi "berhitung naik" ini pakai `formatRupiah` alih-alih
+   * ditampilkan mentah sebagai integer biasa. */
+  format?: (value: number) => string;
 }) {
   const animated = useCountUp(value);
 
@@ -79,7 +84,7 @@ export function QuickStatCard({
             warn ? "text-rose-600 dark:text-rose-400" : "text-zinc-900 dark:text-white"
           )}
         >
-          {animated}
+          {format ? format(animated) : animated}
         </p>
         <p className="mt-1 truncate text-xs font-semibold text-zinc-500 dark:text-zinc-400">{label}</p>
         <p className="truncate text-[11px] text-zinc-400 dark:text-zinc-500">{hint}</p>

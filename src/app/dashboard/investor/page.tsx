@@ -13,6 +13,7 @@ import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { getMagnarentSummary, getMagnativeSummary, getProductionSummary } from "@/lib/dashboard/summary";
 import { formatRupiah } from "@/lib/shared/utils";
 import { QuickStatCard } from "@/components/dashboard/QuickStatCard";
+import { InvestorPushBanner } from "@/components/push/InvestorPushBanner";
 
 /**
  * "Ringkasan" investor — read only lintas divisi (rancangan Owner: "Read
@@ -51,9 +52,12 @@ export default async function InvestorRingkasanPage() {
           {firstName ? `Ringkasan untuk ${firstName}` : "Ringkasan Investor"}
         </h1>
         <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-          Hasil dari masing-masing divisi, Owner, Finance, dan Admin — semua di sini cuma untuk dilihat.
+          Hasil dari masing-masing divisi, Owner, Finance, dan Admin — semua di sini cuma untuk dilihat. Klik kartu
+          di bawah untuk lihat rinciannya.
         </p>
       </div>
+
+      <InvestorPushBanner />
 
       {pendingCount > 0 && (
         <a
@@ -82,7 +86,7 @@ export default async function InvestorRingkasanPage() {
           hint="Menunggu & dikonfirmasi"
           icon={<CalendarRange className="h-5 w-5" />}
           accent="#3B82F6"
-          href="/dashboard/investor"
+          href="/dashboard/investor/magnarent"
         />
         <QuickStatCard
           label="Booking Bulan Ini"
@@ -90,7 +94,7 @@ export default async function InvestorRingkasanPage() {
           hint="Sejak tanggal 1 bulan ini"
           icon={<ClipboardList className="h-5 w-5" />}
           accent="#06B6D4"
-          href="/dashboard/investor"
+          href="/dashboard/investor/magnarent"
           delayMs={40}
         />
       </div>
@@ -103,7 +107,7 @@ export default async function InvestorRingkasanPage() {
           hint="Status: Berjalan"
           icon={<Hammer className="h-5 w-5" />}
           accent="#8B5CF6"
-          href="/dashboard/investor"
+          href="/dashboard/investor/magnativ"
         />
         <QuickStatCard
           label="Konten 7 Hari Ke Depan"
@@ -111,7 +115,7 @@ export default async function InvestorRingkasanPage() {
           hint="Terjadwal tayang minggu ini"
           icon={<CalendarPlus className="h-5 w-5" />}
           accent="#EC4899"
-          href="/dashboard/investor"
+          href="/dashboard/investor/magnativ"
           delayMs={40}
         />
       </div>
@@ -124,7 +128,7 @@ export default async function InvestorRingkasanPage() {
           hint="Desain sampai Instalasi"
           icon={<PackageSearch className="h-5 w-5" />}
           accent="#F59E0B"
-          href="/dashboard/investor"
+          href="/dashboard/investor/production"
         />
         <QuickStatCard
           label="Stok Menipis"
@@ -132,7 +136,7 @@ export default async function InvestorRingkasanPage() {
           hint="Di titik minimum atau di bawahnya"
           icon={<AlertTriangle className="h-5 w-5" />}
           accent="#EF4444"
-          href="/dashboard/investor"
+          href="/dashboard/investor/production"
           warn={productionSummary.stokMenipis > 0}
           delayMs={40}
         />
@@ -142,30 +146,25 @@ export default async function InvestorRingkasanPage() {
         Owner / Finance / Admin
       </p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="animate-fade-up flex items-center gap-3 rounded-2xl border border-black/5 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white" style={{ background: "#10B981" }}>
-            <Wallet2 className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-lg font-extrabold leading-tight text-zinc-900 dark:text-white">
-              {formatRupiah(totalLunas)}
-            </p>
-            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Pendapatan Lunas</p>
-            <p className="text-[11px] text-zinc-400 dark:text-zinc-500">Total invoice berstatus Lunas</p>
-          </div>
-        </div>
-        <div className="animate-fade-up flex items-center gap-3 rounded-2xl border border-black/5 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl text-white" style={{ background: "#F59E0B" }}>
-            <Receipt className="h-5 w-5" />
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-lg font-extrabold leading-tight text-zinc-900 dark:text-white">
-              {formatRupiah(totalPiutang)}
-            </p>
-            <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Piutang Berjalan</p>
-            <p className="text-[11px] text-zinc-400 dark:text-zinc-500">Invoice Draft & Terkirim</p>
-          </div>
-        </div>
+        <QuickStatCard
+          label="Pendapatan Lunas"
+          value={totalLunas}
+          hint="Total invoice berstatus Lunas"
+          icon={<Wallet2 className="h-5 w-5" />}
+          accent="#10B981"
+          href="/dashboard/investor/keuangan"
+          format={formatRupiah}
+        />
+        <QuickStatCard
+          label="Piutang Berjalan"
+          value={totalPiutang}
+          hint="Invoice Draft & Terkirim"
+          icon={<Receipt className="h-5 w-5" />}
+          accent="#F59E0B"
+          href="/dashboard/investor/keuangan"
+          format={formatRupiah}
+          delayMs={40}
+        />
       </div>
     </div>
   );
