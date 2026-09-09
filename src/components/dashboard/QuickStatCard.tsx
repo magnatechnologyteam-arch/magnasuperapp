@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { formatRupiah } from "@/lib/shared/utils";
 
 /** Hitung naik dari 0 ke `target` setiap kartu ini muncul — kartu Ringkasan
  * Cepat di Dashboard Hub jadi terasa hidup begitu halaman selesai dimuat,
@@ -35,7 +36,7 @@ export function QuickStatCard({
   href,
   warn,
   delayMs = 0,
-  format,
+  formatAsRupiah,
 }: {
   label: string;
   value: number;
@@ -52,8 +53,12 @@ export function QuickStatCard({
   delayMs?: number;
   /** Kalau `value` sebenarnya nominal Rupiah (mis. Ringkasan Investor), format
    * angka yang lagi "berhitung naik" ini pakai `formatRupiah` alih-alih
-   * ditampilkan mentah sebagai integer biasa. */
-  format?: (value: number) => string;
+   * ditampilkan mentah sebagai integer biasa. Diambil sebagai boolean (bukan
+   * fungsi) karena `QuickStatCard` Client Component — Next.js menolak fungsi
+   * yang dilewatkan langsung dari Server Component pemanggilnya ("Functions
+   * cannot be passed directly to Client Components"), jadi `formatRupiah`
+   * di-import & dipanggil DI SINI, bukan diterima sebagai prop. */
+  formatAsRupiah?: boolean;
 }) {
   const animated = useCountUp(value);
 
@@ -84,7 +89,7 @@ export function QuickStatCard({
             warn ? "text-rose-600 dark:text-rose-400" : "text-zinc-900 dark:text-white"
           )}
         >
-          {format ? format(animated) : animated}
+          {formatAsRupiah ? formatRupiah(animated) : animated}
         </p>
         <p className="mt-1 truncate text-xs font-semibold text-zinc-500 dark:text-zinc-400">{label}</p>
         <p className="truncate text-[11px] text-zinc-400 dark:text-zinc-500">{hint}</p>

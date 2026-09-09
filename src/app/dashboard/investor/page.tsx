@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { getMagnarentSummary, getMagnativeSummary, getProductionSummary } from "@/lib/dashboard/summary";
-import { formatRupiah } from "@/lib/shared/utils";
 import { QuickStatCard } from "@/components/dashboard/QuickStatCard";
 import { InvestorPushBanner } from "@/components/push/InvestorPushBanner";
 
@@ -153,7 +152,7 @@ export default async function InvestorRingkasanPage() {
           icon={<Wallet2 className="h-5 w-5" />}
           accent="#10B981"
           href="/dashboard/investor/keuangan"
-          format={formatRupiah}
+          formatAsRupiah
         />
         <QuickStatCard
           label="Piutang Berjalan"
@@ -162,7 +161,7 @@ export default async function InvestorRingkasanPage() {
           icon={<Receipt className="h-5 w-5" />}
           accent="#F59E0B"
           href="/dashboard/investor/keuangan"
-          format={formatRupiah}
+          formatAsRupiah
           delayMs={40}
         />
       </div>
