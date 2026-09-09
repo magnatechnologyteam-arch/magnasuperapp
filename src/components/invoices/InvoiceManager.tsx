@@ -99,6 +99,33 @@ function formatTanggal(iso: string): string {
 }
 
 /**
+ * Anotasi urgensi jatuh tempo di tabel — pelengkap visual untuk pengingat
+ * push otomatis (lihat src/app/api/cron/invoice-reminders/route.ts), supaya
+ * staf yang sedang buka halaman ini pun langsung lihat mana yang mendesak
+ * tanpa harus menunggu notifikasi push. Invoice yang sudah "Lunas" atau
+ * belum diisi jatuh temponya tidak dapat anotasi sama sekali.
+ */
+function dueUrgency(inv: Invoice): { label: string; className: string } | null {
+  if (inv.status === "Lunas" || !inv.dueDate) return null;
+  const due = new Date(`${inv.dueDate}T00:00:00`);
+  if (Number.isNaN(due.getTime())) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) {
+    return { label: `Terlambat ${Math.abs(diffDays)} hari`, className: "text-rose-600 dark:text-rose-400" };
+  }
+  if (diffDays === 0) {
+    return { label: "Jatuh tempo hari ini", className: "text-amber-600 dark:text-amber-400" };
+  }
+  if (diffDays <= 3) {
+    return { label: `${diffDays} hari lagi`, className: "text-amber-600 dark:text-amber-400" };
+  }
+  return null;
+}
+
+/**
  * Halaman Faktur — buat invoice dari booking/proyek yang sudah ada (picker
  * `sourceOptions`, dikirim dari page.tsx) atau manual, download PDF-nya
  * (di-generate on-demand lewat src/app/api/invoices/[id]/pdf/route.ts), dan
@@ -338,13 +365,14 @@ export function InvoiceManager({
 
       <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[980px] text-left text-sm">
+          <table className="w-full min-w-[1080px] text-left text-sm">
             <thead>
               <tr className="border-b border-black/5 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:border-white/10 dark:text-zinc-400">
                 <th className="px-5 py-3">Nomor</th>
                 <th className="px-5 py-3">Klien</th>
                 <th className="px-5 py-3">Divisi</th>
-                <th className="px-5 py-3">Tanggal</th>
+                <th className="px-5 py-3">Diterbitkan</th>
+                <th className="px-5 py-3">Jatuh Tempo</th>
                 <th className="px-5 py-3 text-right">Total</th>
                 <th className="px-5 py-3">Status</th>
                 <th className="px-5 py-3 text-right">Aksi</th>
@@ -353,7 +381,7 @@ export function InvoiceManager({
             <tbody>
               {filteredInvoices.length === 0 && (
                 <tr>
-                  <td colSpan={7}>
+                  <td colSpan={8}>
                     <EmptyState
                       icon={Receipt}
                       title={invoices.length === 0 ? "Belum ada invoice" : "Tidak ada hasil"}
@@ -381,6 +409,15 @@ export function InvoiceManager({
                     </span>
                   </td>
                   <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">{formatTanggal(inv.issuedDate)}</td>
+                  <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">
+                    {inv.dueDate ? formatTanggal(inv.dueDate) : "—"}
+                    {(() => {
+                      const urgency = dueUrgency(inv);
+                      return urgency ? (
+                        <p className={cn("mt-0.5 text-[11px] font-semibold", urgency.className)}>{urgency.label}</p>
+                      ) : null;
+                    })()}
+                  </td>
                   <td className="px-5 py-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
                     {formatRupiah(inv.total)}
                   </td>
