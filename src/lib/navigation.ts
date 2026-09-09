@@ -54,6 +54,7 @@ export const MODULES: ModuleConfig[] = [
       { label: "Inventaris", href: "/dashboard/magnarent/inventaris" },
       { label: "Kalender", href: "/dashboard/magnarent/kalender" },
       { label: "Booking", href: "/dashboard/magnarent/booking" },
+      { label: "Perputaran", href: "/dashboard/magnarent/utilisasi" },
     ],
   },
   {

@@ -1,16 +1,20 @@
 "use client";
 
 import { useMemo } from "react";
-import { Boxes, CalendarCheck2, CalendarX2, PackageCheck, Wrench } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Boxes, CalendarCheck2, CalendarX2, PackageCheck, PackageX, TrendingUp, Wrench } from "lucide-react";
 import { useMagnarentData } from "./MagnarentDataProvider";
 import { getInventoryStatus } from "@/lib/magnarent/availability";
 import { calculateBookingTotal, formatRupiah } from "@/lib/magnarent/pricing";
 import { formatDateID, todayISO } from "@/lib/magnarent/date";
+import { computeItemUtilization } from "@/lib/magnarent/utilization";
 import { getAvatarColor, getInitials } from "@/lib/shared/utils";
 import { StatCard } from "@/components/ui/StatCard";
 import { DonutChart } from "@/components/ui/DonutChart";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
+
+const UTILIZATION_WINDOW_DAYS = 90;
 
 const ACCENT_BLUE = "linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)";
 const ACCENT_AMBER = "linear-gradient(135deg, #F59E0B 0%, #F97316 100%)";
@@ -67,6 +71,33 @@ export function MagnarentOverview() {
 
   const itemName = (id: string) => inventory.find((i) => i.id === id)?.name ?? "—";
   const totalPotensi = stats.nilaiTerkonfirmasi + stats.nilaiMenunggu;
+
+  /**
+   * Item populer vs. kandidat dilepas — jawaban langsung untuk permintaan
+   * investor soal "stok dan pemutaran barang" (lihat komentar di
+   * src/lib/magnarent/utilization.ts). Cuma tampilkan 3 teratas di sini;
+   * daftar lengkap + filter ada di tab "Perputaran".
+   */
+  const utilization = useMemo(
+    () => computeItemUtilization(inventory, bookings, UTILIZATION_WINDOW_DAYS),
+    [inventory, bookings]
+  );
+  const topBerputar = useMemo(
+    () =>
+      [...utilization]
+        .filter((r) => r.rentedUnitDays > 0)
+        .sort((a, b) => b.utilizationPct - a.utilizationPct)
+        .slice(0, 3),
+    [utilization]
+  );
+  const kandidatDilepas = useMemo(
+    () =>
+      [...utilization]
+        .filter((r) => r.tier === "idle")
+        .sort((a, b) => (b.daysSinceLastUsed ?? Infinity) - (a.daysSinceLastUsed ?? Infinity))
+        .slice(0, 3),
+    [utilization]
+  );
 
   return (
     <div className="space-y-6">
@@ -166,6 +197,76 @@ export function MagnarentOverview() {
                   <p className="shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">
                     {formatDateID(b.tanggalMulai)} – {formatDateID(b.tanggalSelesai)}
                   </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <div className="flex items-center justify-between border-b border-black/5 px-5 py-3.5 dark:border-white/10">
+            <h3 className="flex items-center gap-1.5 text-sm font-bold text-zinc-900 dark:text-white">
+              <TrendingUp className="h-4 w-4 text-emerald-500" />
+              Paling Sering Berputar
+            </h3>
+            <Link
+              href="/dashboard/magnarent/utilisasi"
+              className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+            >
+              Lihat semua
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          {topBerputar.length === 0 ? (
+            <EmptyState
+              icon={Boxes}
+              title="Belum ada data perputaran"
+              description="Muncul begitu ada booking Dikonfirmasi/Selesai dalam 90 hari terakhir."
+            />
+          ) : (
+            <ul className="divide-y divide-black/5 dark:divide-white/5">
+              {topBerputar.map((r) => (
+                <li key={r.item.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                  <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">{r.item.name}</p>
+                  <span className="shrink-0 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    {r.utilizationPct}% utilisasi
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <div className="flex items-center justify-between border-b border-black/5 px-5 py-3.5 dark:border-white/10">
+            <h3 className="flex items-center gap-1.5 text-sm font-bold text-zinc-900 dark:text-white">
+              <PackageX className="h-4 w-4 text-rose-500" />
+              Kandidat Dilepas (Idle)
+            </h3>
+            <Link
+              href="/dashboard/magnarent/utilisasi"
+              className="flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+            >
+              Lihat semua
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+          {kandidatDilepas.length === 0 ? (
+            <EmptyState
+              icon={PackageCheck}
+              title="Tidak ada alat idle"
+              description="Semua alat masih cukup sering berputar dalam 90 hari terakhir."
+            />
+          ) : (
+            <ul className="divide-y divide-black/5 dark:divide-white/5">
+              {kandidatDilepas.map((r) => (
+                <li key={r.item.id} className="flex items-center justify-between gap-3 px-5 py-3">
+                  <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">{r.item.name}</p>
+                  <span className="shrink-0 text-xs font-semibold text-rose-600 dark:text-rose-400">
+                    {r.daysSinceLastUsed === null ? "Belum pernah dipakai" : `${r.daysSinceLastUsed} hari idle`}
+                  </span>
                 </li>
               ))}
             </ul>
