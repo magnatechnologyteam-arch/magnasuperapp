@@ -3,6 +3,7 @@ import { Boxes } from "lucide-react";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { rowToProduct, type ProductRow } from "@/lib/products/mappers";
 import { ProductManager } from "@/components/products/ProductManager";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 /**
  * Katalog Produk terpusat (migrasi 0013) — HANYA akses penuh, pola sama
@@ -54,7 +55,13 @@ export default async function ProdukPage() {
       </div>
 
       <div className="mt-6">
-        <ProductManager products={products} />
+        {/* ProductManager pakai useToast() untuk feedback tambah/edit/hapus/
+            import — beda dari halaman admin lain (Klien/Piutang/dst) yang
+            belum butuh toast, jadi provider-nya dipasang di sini saja,
+            bukan lewat layout.tsx bersama di /dashboard/admin. */}
+        <ToastProvider>
+          <ProductManager products={products} />
+        </ToastProvider>
       </div>
     </div>
   );
