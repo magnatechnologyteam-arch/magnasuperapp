@@ -15,6 +15,10 @@ const MODULE_DIVISION_PREFIXES: Array<{ prefix: string; division: string }> = [
 ];
 
 const ADMIN_PREFIX = "/dashboard/admin";
+// Area khusus akun investor (read only lintas divisi + Approve/Reject
+// Pengajuan Modal, lihat migrasi 0019) — akses penuh ("all") boleh ikut
+// mengintip halaman ini, staf divisi manapun TIDAK.
+const INVESTOR_PREFIX = "/dashboard/investor";
 
 /**
  * Middleware ini punya tiga tugas dalam satu jalan:
@@ -82,8 +86,10 @@ export async function middleware(request: NextRequest) {
       const isBlockedModule = MODULE_DIVISION_PREFIXES.some(
         (m) => (pathname === m.prefix || pathname.startsWith(`${m.prefix}/`)) && m.division !== division
       );
+      const isInvestorRoute = pathname === INVESTOR_PREFIX || pathname.startsWith(`${INVESTOR_PREFIX}/`);
+      const isBlockedInvestorRoute = isInvestorRoute && division !== "investor";
 
-      if (isAdminRoute || isBlockedModule) {
+      if (isAdminRoute || isBlockedModule || isBlockedInvestorRoute) {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
         url.search = "";

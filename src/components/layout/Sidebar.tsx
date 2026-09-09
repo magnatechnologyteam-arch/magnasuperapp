@@ -2,7 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, BarChart3, Boxes, History, LayoutGrid, Receipt, Users, Users2, Wallet2 } from "lucide-react";
+import {
+  ArrowLeftRight,
+  BarChart3,
+  Boxes,
+  HandCoins,
+  History,
+  LayoutGrid,
+  Receipt,
+  Users,
+  Users2,
+  Wallet2,
+} from "lucide-react";
 import { HUB_HREF, getVisibleModules } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { cn } from "@/lib/cn";
@@ -27,12 +38,19 @@ const ADMIN_LINKS = [
   { href: "/dashboard/admin/produk", label: "Katalog Produk", icon: Boxes },
   { href: "/dashboard/admin/faktur", label: "Faktur", icon: Receipt },
   { href: "/dashboard/admin/arus-kas", label: "Arus Kas Proyek", icon: ArrowLeftRight },
+  { href: "/dashboard/admin/pengajuan-modal", label: "Pengajuan Modal", icon: HandCoins },
+];
+
+const INVESTOR_LINKS = [
+  { href: "/dashboard/investor", label: "Ringkasan Investor", icon: LayoutGrid },
+  { href: "/dashboard/investor/pengajuan-modal", label: "Pengajuan Modal", icon: HandCoins },
 ];
 
 export function Sidebar({ division }: { division?: Division | null }) {
   const pathname = usePathname();
   const modules = getVisibleModules(division);
   const isFullAccess = division === "all";
+  const isInvestor = division === "investor";
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-black/5 bg-white dark:border-white/10 dark:bg-zinc-950 md:flex">
@@ -57,6 +75,7 @@ export function Sidebar({ division }: { division?: Division | null }) {
           Dashboard Hub
         </Link>
 
+        {modules.length > 0 && (
         <div className="pt-5">
           <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
             Modul
@@ -95,6 +114,37 @@ export function Sidebar({ division }: { division?: Division | null }) {
             })}
           </ul>
         </div>
+        )}
+
+        {isInvestor && (
+          <div className="pt-5">
+            <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              Investor
+            </p>
+            <ul className="space-y-1">
+              {INVESTOR_LINKS.map((link) => {
+                const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                const Icon = link.icon;
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                        isActive
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                          : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+                      )}
+                    >
+                      <Icon className="h-[18px] w-[18px]" />
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         {isFullAccess && (
           <div className="pt-5">

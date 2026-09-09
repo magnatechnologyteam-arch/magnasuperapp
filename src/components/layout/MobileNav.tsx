@@ -15,6 +15,12 @@ const ADMIN_LINKS = [
   { href: "/dashboard/admin/produk", label: "Produk" },
   { href: "/dashboard/admin/faktur", label: "Faktur" },
   { href: "/dashboard/admin/arus-kas", label: "Arus Kas" },
+  { href: "/dashboard/admin/pengajuan-modal", label: "Pengajuan Modal" },
+];
+
+const INVESTOR_LINKS = [
+  { href: "/dashboard/investor", label: "Ringkasan" },
+  { href: "/dashboard/investor/pengajuan-modal", label: "Pengajuan Modal" },
 ];
 
 /**
@@ -26,6 +32,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
   const pathname = usePathname();
   const modules = getVisibleModules(division);
   const isFullAccess = division === "all";
+  const isInvestor = division === "investor";
 
   return (
     <div className="flex items-center gap-2 overflow-x-auto border-b border-black/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-950 md:hidden">
@@ -69,6 +76,24 @@ export function MobileNav({ division }: { division?: Division | null }) {
                 "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-transform active:scale-95",
                 isActive
                   ? "bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+                  : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"
+              )}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
+      {isInvestor &&
+        INVESTOR_LINKS.map((link) => {
+          const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                "shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold transition-transform active:scale-95",
+                isActive
+                  ? "bg-emerald-600 text-white"
                   : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"
               )}
             >

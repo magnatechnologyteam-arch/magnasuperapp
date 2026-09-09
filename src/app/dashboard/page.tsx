@@ -1,5 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
+import { redirect } from "next/navigation";
 import { cn } from "@/lib/cn";
 import {
   AlertTriangle,
@@ -80,6 +81,14 @@ const QUICK_ACTIONS = [
  */
 export default async function DashboardHubPage() {
   const profile = await getCurrentProfile();
+
+  // Investor punya dashboard sendiri (read only lintas divisi + kotak masuk
+  // Pengajuan Modal) — bukan Hub biasa yang isinya kartu modul operasional
+  // yang toh tidak bisa dia buka (lihat middleware.ts & getVisibleModules).
+  if (profile?.division === "investor") {
+    redirect("/dashboard/investor");
+  }
+
   const firstName = (profile?.full_name?.trim() || profile?.email?.split("@")[0] || "").split(" ")[0];
 
   const modules = getVisibleModules(profile?.division);

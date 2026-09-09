@@ -1,10 +1,11 @@
-export type Division = "magnarent" | "magnative" | "production" | "all";
+export type Division = "magnarent" | "magnative" | "production" | "all" | "investor";
 
 export const DIVISION_LABELS: Record<Division, string> = {
   magnarent: "Magnarent",
   magnative: "Magnativ",
   production: "Production",
   all: "Akses Penuh",
+  investor: "Investor (Read Only)",
 };
 
 /**
@@ -18,6 +19,7 @@ export const DIVISION_BADGE_CLASSES: Record<Division, string> = {
   magnative: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300",
   production: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300",
   all: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
+  investor: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
 };
 
 export type Profile = {

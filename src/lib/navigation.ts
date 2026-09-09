@@ -91,6 +91,10 @@ export function getModuleByPath(pathname: string): ModuleConfig | undefined {
  */
 export function getVisibleModules(division?: string | null): ModuleConfig[] {
   if (division === "all") return MODULES;
+  // Investor punya area sendiri (/dashboard/investor, read only lintas
+  // divisi) — bukan modul operasional biasa, jadi sengaja tidak ditampilkan
+  // di sini (lihat Sidebar.tsx untuk tautan investor).
+  if (division === "investor") return [];
   // Fail-closed: divisi tidak dikenali/kosong dianggap akses paling
   // terbatas, konsisten dengan default di getCurrentProfile().
   return MODULES.filter((mod) => mod.id === (division ?? "production"));
