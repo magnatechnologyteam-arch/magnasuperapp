@@ -1,5 +1,19 @@
 import type { LucideIcon } from "lucide-react";
-import { CalendarClock, Factory, Megaphone } from "lucide-react";
+import {
+  ArrowLeftRight,
+  BarChart3,
+  Boxes,
+  CalendarClock,
+  Factory,
+  HandCoins,
+  History,
+  LayoutGrid,
+  Megaphone,
+  Receipt,
+  Users,
+  Users2,
+  Wallet2,
+} from "lucide-react";
 
 export type SubNavItem = {
   label: string;
@@ -74,6 +88,45 @@ export const MODULES: ModuleConfig[] = [
       { label: "Pemakaian", href: "/dashboard/production/pemakaian" },
       { label: "Pembelian", href: "/dashboard/production/pembelian" },
     ],
+  },
+];
+
+export type QuickLink = {
+  href: string;
+  /** Label lengkap — dipakai Sidebar (layar lebar, ruang cukup). */
+  label: string;
+  /** Label singkat — dipakai MobileNav (pill horizontal-scroll, ruang sempit). */
+  shortLabel: string;
+  icon: LucideIcon;
+};
+
+/**
+ * Tautan halaman Admin (khusus division "all") — SATU-SATUNYA sumber untuk
+ * Sidebar (desktop) & MobileNav (HP). Sebelumnya dua array terpisah nyaris
+ * identik ditulis manual di kedua komponen itu — sekali nambah halaman Admin
+ * baru dan lupa update salah satu file, tampilan desktop & HP jadi beda
+ * sendiri tanpa ada yang sadar. Sekarang cukup tambah satu baris di sini.
+ */
+export const ADMIN_LINKS: QuickLink[] = [
+  { href: "/dashboard/admin/pengguna", label: "Kelola Pengguna", shortLabel: "Pengguna", icon: Users },
+  { href: "/dashboard/admin/laporan", label: "Laporan", shortLabel: "Laporan", icon: BarChart3 },
+  { href: "/dashboard/admin/aktivitas", label: "Aktivitas", shortLabel: "Aktivitas", icon: History },
+  { href: "/dashboard/admin/klien", label: "Klien Terpadu", shortLabel: "Klien", icon: Users2 },
+  { href: "/dashboard/admin/keuangan", label: "Piutang & Pendapatan", shortLabel: "Piutang", icon: Wallet2 },
+  { href: "/dashboard/admin/produk", label: "Katalog Produk", shortLabel: "Produk", icon: Boxes },
+  { href: "/dashboard/admin/faktur", label: "Faktur", shortLabel: "Faktur", icon: Receipt },
+  { href: "/dashboard/admin/arus-kas", label: "Arus Kas Proyek", shortLabel: "Arus Kas", icon: ArrowLeftRight },
+  { href: "/dashboard/admin/pengajuan-modal", label: "Pengajuan Modal", shortLabel: "Pengajuan Modal", icon: HandCoins },
+];
+
+/** Tautan halaman Investor (division "investor" atau "all") — sama alasannya dengan ADMIN_LINKS di atas. */
+export const INVESTOR_LINKS: QuickLink[] = [
+  { href: "/dashboard/investor", label: "Ringkasan Investor", shortLabel: "Ringkasan", icon: LayoutGrid },
+  {
+    href: "/dashboard/investor/pengajuan-modal",
+    label: "Pengajuan Modal",
+    shortLabel: "Pengajuan Modal",
+    icon: HandCoins,
   },
 ];
 

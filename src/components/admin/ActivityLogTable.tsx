@@ -1,8 +1,10 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { Trash2, History } from "lucide-react";
 import { deleteActivityLogEntry, deleteAllActivityLogs } from "@/app/dashboard/admin/aktivitas/actions";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/cn";
 
 export type ActivityRow = {
@@ -61,29 +63,26 @@ function formatWaktu(iso: string): string {
  * dicek ulang di server (requireFullAccess() + RLS migrasi 0009), jadi
  * tombol ini aman dipasang di sini tanpa pengecekan tambahan.
  *
- * "Hapus Semua" sengaja pakai window.confirm dengan jumlah baris di
- * pesannya (bukan cuma "yakin?") supaya tidak gampang terpencet tanpa
- * sadar — aksi ini tidak bisa dibatalkan.
+ * Konfirmasi hapus pakai `ConfirmDialog` (bukan `window.confirm` bawaan
+ * browser) supaya konsisten dengan pola konfirmasi di seluruh aplikasi.
+ * Form tetap dikirim lewat `action={...}` asli (submit native, termasuk
+ * redirect dengan pesan sukses/error) — dialog cuma menunda submit-nya
+ * lewat `form.requestSubmit()`, pola yang sama dipakai `StaffTable.tsx`.
  */
 export function ActivityLogTable({ rows }: { rows: ActivityRow[] }) {
+  const deleteAllFormRef = useRef<HTMLFormElement>(null);
+  const rowFormRefs = useRef<Map<string, HTMLFormElement>>(new Map());
+  const [confirmAllOpen, setConfirmAllOpen] = useState(false);
+  const [confirmRowId, setConfirmRowId] = useState<string | null>(null);
+
   return (
     <div>
       {rows.length > 0 && (
         <div className="mb-3 flex justify-end">
-          <form
-            action={deleteAllActivityLogs}
-            onSubmit={(e) => {
-              if (
-                !window.confirm(
-                  "Hapus SEMUA log aktivitas (termasuk yang tidak tampil di halaman ini)? Tindakan ini tidak bisa dibatalkan."
-                )
-              ) {
-                e.preventDefault();
-              }
-            }}
-          >
+          <form action={deleteAllActivityLogs} ref={deleteAllFormRef}>
             <button
-              type="submit"
+              type="button"
+              onClick={() => setConfirmAllOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-full border border-rose-200 px-3.5 py-1.5 text-xs font-semibold text-rose-600 transition-colors hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-500/10"
             >
               <Trash2 className="h-3.5 w-3.5" />
@@ -151,16 +150,16 @@ export function ActivityLogTable({ rows }: { rows: ActivityRow[] }) {
                     <td className="px-5 py-3 text-right">
                       <form
                         action={deleteActivityLogEntry}
-                        onSubmit={(e) => {
-                          if (!window.confirm("Hapus baris aktivitas ini?")) {
-                            e.preventDefault();
-                          }
+                        ref={(el) => {
+                          if (el) rowFormRefs.current.set(row.id, el);
+                          else rowFormRefs.current.delete(row.id);
                         }}
                         className="inline"
                       >
                         <input type="hidden" name="id" value={row.id} />
                         <button
-                          type="submit"
+                          type="button"
+                          onClick={() => setConfirmRowId(row.id)}
                           title="Hapus baris ini"
                           className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
                         >
@@ -175,6 +174,30 @@ export function ActivityLogTable({ rows }: { rows: ActivityRow[] }) {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={confirmAllOpen}
+        onClose={() => setConfirmAllOpen(false)}
+        onConfirm={() => {
+          setConfirmAllOpen(false);
+          deleteAllFormRef.current?.requestSubmit();
+        }}
+        title="Hapus Semua Log Aktivitas"
+        description="Hapus SEMUA log aktivitas (termasuk yang tidak tampil di halaman ini)? Tindakan ini tidak bisa dibatalkan."
+        confirmLabel="Hapus Semua"
+      />
+
+      <ConfirmDialog
+        open={confirmRowId !== null}
+        onClose={() => setConfirmRowId(null)}
+        onConfirm={() => {
+          const id = confirmRowId;
+          setConfirmRowId(null);
+          if (id) rowFormRefs.current.get(id)?.requestSubmit();
+        }}
+        title="Hapus Baris Aktivitas"
+        description="Hapus baris aktivitas ini?"
+      />
     </div>
   );
 }

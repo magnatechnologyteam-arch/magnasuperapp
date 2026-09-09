@@ -2,23 +2,8 @@ import { CalendarPlus } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
-import type { ContentPost, ContentStatus, Platform } from "@/lib/magnative/types";
-
-const STATUS_STYLES: Record<ContentStatus, string> = {
-  Draft: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
-  Review: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Terjadwal: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
-  Tayang: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-};
-
-const PLATFORM_STYLES: Record<Platform, string> = {
-  Instagram: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300",
-  TikTok: "bg-zinc-100 text-zinc-700 dark:bg-white/10 dark:text-zinc-200",
-  Facebook: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300",
-  YouTube: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-  LinkedIn: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
-  Lainnya: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
-};
+import type { ContentPost } from "@/lib/magnative/types";
+import { CONTENT_STATUS_STYLES as STATUS_STYLES, PLATFORM_STYLES } from "@/lib/status-styles";
 
 /** Tabel jadwal konten Magnativ, versi read only untuk investor. */
 export function InvestorContentTable({ rows }: { rows: { post: ContentPost; clientName: string }[] }) {

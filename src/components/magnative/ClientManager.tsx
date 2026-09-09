@@ -10,15 +10,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { getAvatarColor, getInitials } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { Client, ClientStatus } from "@/lib/magnative/types";
+import { CLIENT_STATUS_STYLES as STATUS_STYLES } from "@/lib/status-styles";
 
 const GRADIENT = "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)";
-
-const STATUS_STYLES: Record<ClientStatus, string> = {
-  Prospek: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
-  Aktif: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-  Selesai: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
-  "Tidak Lanjut": "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-};
 
 const ALL_STATUSES: ClientStatus[] = ["Prospek", "Aktif", "Selesai", "Tidak Lanjut"];
 const ALL_FILTER = "Semua Status";

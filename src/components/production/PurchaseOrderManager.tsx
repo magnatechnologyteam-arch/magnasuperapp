@@ -10,14 +10,9 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID, formatRupiah, todayISO } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { PurchaseOrder, PurchaseOrderStatus } from "@/lib/production/types";
+import { PURCHASE_ORDER_STATUS_STYLES as STATUS_STYLES } from "@/lib/status-styles";
 
 const GRADIENT = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
-
-const STATUS_STYLES: Record<PurchaseOrderStatus, string> = {
-  Dipesan: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Diterima: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-  Dibatalkan: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-};
 
 const ALL_STATUSES: PurchaseOrderStatus[] = ["Dipesan", "Diterima", "Dibatalkan"];
 const ALL_FILTER = "Semua Status";

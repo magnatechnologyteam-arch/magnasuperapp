@@ -2,20 +2,8 @@ import { BadgeCheck, Calendar } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID, formatRupiah, getAvatarColor, getInitials } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
-import type { Booking, BookingStatus, PaymentStatus } from "@/lib/magnarent/types";
-
-const STATUS_STYLES: Record<BookingStatus, string> = {
-  Menunggu: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Dikonfirmasi: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-  Selesai: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
-  Dibatalkan: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-};
-
-const PAYMENT_STYLES: Record<PaymentStatus, string> = {
-  "Belum Bayar": "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-  DP: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Lunas: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-};
+import type { Booking } from "@/lib/magnarent/types";
+import { BOOKING_STATUS_STYLES as STATUS_STYLES, PAYMENT_STYLES } from "@/lib/status-styles";
 
 /**
  * Tabel booking Magnarent, versi read only untuk investor — sengaja

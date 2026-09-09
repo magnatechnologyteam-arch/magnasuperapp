@@ -9,12 +9,7 @@ import { formatDateID, formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { CapitalRequest, CapitalRequestStatus } from "@/lib/capital-requests/types";
 import { decideCapitalRequest } from "@/lib/capital-requests/actions";
-
-const STATUS_STYLES: Record<CapitalRequestStatus, string> = {
-  Menunggu: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Disetujui: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-  Ditolak: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-};
+import { CAPITAL_REQUEST_STATUS_STYLES as STATUS_STYLES } from "@/lib/status-styles";
 
 /** Warna avatar ikon per kartu — status "Menunggu" pakai warna netral/amber
  * supaya kontras dengan kartu yang sudah diputuskan (hijau/merah), konsisten

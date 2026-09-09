@@ -2,19 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  ArrowLeftRight,
-  BarChart3,
-  Boxes,
-  HandCoins,
-  History,
-  LayoutGrid,
-  Receipt,
-  Users,
-  Users2,
-  Wallet2,
-} from "lucide-react";
-import { HUB_HREF, getVisibleModules } from "@/lib/navigation";
+import { LayoutGrid } from "lucide-react";
+import { ADMIN_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { cn } from "@/lib/cn";
 import type { Division } from "@/lib/supabase/types";
@@ -27,24 +16,10 @@ import type { Division } from "@/lib/supabase/types";
  * `division` menentukan modul mana yang ditampilkan (lihat getVisibleModules)
  * — staf satu bagian cuma melihat tautan ke modulnya sendiri, sementara
  * akses penuh ("all") melihat semuanya plus tautan ke halaman Admin
- * (Kelola Pengguna, Laporan, Aktivitas).
+ * (Kelola Pengguna, Laporan, Aktivitas). `ADMIN_LINKS`/`INVESTOR_LINKS`
+ * diimpor dari `@/lib/navigation` — SATU-SATUNYA sumber, dipakai juga oleh
+ * `MobileNav.tsx`, supaya keduanya tidak bisa beda sendiri lagi.
  */
-const ADMIN_LINKS = [
-  { href: "/dashboard/admin/pengguna", label: "Kelola Pengguna", icon: Users },
-  { href: "/dashboard/admin/laporan", label: "Laporan", icon: BarChart3 },
-  { href: "/dashboard/admin/aktivitas", label: "Aktivitas", icon: History },
-  { href: "/dashboard/admin/klien", label: "Klien Terpadu", icon: Users2 },
-  { href: "/dashboard/admin/keuangan", label: "Piutang & Pendapatan", icon: Wallet2 },
-  { href: "/dashboard/admin/produk", label: "Katalog Produk", icon: Boxes },
-  { href: "/dashboard/admin/faktur", label: "Faktur", icon: Receipt },
-  { href: "/dashboard/admin/arus-kas", label: "Arus Kas Proyek", icon: ArrowLeftRight },
-  { href: "/dashboard/admin/pengajuan-modal", label: "Pengajuan Modal", icon: HandCoins },
-];
-
-const INVESTOR_LINKS = [
-  { href: "/dashboard/investor", label: "Ringkasan Investor", icon: LayoutGrid },
-  { href: "/dashboard/investor/pengajuan-modal", label: "Pengajuan Modal", icon: HandCoins },
-];
 
 export function Sidebar({ division }: { division?: Division | null }) {
   const pathname = usePathname();

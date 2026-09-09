@@ -9,19 +9,11 @@ import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
 import type { BoothProject } from "@/lib/production/types";
+import { BOOTH_STATUS_STYLES as STATUS_BADGE } from "@/lib/status-styles";
 
 const ACCENT_ORANGE = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
 const ACCENT_EMERALD = "linear-gradient(135deg, #10B981 0%, #22D3EE 100%)";
 const ACCENT_ZINC = "linear-gradient(135deg, #71717A 0%, #A1A1AA 100%)";
-
-const STATUS_BADGE: Record<BoothProject["status"], string> = {
-  Desain: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
-  Produksi: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Finishing: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
-  Instalasi: "bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300",
-  Selesai: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-  Dibatalkan: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-};
 
 const ALL_FILTER = "Semua Material";
 const REUSED_FILTER = "Dipakai Ulang (>1 Proyek)";

@@ -11,16 +11,10 @@ import { formatRupiah } from "@/lib/magnarent/pricing";
 import { todayISO } from "@/lib/magnarent/date";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
-import type { InventoryItem, InventoryStatus } from "@/lib/magnarent/types";
+import type { InventoryItem } from "@/lib/magnarent/types";
+import { INVENTORY_STATUS_STYLES as STATUS_STYLES } from "@/lib/status-styles";
 
 const GRADIENT = "linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)";
-
-const STATUS_STYLES: Record<InventoryStatus, string> = {
-  Tersedia: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-  Terbatas: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Habis: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-  Maintenance: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
-};
 
 const ALL_CATEGORIES = "Semua Kategori";
 

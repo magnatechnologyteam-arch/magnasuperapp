@@ -19,6 +19,7 @@ import { formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import { createInvoice, deleteInvoice, markInvoiceStatus, sendInvoiceWhatsApp, updateInvoice } from "@/lib/invoices/actions";
 import type { Invoice, InvoiceDivision, InvoiceSourceOption, InvoiceSourceType, InvoiceStatus } from "@/lib/invoices/types";
+import { INVOICE_STATUS_STYLES as STATUS_BADGE } from "@/lib/status-styles";
 
 const GRADIENT = "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)";
 
@@ -32,12 +33,6 @@ const DIVISION_BADGE: Record<InvoiceDivision, string> = {
   magnarent: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
   magnative: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300",
   production: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300",
-};
-
-const STATUS_BADGE: Record<InvoiceStatus, string> = {
-  Draft: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
-  Terkirim: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Lunas: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
 };
 
 const ALL_DIVISIONS_FILTER = "Semua Divisi";

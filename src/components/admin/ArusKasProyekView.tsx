@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { StatCard } from "@/components/ui/StatCard";
 import { cn } from "@/lib/cn";
 import type { Project } from "@/lib/magnative/types";
+import { PROJECT_STATUS_STYLES as STATUS_BADGE } from "@/lib/status-styles";
 
 const ACCENT_EMERALD = "linear-gradient(135deg, #10B981 0%, #22D3EE 100%)";
 const ACCENT_ROSE = "linear-gradient(135deg, #F43F5E 0%, #FB7185 100%)";
@@ -30,14 +31,6 @@ export type ProyekArusKas = {
   totalPotensi: number;
   net: number;
   timeline: ArusKasEvent[];
-};
-
-const STATUS_BADGE: Record<Project["status"], string> = {
-  Pitching: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
-  Perencanaan: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
-  Berjalan: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Selesai: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-  Dibatalkan: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
 };
 
 /**

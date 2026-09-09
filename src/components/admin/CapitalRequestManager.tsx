@@ -8,16 +8,11 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID, formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
-import type { CapitalRequest, CapitalRequestStatus } from "@/lib/capital-requests/types";
+import type { CapitalRequest } from "@/lib/capital-requests/types";
 import { addCapitalRequest, deleteCapitalRequest } from "@/lib/capital-requests/actions";
+import { CAPITAL_REQUEST_STATUS_STYLES as STATUS_STYLES } from "@/lib/status-styles";
 
 const GRADIENT = "linear-gradient(135deg, #10B981 0%, #059669 100%)";
-
-const STATUS_STYLES: Record<CapitalRequestStatus, string> = {
-  Menunggu: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Disetujui: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-  Ditolak: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-};
 
 function emptyForm() {
   return { eventName: "", location: "", eventDate: "", billingEstimate: "0", modalEstimate: "0" };

@@ -2,13 +2,8 @@ import { Receipt } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID, formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
-import type { Invoice, InvoiceDivision, InvoiceStatus } from "@/lib/invoices/types";
-
-const STATUS_STYLES: Record<InvoiceStatus, string> = {
-  Draft: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
-  Terkirim: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Lunas: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-};
+import type { Invoice, InvoiceDivision } from "@/lib/invoices/types";
+import { INVOICE_STATUS_STYLES as STATUS_STYLES } from "@/lib/status-styles";
 
 const DIVISION_LABELS: Record<InvoiceDivision, string> = {
   magnarent: "Magnarent",

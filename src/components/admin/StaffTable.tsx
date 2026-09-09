@@ -1,9 +1,11 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { Trash2, Users } from "lucide-react";
 import { deleteStaffAccount, updateStaffDivision } from "@/app/dashboard/admin/actions";
 import { DIVISION_BADGE_CLASSES, DIVISION_LABELS, type Division } from "@/lib/supabase/types";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/cn";
 
 type StaffRow = {
@@ -35,6 +37,9 @@ const DIVISION_DOT_CLASSES: Record<Division, string> = {
  * sendiri (server action juga menolak, ini cuma lapisan UX-nya).
  */
 export function StaffTable({ staff, currentUserId }: { staff: StaffRow[]; currentUserId: string }) {
+  const deleteFormRefs = useRef<Map<string, HTMLFormElement>>(new Map());
+  const [confirmTarget, setConfirmTarget] = useState<StaffRow | null>(null);
+
   return (
     <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
       {staff.length > 0 && (
@@ -109,16 +114,16 @@ export function StaffTable({ staff, currentUserId }: { staff: StaffRow[]; curren
                       {!isSelf && (
                         <form
                           action={deleteStaffAccount}
-                          onSubmit={(e) => {
-                            if (!window.confirm(`Hapus akun ${s.full_name || s.username || s.email}?`)) {
-                              e.preventDefault();
-                            }
+                          ref={(el) => {
+                            if (el) deleteFormRefs.current.set(s.id, el);
+                            else deleteFormRefs.current.delete(s.id);
                           }}
                           className="inline"
                         >
                           <input type="hidden" name="userId" value={s.id} />
                           <button
-                            type="submit"
+                            type="button"
+                            onClick={() => setConfirmTarget(s)}
                             title="Hapus akun"
                             className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
                           >
@@ -134,6 +139,25 @@ export function StaffTable({ staff, currentUserId }: { staff: StaffRow[]; curren
           </table>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmTarget !== null}
+        onClose={() => setConfirmTarget(null)}
+        onConfirm={() => {
+          const id = confirmTarget?.id;
+          setConfirmTarget(null);
+          if (id) deleteFormRefs.current.get(id)?.requestSubmit();
+        }}
+        title="Hapus Akun Staf"
+        description={
+          confirmTarget && (
+            <>
+              Hapus akun <strong>{confirmTarget.full_name || confirmTarget.username || confirmTarget.email}</strong>?
+              Tindakan ini tidak bisa dibatalkan.
+            </>
+          )
+        }
+      />
     </div>
   );
 }

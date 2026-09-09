@@ -2,31 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HUB_HREF, getVisibleModules } from "@/lib/navigation";
+import { ADMIN_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
 import { cn } from "@/lib/cn";
 import type { Division } from "@/lib/supabase/types";
-
-const ADMIN_LINKS = [
-  { href: "/dashboard/admin/pengguna", label: "Pengguna" },
-  { href: "/dashboard/admin/laporan", label: "Laporan" },
-  { href: "/dashboard/admin/aktivitas", label: "Aktivitas" },
-  { href: "/dashboard/admin/klien", label: "Klien" },
-  { href: "/dashboard/admin/keuangan", label: "Piutang" },
-  { href: "/dashboard/admin/produk", label: "Produk" },
-  { href: "/dashboard/admin/faktur", label: "Faktur" },
-  { href: "/dashboard/admin/arus-kas", label: "Arus Kas" },
-  { href: "/dashboard/admin/pengajuan-modal", label: "Pengajuan Modal" },
-];
-
-const INVESTOR_LINKS = [
-  { href: "/dashboard/investor", label: "Ringkasan" },
-  { href: "/dashboard/investor/pengajuan-modal", label: "Pengajuan Modal" },
-];
 
 /**
  * Pengganti Sidebar di layar kecil: strip module switcher yang bisa discroll
  * horizontal, tetap tampil di semua halaman lewat root layout. Modul yang
- * muncul mengikuti divisi pengguna, sama seperti Sidebar.
+ * muncul mengikuti divisi pengguna, sama seperti Sidebar. `ADMIN_LINKS`/
+ * `INVESTOR_LINKS` dari `@/lib/navigation` — sumber yang sama dengan
+ * Sidebar.tsx (pakai `shortLabel` di sini karena pill lebih sempit dari
+ * item sidebar).
  */
 export function MobileNav({ division }: { division?: Division | null }) {
   const pathname = usePathname();
@@ -79,7 +65,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
                   : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"
               )}
             >
-              {link.label}
+              {link.shortLabel}
             </Link>
           );
         })}
@@ -97,7 +83,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
                   : "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300"
               )}
             >
-              {link.label}
+              {link.shortLabel}
             </Link>
           );
         })}

@@ -11,6 +11,12 @@ export type SubscriptionInput = {
 
 type ActionResult = { ok: true; message?: string } | { ok: false; message: string };
 
+/** Konsisten dengan `GENERIC_ERROR` di modul lain (mis. capital-requests/actions.ts) —
+ * pesan error Postgres mentah (mis. "duplicate key value violates unique
+ * constraint...") tidak pernah ditampilkan langsung ke pengguna, cuma dicatat
+ * ke server log lewat `console.error` untuk ditelusuri kalau perlu. */
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
+
 /** Dipanggil dari klien setelah `pushManager.subscribe()` berhasil. */
 export async function savePushSubscription(subscription: SubscriptionInput, userAgent: string): Promise<ActionResult> {
   const supabase = await createClient();
@@ -31,7 +37,10 @@ export async function savePushSubscription(subscription: SubscriptionInput, user
     { onConflict: "endpoint" }
   );
 
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    console.error("[push] savePushSubscription gagal:", error.message);
+    return { ok: false, message: GENERIC_ERROR };
+  }
   return { ok: true };
 }
 
@@ -50,7 +59,10 @@ export async function removePushSubscription(endpoint: string): Promise<ActionRe
     .eq("endpoint", endpoint)
     .eq("user_id", user.id);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    console.error("[push] removePushSubscription gagal:", error.message);
+    return { ok: false, message: GENERIC_ERROR };
+  }
   return { ok: true };
 }
 
@@ -76,7 +88,10 @@ export async function sendTestPush(): Promise<ActionResult> {
     .select("id, endpoint, p256dh, auth_key")
     .eq("user_id", user.id);
 
-  if (error) return { ok: false, message: error.message };
+  if (error) {
+    console.error("[push] sendTestPush gagal ambil daftar subscription:", error.message);
+    return { ok: false, message: GENERIC_ERROR };
+  }
   if (!subscriptions || subscriptions.length === 0) {
     return { ok: false, message: "Belum ada perangkat yang mengaktifkan notifikasi." };
   }

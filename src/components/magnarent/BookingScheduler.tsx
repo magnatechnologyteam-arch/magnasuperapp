@@ -11,21 +11,9 @@ import { cn } from "@/lib/cn";
 import type { Booking, BookingStatus, PaymentStatus } from "@/lib/magnarent/types";
 import { formatDateID, todayISO } from "@/lib/magnarent/date";
 import { calculateBookingTotal, formatRupiah } from "@/lib/magnarent/pricing";
+import { BOOKING_STATUS_STYLES as STATUS_STYLES, PAYMENT_STYLES } from "@/lib/status-styles";
 
 const GRADIENT = "linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)";
-
-const STATUS_STYLES: Record<BookingStatus, string> = {
-  Menunggu: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Dikonfirmasi: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-  Selesai: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
-  Dibatalkan: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-};
-
-const PAYMENT_STYLES: Record<PaymentStatus, string> = {
-  "Belum Bayar": "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-  DP: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Lunas: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
-};
 
 const AVATAR_PALETTE = [
   "bg-violet-500",

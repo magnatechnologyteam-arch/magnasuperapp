@@ -9,6 +9,10 @@ import type { Division } from "@/lib/supabase/types";
 
 const VALID_DIVISIONS: Division[] = ["magnarent", "magnative", "production", "all", "investor"];
 const USERNAME_PATTERN = /^[a-z0-9._-]{3,20}$/;
+/** Konsisten dengan `GENERIC_ERROR` di modul lain (mis. capital-requests/actions.ts) —
+ * pesan error Supabase Admin API mentah tidak pernah ditampilkan langsung ke
+ * pengguna, cuma dicatat ke server log lewat `console.error` untuk ditelusuri. */
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
 
 /**
  * Semua Server Action di file ini mengubah data lewat service role
@@ -63,9 +67,10 @@ export async function createStaffAccount(formData: FormData) {
   });
 
   if (error) {
+    console.error("[admin] createStaffAccount gagal:", error.message);
     const message = error.message.toLowerCase().includes("already been registered")
       ? "Email pemulihan ini sudah dipakai akun lain."
-      : error.message;
+      : GENERIC_ERROR;
     redirect(`/dashboard/admin/pengguna?error=${encodeURIComponent(message)}`);
   }
 
@@ -145,7 +150,8 @@ export async function deleteStaffAccount(formData: FormData) {
 
   const { error } = await admin.auth.admin.deleteUser(userId);
   if (error) {
-    redirect(`/dashboard/admin/pengguna?error=${encodeURIComponent(error.message)}`);
+    console.error("[admin] deleteStaffAccount gagal:", error.message);
+    redirect(`/dashboard/admin/pengguna?error=${encodeURIComponent(GENERIC_ERROR)}`);
   }
 
   revalidatePath("/dashboard/admin/pengguna");
