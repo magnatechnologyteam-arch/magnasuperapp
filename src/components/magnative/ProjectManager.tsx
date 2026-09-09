@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { Briefcase, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Briefcase, Pencil, Plus, Search, Trash2, Wallet2 } from "lucide-react";
 import { useMagnativeData } from "./MagnativeDataProvider";
+import { ProjectCostModal } from "./ProjectCostModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -14,6 +15,7 @@ import type { PaymentStatus, Project, ProjectStatus, ProjectType } from "@/lib/m
 const GRADIENT = "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)";
 
 const STATUS_STYLES: Record<ProjectStatus, string> = {
+  Pitching: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
   Perencanaan: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
   Berjalan: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
   Selesai: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
@@ -27,7 +29,7 @@ const PAYMENT_STYLES: Record<PaymentStatus, string> = {
 };
 
 const ALL_TYPES: ProjectType[] = ["Event Organizer", "Creative Agency", "Media Sosial", "Lainnya"];
-const ALL_STATUSES: ProjectStatus[] = ["Perencanaan", "Berjalan", "Selesai", "Dibatalkan"];
+const ALL_STATUSES: ProjectStatus[] = ["Pitching", "Perencanaan", "Berjalan", "Selesai", "Dibatalkan"];
 const ALL_FILTER = "Semua Status";
 
 function emptyForm() {
@@ -38,7 +40,7 @@ function emptyForm() {
     tanggalMulai: "",
     tanggalSelesai: "",
     budget: "0",
-    status: "Perencanaan" as ProjectStatus,
+    status: "Pitching" as ProjectStatus,
     statusPembayaran: "Belum Bayar" as PaymentStatus,
     dpAmount: "0",
     catatan: "",
@@ -76,6 +78,7 @@ export function ProjectManager() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [costTarget, setCostTarget] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
 
@@ -314,6 +317,14 @@ export function ProjectManager() {
                     <div className="flex justify-end gap-1">
                       <button
                         type="button"
+                        onClick={() => setCostTarget(p)}
+                        title="Biaya proyek"
+                        className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-500/10 dark:hover:text-violet-300"
+                      >
+                        <Wallet2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => openEditModal(p)}
                         title="Edit proyek"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
@@ -532,6 +543,8 @@ export function ProjectManager() {
           )
         }
       />
+
+      {costTarget && <ProjectCostModal project={costTarget} onClose={() => setCostTarget(null)} />}
     </div>
   );
 }

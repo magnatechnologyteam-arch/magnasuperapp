@@ -32,6 +32,7 @@ export function MagnativeOverview() {
       .reduce((sum, p) => sum + p.budget, 0);
     const budgetTotal = projects.reduce((sum, p) => sum + p.budget, 0);
     const statusCounts = {
+      Pitching: projects.filter((p) => p.status === "Pitching").length,
       Perencanaan: projects.filter((p) => p.status === "Perencanaan").length,
       Berjalan: projects.filter((p) => p.status === "Berjalan").length,
       Selesai: projects.filter((p) => p.status === "Selesai").length,
@@ -118,6 +119,7 @@ export function MagnativeOverview() {
           <div className="px-5 py-5">
             <DonutChart
               data={[
+                { label: "Pitching", value: stats.statusCounts.Pitching, color: "#8b5cf6" },
                 { label: "Perencanaan", value: stats.statusCounts.Perencanaan, color: "#0ea5e9" },
                 { label: "Berjalan", value: stats.statusCounts.Berjalan, color: "#f59e0b" },
                 { label: "Selesai", value: stats.statusCounts.Selesai, color: "#71717a" },

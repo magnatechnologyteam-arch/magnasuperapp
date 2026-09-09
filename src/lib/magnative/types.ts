@@ -12,7 +12,14 @@ export type Client = {
 };
 
 export type ProjectType = "Event Organizer" | "Creative Agency" | "Media Sosial" | "Lainnya";
-export type ProjectStatus = "Perencanaan" | "Berjalan" | "Selesai" | "Dibatalkan";
+/**
+ * "Pitching" ditambahkan migrasi 0016 — tahap SEBELUM "Perencanaan", untuk
+ * proyek yang masih diajukan/ditawarkan ke calon klien dan belum pasti
+ * deal. Kalau pitching gagal, proyek cukup dipindah ke "Dibatalkan" —
+ * biayanya (lihat `ProjectCost` di bawah) tetap tercatat sebagai
+ * pengeluaran nyata meski proyeknya sendiri tidak pernah jalan.
+ */
+export type ProjectStatus = "Pitching" | "Perencanaan" | "Berjalan" | "Selesai" | "Dibatalkan";
 
 /**
  * Sama persis dengan `PaymentStatus` di `src/lib/magnarent/types.ts` dan
@@ -36,6 +43,24 @@ export type Project = {
   /** Nominal DP yang SUDAH diterima (Rupiah) — cuma relevan kalau statusPembayaran "DP", 0 selain itu. Migrasi 0015. */
   dpAmount: number;
   catatan?: string;
+};
+
+/**
+ * Satu baris biaya/pengeluaran untuk sebuah proyek Magnativ (migrasi 0017)
+ * — jawaban untuk permintaan investor (diteruskan owner) soal "rekapan
+ * cost dan kapannya (keluar atau masuk dana)". Dana MASUK sudah tercatat
+ * lewat tabel `invoices` yang terhubung ke proyek (sourceType
+ * "magnative_project"); tabel/tipe ini melengkapi sisi dana KELUAR
+ * (biaya pitching, produksi, vendor, dll) supaya laporan arus kas per
+ * proyek bisa menggabungkan keduanya. Sengaja dicatat per baris (bukan
+ * satu angka total) supaya rekapannya rinci per pengeluaran dan tanggal.
+ */
+export type ProjectCost = {
+  id: string;
+  projectId: string;
+  description: string;
+  amount: number;
+  costDate: string;
 };
 
 /**

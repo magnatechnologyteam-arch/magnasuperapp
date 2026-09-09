@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notifyDivision } from "@/lib/push/notify";
 import { logActivity } from "@/lib/activity/log";
-import type { Client, ContentPost, Project } from "./types";
+import type { Client, ContentPost, Project, ProjectCost } from "./types";
 
 const MODULE_PATH = "/dashboard/magnative";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
@@ -68,14 +68,17 @@ export async function updateClient(id: string, input: Omit<Client, "id">): Promi
 export async function deleteClient(id: string): Promise<MutationResult> {
   const supabase = await createClient();
 
-  // Cegah hapus klien yang masih punya proyek AKTIF (Perencanaan/Berjalan)
-  // — dulu cuma dicek di UI (getActiveProjectsForClient); ditegakkan ulang
-  // di sini supaya tidak bisa dilewati dengan memanggil action ini langsung.
+  // Cegah hapus klien yang masih punya proyek AKTIF (Pitching/Perencanaan/
+  // Berjalan) — dulu cuma dicek di UI (getActiveProjectsForClient);
+  // ditegakkan ulang di sini supaya tidak bisa dilewati dengan memanggil
+  // action ini langsung. "Pitching" ikut dihitung aktif sejak migrasi 0016
+  // — lead yang masih dalam proses pitching juga bukan klien yang aman
+  // dihapus begitu saja.
   const { data: activeRows, error: activeError } = await supabase
     .from("magnative_projects")
     .select("id")
     .eq("client_id", id)
-    .in("status", ["Perencanaan", "Berjalan"])
+    .in("status", ["Pitching", "Perencanaan", "Berjalan"])
     .limit(1);
 
   if (activeError) {
@@ -182,6 +185,62 @@ export async function deleteProject(id: string): Promise<MutationResult> {
   }
   revalidatePath(MODULE_PATH);
   void logActivity({ module: "magnative", action: "delete", entityType: "proyek", entityLabel: projectRow?.name });
+  return { ok: true };
+}
+
+/**
+ * Biaya/pengeluaran per proyek (migrasi 0017) — lihat komentar `ProjectCost`
+ * di types.ts. Tidak perlu cek `status` proyek: biaya boleh dicatat di
+ * tahap apa pun, termasuk "Pitching" yang belum pasti deal.
+ */
+export async function addProjectCost(input: Omit<ProjectCost, "id">): Promise<MutationResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase.from("magnative_project_costs").insert({
+    project_id: input.projectId,
+    description: input.description,
+    amount: input.amount,
+    cost_date: input.costDate,
+    created_by: user?.id ?? null,
+  });
+
+  if (error) {
+    console.error("[magnative] addProjectCost gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "magnative",
+    action: "create",
+    entityType: "biaya proyek",
+    entityLabel: input.description,
+  });
+  return { ok: true };
+}
+
+export async function deleteProjectCost(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: costRow } = await supabase
+    .from("magnative_project_costs")
+    .select("description")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("magnative_project_costs").delete().eq("id", id);
+  if (error) {
+    console.error("[magnative] deleteProjectCost gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "magnative",
+    action: "delete",
+    entityType: "biaya proyek",
+    entityLabel: costRow?.description,
+  });
   return { ok: true };
 }
 

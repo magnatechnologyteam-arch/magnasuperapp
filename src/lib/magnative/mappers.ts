@@ -7,6 +7,7 @@ import type {
   PaymentStatus,
   PortfolioPhoto,
   Project,
+  ProjectCost,
   ProjectStatus,
   ProjectType,
 } from "./types";
@@ -92,6 +93,24 @@ export function rowToContentPost(row: ContentPostRow): ContentPost {
     tanggalPosting: row.tanggal_posting,
     status: row.status,
     catatan: row.catatan ?? undefined,
+  };
+}
+
+export type ProjectCostRow = {
+  id: string;
+  project_id: string;
+  description: string;
+  amount: number;
+  cost_date: string;
+};
+
+export function rowToProjectCost(row: ProjectCostRow): ProjectCost {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    description: row.description,
+    amount: row.amount,
+    costDate: row.cost_date,
   };
 }
 

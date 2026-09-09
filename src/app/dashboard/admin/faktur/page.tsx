@@ -58,7 +58,10 @@ export default async function FakturPage() {
         };
       }),
     ...projects
-      .filter((p) => p.status !== "Dibatalkan")
+      // Proyek yang masih tahap "Pitching" (migrasi 0016) belum tentu deal
+      // — jangan ditawarkan sebagai sumber invoice sampai statusnya naik
+      // jadi Perencanaan/Berjalan/dst.
+      .filter((p) => p.status !== "Dibatalkan" && p.status !== "Pitching")
       .map((p): InvoiceSourceOption => {
         const client = clients.find((c) => c.id === p.clientId);
         return {

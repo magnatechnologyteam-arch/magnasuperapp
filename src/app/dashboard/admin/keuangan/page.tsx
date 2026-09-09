@@ -97,7 +97,10 @@ export default async function KeuanganPage() {
         dpAmount: b.dpAmount ?? 0,
       })),
     ...projects
-      .filter((p) => p.status !== "Dibatalkan")
+      // Proyek tahap "Pitching" (migrasi 0016) belum tentu deal — belum
+      // punya piutang/pendapatan nyata, jadi dikeluarkan dari perhitungan
+      // di halaman ini sampai statusnya naik jadi Perencanaan/Berjalan/dst.
+      .filter((p) => p.status !== "Dibatalkan" && p.status !== "Pitching")
       .map((p): Entry => ({
         id: p.id,
         module: "magnative",

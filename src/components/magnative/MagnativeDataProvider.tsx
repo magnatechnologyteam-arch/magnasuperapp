@@ -1,16 +1,20 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
-import type { Client, ContentPost, Project } from "@/lib/magnative/types";
+import type { Client, ContentPost, Project, ProjectCost } from "@/lib/magnative/types";
 import * as actions from "@/lib/magnative/actions";
 import type { MutationResult } from "@/lib/magnative/actions";
 
-const ACTIVE_PROJECT_STATUSES: Project["status"][] = ["Perencanaan", "Berjalan"];
+// "Pitching" ikut dihitung aktif sejak migrasi 0016 — konsisten dengan
+// guard di `deleteClient` (src/lib/magnative/actions.ts): lead yang masih
+// dalam proses pitching juga bukan proyek yang aman diabaikan begitu saja.
+const ACTIVE_PROJECT_STATUSES: Project["status"][] = ["Pitching", "Perencanaan", "Berjalan"];
 
 type MagnativeDataContextValue = {
   clients: Client[];
   projects: Project[];
   contentPosts: ContentPost[];
+  projectCosts: ProjectCost[];
 
   addClient: (input: Omit<Client, "id">) => Promise<MutationResult>;
   updateClient: (id: string, input: Omit<Client, "id">) => Promise<MutationResult>;
@@ -24,6 +28,10 @@ type MagnativeDataContextValue = {
   addContentPost: (input: Omit<ContentPost, "id">) => Promise<MutationResult>;
   updateContentPost: (id: string, input: Omit<ContentPost, "id">) => Promise<MutationResult>;
   deleteContentPost: (id: string) => Promise<MutationResult>;
+
+  getCostsForProject: (projectId: string) => ProjectCost[];
+  addProjectCost: (input: Omit<ProjectCost, "id">) => Promise<MutationResult>;
+  deleteProjectCost: (id: string) => Promise<MutationResult>;
 };
 
 const MagnativeDataContext = createContext<MagnativeDataContextValue | null>(null);
@@ -42,11 +50,13 @@ export function MagnativeDataProvider({
   clients,
   projects,
   contentPosts,
+  projectCosts,
   children,
 }: {
   clients: Client[];
   projects: Project[];
   contentPosts: ContentPost[];
+  projectCosts: ProjectCost[];
   children: ReactNode;
 }) {
   const addClient = useCallback((input: Omit<Client, "id">) => actions.addClient(input), []);
@@ -67,6 +77,9 @@ export function MagnativeDataProvider({
   );
   const deleteContentPost = useCallback((id: string) => actions.deleteContentPost(id), []);
 
+  const addProjectCost = useCallback((input: Omit<ProjectCost, "id">) => actions.addProjectCost(input), []);
+  const deleteProjectCost = useCallback((id: string) => actions.deleteProjectCost(id), []);
+
   /** Dipakai UI untuk memblokir hapus klien yang masih punya proyek aktif. */
   const getActiveProjectsForClient = useCallback(
     (clientId: string) =>
@@ -74,11 +87,19 @@ export function MagnativeDataProvider({
     [projects]
   );
 
+  /** Dipakai UI biaya per proyek — diurutkan terbaru dulu. */
+  const getCostsForProject = useCallback(
+    (projectId: string) =>
+      projectCosts.filter((c) => c.projectId === projectId).sort((a, b) => b.costDate.localeCompare(a.costDate)),
+    [projectCosts]
+  );
+
   const value = useMemo<MagnativeDataContextValue>(
     () => ({
       clients,
       projects,
       contentPosts,
+      projectCosts,
       addClient,
       updateClient,
       deleteClient,
@@ -89,11 +110,15 @@ export function MagnativeDataProvider({
       addContentPost,
       updateContentPost,
       deleteContentPost,
+      getCostsForProject,
+      addProjectCost,
+      deleteProjectCost,
     }),
     [
       clients,
       projects,
       contentPosts,
+      projectCosts,
       addClient,
       updateClient,
       deleteClient,
@@ -104,6 +129,9 @@ export function MagnativeDataProvider({
       addContentPost,
       updateContentPost,
       deleteContentPost,
+      getCostsForProject,
+      addProjectCost,
+      deleteProjectCost,
     ]
   );
 

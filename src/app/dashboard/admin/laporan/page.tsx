@@ -128,6 +128,7 @@ export default async function LaporanPage() {
           <div className="px-5 py-5">
             <DonutChart
               data={[
+                { label: "Pitching", value: projectStatusCounts.Pitching ?? 0, color: "#8b5cf6" },
                 { label: "Perencanaan", value: projectStatusCounts.Perencanaan ?? 0, color: "#0ea5e9" },
                 { label: "Berjalan", value: projectStatusCounts.Berjalan ?? 0, color: "#f59e0b" },
                 { label: "Selesai", value: projectStatusCounts.Selesai ?? 0, color: "#71717a" },

@@ -8,9 +8,11 @@ import {
   rowToClient,
   rowToContentPost,
   rowToProject,
+  rowToProjectCost,
   type ClientRow,
   type ContentPostRow,
   type ProjectRow,
+  type ProjectCostRow,
 } from "@/lib/magnative/mappers";
 
 const mod = MODULES.find((m) => m.id === "magnative")!;
@@ -25,7 +27,7 @@ const mod = MODULES.find((m) => m.id === "magnative")!;
  */
 export default async function MagnativeLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient();
-  const [clientsResult, projectsResult, postsResult] = await Promise.all([
+  const [clientsResult, projectsResult, postsResult, costsResult] = await Promise.all([
     supabase.from("magnative_clients").select("*").order("created_at", { ascending: true }).returns<ClientRow[]>(),
     supabase
       .from("magnative_projects")
@@ -37,19 +39,26 @@ export default async function MagnativeLayout({ children }: { children: ReactNod
       .select("*")
       .order("tanggal_posting", { ascending: true })
       .returns<ContentPostRow[]>(),
+    supabase
+      .from("magnative_project_costs")
+      .select("*")
+      .order("cost_date", { ascending: false })
+      .returns<ProjectCostRow[]>(),
   ]);
 
   if (clientsResult.error) console.error("[magnative] Gagal memuat klien:", clientsResult.error.message);
   if (projectsResult.error) console.error("[magnative] Gagal memuat proyek:", projectsResult.error.message);
   if (postsResult.error) console.error("[magnative] Gagal memuat konten:", postsResult.error.message);
+  if (costsResult.error) console.error("[magnative] Gagal memuat biaya proyek:", costsResult.error.message);
 
   const clients = (clientsResult.data ?? []).map(rowToClient);
   const projects = (projectsResult.data ?? []).map(rowToProject);
   const contentPosts = (postsResult.data ?? []).map(rowToContentPost);
+  const projectCosts = (costsResult.data ?? []).map(rowToProjectCost);
 
   return (
     <ToastProvider>
-      <MagnativeDataProvider clients={clients} projects={projects} contentPosts={contentPosts}>
+      <MagnativeDataProvider clients={clients} projects={projects} contentPosts={contentPosts} projectCosts={projectCosts}>
         <div>
           <SubNav items={mod.subnav} gradient={mod.gradient} />
           <div className="p-4 md:p-8">{children}</div>
