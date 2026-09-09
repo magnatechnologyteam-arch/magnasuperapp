@@ -8,7 +8,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID, formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
-import { calculateMargin, type CapitalRequest, type CapitalRequestStatus } from "@/lib/capital-requests/types";
+import type { CapitalRequest, CapitalRequestStatus } from "@/lib/capital-requests/types";
 import { addCapitalRequest, deleteCapitalRequest } from "@/lib/capital-requests/actions";
 
 const GRADIENT = "linear-gradient(135deg, #10B981 0%, #059669 100%)";
@@ -25,10 +25,12 @@ function emptyForm() {
 
 /**
  * Sisi Owner dari "Pengajuan Modal" (rancangan Owner di papan tulis): Owner
- * mengajukan perkiraan Billing (A1) & Modal (A2) untuk sebuah event SEBELUM
- * digarap, lalu akun investor yang memutuskan lewat kotak masuk terpisah
- * (lihat src/components/investor/CapitalRequestInbox.tsx). Halaman ini HANYA
- * untuk akses penuh — dijaga di page.tsx & Server Action (addCapitalRequest).
+ * mengajukan perkiraan pendapatan & modal yang dibutuhkan untuk sebuah event
+ * SEBELUM digarap, lalu akun investor yang memutuskan lewat kotak masuk
+ * terpisah (lihat src/components/investor/CapitalRequestInbox.tsx). Halaman
+ * ini HANYA untuk akses penuh — dijaga di page.tsx & Server Action
+ * (addCapitalRequest). Sengaja TIDAK menampilkan angka "margin" — itu cuma
+ * rumus internal, bukan sesuatu yang perlu dilihat Owner/investor di UI.
  */
 export function CapitalRequestManager({ requests }: { requests: CapitalRequest[] }) {
   const { showToast } = useToast();
@@ -47,7 +49,6 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
 
   const billingNum = Number(form.billingEstimate) || 0;
   const modalNum = Number(form.modalEstimate) || 0;
-  const previewMargin = calculateMargin(billingNum, modalNum);
 
   function openAddModal() {
     setForm(emptyForm());
@@ -132,9 +133,8 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
                 <th className="px-5 py-3">Event</th>
                 <th className="px-5 py-3">Lokasi</th>
                 <th className="px-5 py-3">Tanggal</th>
-                <th className="px-5 py-3 text-right">Billing (A1)</th>
-                <th className="px-5 py-3 text-right">Modal (A2)</th>
-                <th className="px-5 py-3 text-right">Margin</th>
+                <th className="px-5 py-3 text-right">Estimasi Pendapatan</th>
+                <th className="px-5 py-3 text-right">Modal Dibutuhkan</th>
                 <th className="px-5 py-3">Status</th>
                 <th className="px-5 py-3 text-right">Aksi</th>
               </tr>
@@ -142,7 +142,7 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
             <tbody>
               {sorted.length === 0 && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={7}>
                     <EmptyState
                       icon={HandCoins}
                       title="Belum ada pengajuan modal"
@@ -152,7 +152,6 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
                 </tr>
               )}
               {sorted.map((req) => {
-                const margin = calculateMargin(req.billingEstimate, req.modalEstimate);
                 return (
                   <tr key={req.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
                     <td className="px-5 py-3 font-medium text-zinc-900 dark:text-white">{req.eventName}</td>
@@ -165,9 +164,6 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
                     </td>
                     <td className="px-5 py-3 text-right tabular-nums text-zinc-700 dark:text-zinc-300">
                       {formatRupiah(req.modalEstimate)}
-                    </td>
-                    <td className="px-5 py-3 text-right tabular-nums font-semibold text-emerald-600 dark:text-emerald-400">
-                      {margin.toFixed(1)}%
                     </td>
                     <td className="px-5 py-3">
                       <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", STATUS_STYLES[req.status])}>
@@ -239,7 +235,7 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                Billing (A1)
+                Estimasi Pendapatan
               </label>
               <input
                 type="number"
@@ -251,7 +247,7 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                Modal (A2)
+                Modal Dibutuhkan
               </label>
               <input
                 type="number"
@@ -262,11 +258,6 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
               />
             </div>
           </div>
-
-          <p className="text-xs text-zinc-400 dark:text-zinc-500">
-            Margin: <span className="font-semibold text-emerald-600 dark:text-emerald-400">{previewMargin.toFixed(1)}%</span>{" "}
-            — (Billing − Modal) / Billing
-          </p>
 
           {error && (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">

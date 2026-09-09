@@ -11,9 +11,11 @@ export type CapitalRequest = {
   location: string;
   /** Nullable — event sering dadakan, tanggal pasti belum tentu ada saat diajukan. */
   eventDate?: string;
-  /** "A1" di rancangan Owner — perkiraan billing/pendapatan dari event ini. */
+  /** Perkiraan billing/pendapatan dari event ini ("A1" di rancangan awal Owner —
+   * sengaja TIDAK ditampilkan ke pengguna sebagai "A1", istilah rumus itu cuma
+   * dipakai Owner waktu diskusi awal, bukan istilah yang enak dibaca di UI). */
   billingEstimate: number;
-  /** "A2" di rancangan Owner — perkiraan modal/biaya yang dibutuhkan. */
+  /** Perkiraan modal/biaya yang dibutuhkan untuk event ini ("A2" di rancangan awal). */
   modalEstimate: number;
   status: CapitalRequestStatus;
   investorNote?: string;
@@ -22,9 +24,3 @@ export type CapitalRequest = {
   decidedAt?: string;
   createdAt: string;
 };
-
-/** margin% = (A1 - A2) / A1, persis rumus di papan tulis Owner. */
-export function calculateMargin(billingEstimate: number, modalEstimate: number): number {
-  if (billingEstimate <= 0) return 0;
-  return ((billingEstimate - modalEstimate) / billingEstimate) * 100;
-}

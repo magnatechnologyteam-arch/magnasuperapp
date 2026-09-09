@@ -1,13 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2, Clock, HandCoins, MapPin, XCircle } from "lucide-react";
+import { CalendarDays, CheckCircle2, Clock, HandCoins, MapPin, TrendingDown, TrendingUp, XCircle } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID, formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
-import { calculateMargin, type CapitalRequest, type CapitalRequestStatus } from "@/lib/capital-requests/types";
+import type { CapitalRequest, CapitalRequestStatus } from "@/lib/capital-requests/types";
 import { decideCapitalRequest } from "@/lib/capital-requests/actions";
 
 const STATUS_STYLES: Record<CapitalRequestStatus, string> = {
@@ -35,7 +35,10 @@ const ICON_BG: Record<CapitalRequestStatus, string> = {
  * Dipisah jadi dua seksi ("Menunggu Keputusan"/"Riwayat Keputusan") dan
  * dibatasi lebarnya (max-w-3xl) supaya tidak terasa kosong/berantakan kalau
  * cuma ada sedikit pengajuan — sebelumnya satu daftar rata kiri selebar
- * layar dengan ruang kosong besar di bawah kartu terakhir.
+ * layar dengan ruang kosong besar di bawah kartu terakhir. Angka yang
+ * ditampilkan cuma "Modal Dibutuhkan" & "Estimasi Pendapatan" — sengaja TIDAK
+ * ada "Margin"/persentase: itu cuma rumus turunan (Billing − Modal) / Billing,
+ * bukan angka yang perlu dilihat investor untuk memutuskan.
  */
 export function CapitalRequestInbox({ requests }: { requests: CapitalRequest[] }) {
   const { showToast } = useToast();
@@ -199,8 +202,6 @@ function RequestCard({
   request: CapitalRequest;
   onDecide: (request: CapitalRequest, status: CapitalRequestStatus) => void;
 }) {
-  const margin = calculateMargin(req.billingEstimate, req.modalEstimate);
-
   return (
     <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-white/10 dark:bg-zinc-900 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -252,31 +253,28 @@ function RequestCard({
         )}
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-3 rounded-xl bg-zinc-50 p-3 text-sm dark:bg-white/5">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-            Billing (A1)
-          </p>
-          <p className="truncate font-bold text-zinc-800 dark:text-zinc-100">{formatRupiah(req.billingEstimate)}</p>
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="flex items-center gap-2.5 rounded-xl bg-zinc-50 p-3 dark:bg-white/5">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300">
+            <TrendingDown className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">Modal Dibutuhkan</p>
+            <p className="truncate text-base font-extrabold text-zinc-900 dark:text-white">
+              {formatRupiah(req.modalEstimate)}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-            Modal (A2)
-          </p>
-          <p className="truncate font-bold text-zinc-800 dark:text-zinc-100">{formatRupiah(req.modalEstimate)}</p>
-        </div>
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-            Margin
-          </p>
-          <p
-            className={cn(
-              "truncate font-bold",
-              margin >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-            )}
-          >
-            {margin.toFixed(1)}%
-          </p>
+        <div className="flex items-center gap-2.5 rounded-xl bg-zinc-50 p-3 dark:bg-white/5">
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
+            <TrendingUp className="h-4 w-4" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">Estimasi Pendapatan</p>
+            <p className="truncate text-base font-extrabold text-zinc-900 dark:text-white">
+              {formatRupiah(req.billingEstimate)}
+            </p>
+          </div>
         </div>
       </div>
 
