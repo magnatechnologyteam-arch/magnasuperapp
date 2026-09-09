@@ -64,6 +64,11 @@ export default async function KlienTerpaduPage() {
       industry: client.industry,
       status: client.status,
       totalValue: bookingValue + magnativeValue + boothValue,
+      // Dipakai badge "Klien Berulang" (permintaan investor soal repeat
+      // order) — total booking/proyek klien ini lintas ketiga modul,
+      // TERPISAH dari jumlah lini bisnis yang dipakai (lihat komentar di
+      // ClientDirectoryTable.tsx).
+      totalTransaksi: clientBookings.length + clientMagnative.length + clientBooth.length,
       bookings: clientBookings.map((b) => ({
         id: b.id,
         label: inventory.find((i) => i.id === b.itemId)?.name ?? "—",
@@ -89,11 +94,13 @@ export default async function KlienTerpaduPage() {
   });
 
   // Klien dengan riwayat di lebih dari satu modul naik ke atas — itulah
-  // justru klien yang paling menunjukkan nilai "Super App" ini.
+  // justru klien yang paling menunjukkan nilai "Super App" ini. Di antara
+  // klien dengan jumlah lini bisnis yang sama, klien yang paling sering
+  // repeat order (totalTransaksi) naik duluan sebelum nilai total.
   summaries.sort((a, b) => {
     const modulesOf = (s: ClientSummary) =>
       Number(s.bookings.length > 0) + Number(s.magnativeProjects.length > 0) + Number(s.boothProjects.length > 0);
-    return modulesOf(b) - modulesOf(a) || b.totalValue - a.totalValue;
+    return modulesOf(b) - modulesOf(a) || b.totalTransaksi - a.totalTransaksi || b.totalValue - a.totalValue;
   });
 
   return (

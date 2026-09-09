@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import { ChevronDown, ChevronRight, Building2, Boxes, Palette, Hammer } from "lucide-react";
+import { ChevronDown, ChevronRight, Building2, Boxes, Palette, Hammer, Repeat } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
@@ -20,6 +20,8 @@ export type ClientSummary = {
   industry: string;
   status: string;
   totalValue: number;
+  /** Total booking/proyek lintas ketiga modul, dipakai penanda "Klien Berulang" — lihat komentar di ClientDirectoryTable. */
+  totalTransaksi: number;
   bookings: ClientHistoryItem[];
   magnativeProjects: ClientHistoryItem[];
   boothProjects: ClientHistoryItem[];
@@ -85,6 +87,13 @@ function ModuleGroup({
  * Klien yang belum punya riwayat di modul manapun (baru didaftarkan lewat
  * Magnative, belum pernah dipilih di form Magnarent/Production) tetap
  * tampil di tabel dengan nilai Rp 0 — itu wajar, bukan bug.
+ *
+ * "Klien Berulang" (badge hijau, `totalTransaksi > 1`) — jawaban untuk
+ * permintaan investor (diteruskan owner) soal pelacakan repeat order per
+ * klien. Beda dengan badge "N lini bisnis" (klien pakai berapa MODUL
+ * berbeda): klien bisa saja "Klien Berulang" walau cuma pernah pakai satu
+ * modul saja (mis. 3x booking Magnarent, belum pernah pakai Magnativ/
+ * Production) — keduanya sengaja ditampilkan terpisah.
  */
 export function ClientDirectoryTable({ clients }: { clients: ClientSummary[] }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -148,15 +157,23 @@ export function ClientDirectoryTable({ clients }: { clients: ClientSummary[] }) 
                         </span>
                       </td>
                       <td className="px-5 py-3">
-                        {moduleCount > 1 ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
-                            {moduleCount} lini bisnis
-                          </span>
-                        ) : moduleCount === 1 ? (
-                          <span className="text-xs text-zinc-400 dark:text-zinc-500">1 lini bisnis</span>
-                        ) : (
-                          <span className="text-xs text-zinc-300 dark:text-zinc-600">Belum ada</span>
-                        )}
+                        <div className="flex flex-col items-start gap-1">
+                          {moduleCount > 1 ? (
+                            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-[11px] font-bold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+                              {moduleCount} lini bisnis
+                            </span>
+                          ) : moduleCount === 1 ? (
+                            <span className="text-xs text-zinc-400 dark:text-zinc-500">1 lini bisnis</span>
+                          ) : (
+                            <span className="text-xs text-zinc-300 dark:text-zinc-600">Belum ada</span>
+                          )}
+                          {client.totalTransaksi > 1 && (
+                            <span className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300">
+                              <Repeat className="h-3 w-3" />
+                              Berulang · {client.totalTransaksi}x order
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-3 text-right font-semibold text-zinc-800 dark:text-zinc-100">
                         {formatRupiah(client.totalValue)}

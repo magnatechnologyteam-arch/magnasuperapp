@@ -14,6 +14,7 @@ const ADMIN_LINKS = [
   { href: "/dashboard/admin/keuangan", label: "Piutang" },
   { href: "/dashboard/admin/produk", label: "Produk" },
   { href: "/dashboard/admin/faktur", label: "Faktur" },
+  { href: "/dashboard/admin/arus-kas", label: "Arus Kas" },
 ];
 
 /**
