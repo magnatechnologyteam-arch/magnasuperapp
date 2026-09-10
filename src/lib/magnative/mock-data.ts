@@ -96,7 +96,7 @@ export const INITIAL_CONTENT_POSTS: ContentPost[] = [
     title: "Teaser Product Launch",
     platform: "Instagram",
     tanggalPosting: "2026-09-15",
-    status: "Terjadwal",
+    status: "Disetujui",
   },
   {
     id: "cp-2",
@@ -112,7 +112,7 @@ export const INITIAL_CONTENT_POSTS: ContentPost[] = [
     title: "Pengumuman Logo Baru",
     platform: "LinkedIn",
     tanggalPosting: "2026-09-08",
-    status: "Review",
+    status: "Revisi",
   },
   {
     id: "cp-4",
