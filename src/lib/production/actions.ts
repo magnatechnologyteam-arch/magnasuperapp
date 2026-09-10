@@ -20,7 +20,27 @@ export type MutationResult = { ok: true } | { ok: false; error: string };
  * `ProductionDataProvider`. RLS (migrasi 0006) sudah membatasi baris yang
  * kebaca/tertulis cuma milik divisi Production/akses penuh.
  */
+/** Divalidasi ulang di server — form di UI sudah punya `required`/`min`, tapi Server Action ini bisa dipanggil langsung sebagai fungsi. */
+function validateMaterialInput(input: Omit<MaterialItem, "id">): string | null {
+  if (!input.name?.trim() || !input.location?.trim()) {
+    return "Nama dan lokasi material wajib diisi.";
+  }
+  if (!Number.isInteger(input.stock) || input.stock < 0) {
+    return "Stok tidak boleh negatif.";
+  }
+  if (!Number.isInteger(input.minStock) || input.minStock < 0) {
+    return "Stok minimum tidak boleh negatif.";
+  }
+  if (!Number.isFinite(input.pricePerUnit) || input.pricePerUnit < 0) {
+    return "Harga per unit tidak valid.";
+  }
+  return null;
+}
+
 export async function addMaterial(input: Omit<MaterialItem, "id">): Promise<MutationResult> {
+  const validationError = validateMaterialInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
   const { error } = await supabase.from("production_materials").insert({
     name: input.name,
@@ -43,6 +63,9 @@ export async function addMaterial(input: Omit<MaterialItem, "id">): Promise<Muta
 }
 
 export async function updateMaterial(id: string, input: Omit<MaterialItem, "id">): Promise<MutationResult> {
+  const validationError = validateMaterialInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("production_materials")
@@ -183,7 +206,32 @@ async function checkMaterialAvailability(
   return findMaterialConflicts(requested, materials, projects, excludeProjectId);
 }
 
+/** Sama alasannya dengan `validateMaterialInput` — dicek ulang di server, bukan cuma diandalkan dari form. */
+function validateBoothProjectInput(input: NewBoothProjectInput): string | null {
+  if (!input.name?.trim() || !input.namaKlien?.trim() || !input.lokasiAcara?.trim()) {
+    return "Nama proyek, nama klien, dan lokasi acara wajib diisi.";
+  }
+  if (!input.tanggalMulai || !input.tanggalInstalasi || input.tanggalMulai > input.tanggalInstalasi) {
+    return "Tanggal instalasi tidak boleh sebelum tanggal mulai.";
+  }
+  if (!Number.isFinite(input.budget) || input.budget < 0) {
+    return "Budget tidak boleh negatif.";
+  }
+  if (input.dpAmount !== undefined && (!Number.isFinite(input.dpAmount) || input.dpAmount < 0)) {
+    return "Nominal DP tidak valid.";
+  }
+  for (const m of input.materials) {
+    if (!Number.isInteger(m.qty) || m.qty <= 0) {
+      return "Jumlah alokasi material harus bilangan bulat lebih dari 0.";
+    }
+  }
+  return null;
+}
+
 export async function addProject(input: NewBoothProjectInput): Promise<SaveBoothProjectResult> {
+  const validationError = validateBoothProjectInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
 
   // Hanya alokasi proyek yang statusnya aktif yang benar-benar menahan
@@ -194,22 +242,31 @@ export async function addProject(input: NewBoothProjectInput): Promise<SaveBooth
     if (conflicts.length > 0) return { ok: false, conflicts };
   }
 
-  const { error } = await supabase.from("production_booth_projects").insert({
-    name: input.name,
-    client_id: input.clientId ?? null,
-    nama_klien: input.namaKlien,
-    lokasi_acara: input.lokasiAcara,
-    status: input.status,
-    tanggal_mulai: input.tanggalMulai,
-    tanggal_instalasi: input.tanggalInstalasi,
-    budget: input.budget,
-    status_pembayaran: input.statusPembayaran,
-    dp_amount: input.dpAmount ?? 0,
-    materials: input.materials,
-    catatan: input.catatan ?? null,
+  // Pre-check di atas cuma untuk pesan konflik yang informatif — penulisan
+  // sungguhan lewat RPC `save_booth_project_checked` (migrasi 0020) yang
+  // menghitung ulang alokasi + insert dalam SATU transaksi terkunci per
+  // material, supaya dua proyek yang rebutan material yang sama tidak bisa
+  // lolos bersamaan (lihat komentar migrasinya untuk detail race condition-nya).
+  const { error } = await supabase.rpc("save_booth_project_checked", {
+    p_project_id: null,
+    p_name: input.name,
+    p_client_id: input.clientId ?? null,
+    p_nama_klien: input.namaKlien,
+    p_lokasi_acara: input.lokasiAcara,
+    p_status: input.status,
+    p_tanggal_mulai: input.tanggalMulai,
+    p_tanggal_instalasi: input.tanggalInstalasi,
+    p_budget: input.budget,
+    p_status_pembayaran: input.statusPembayaran,
+    p_dp_amount: input.dpAmount ?? 0,
+    p_materials: input.materials,
+    p_catatan: input.catatan ?? null,
   });
 
   if (error) {
+    if (error.message.startsWith("RACE_CONFLICT:")) {
+      return { ok: false, error: error.message.replace("RACE_CONFLICT: ", "") };
+    }
     console.error("[production] addProject gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
@@ -241,6 +298,9 @@ export async function addProject(input: NewBoothProjectInput): Promise<SaveBooth
 }
 
 export async function updateProject(id: string, input: NewBoothProjectInput): Promise<SaveBoothProjectResult> {
+  const validationError = validateBoothProjectInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
 
   // Proyek ini sendiri dikecualikan dari perhitungan alokasinya
@@ -251,25 +311,28 @@ export async function updateProject(id: string, input: NewBoothProjectInput): Pr
     if (conflicts.length > 0) return { ok: false, conflicts };
   }
 
-  const { error } = await supabase
-    .from("production_booth_projects")
-    .update({
-      name: input.name,
-      client_id: input.clientId ?? null,
-      nama_klien: input.namaKlien,
-      lokasi_acara: input.lokasiAcara,
-      status: input.status,
-      tanggal_mulai: input.tanggalMulai,
-      tanggal_instalasi: input.tanggalInstalasi,
-      budget: input.budget,
-      status_pembayaran: input.statusPembayaran,
-      dp_amount: input.dpAmount ?? 0,
-      materials: input.materials,
-      catatan: input.catatan ?? null,
-    })
-    .eq("id", id);
+  // Sama seperti addProject — penulisan sungguhan lewat RPC terkunci
+  // `save_booth_project_checked` (migrasi 0020), bukan UPDATE langsung.
+  const { error } = await supabase.rpc("save_booth_project_checked", {
+    p_project_id: id,
+    p_name: input.name,
+    p_client_id: input.clientId ?? null,
+    p_nama_klien: input.namaKlien,
+    p_lokasi_acara: input.lokasiAcara,
+    p_status: input.status,
+    p_tanggal_mulai: input.tanggalMulai,
+    p_tanggal_instalasi: input.tanggalInstalasi,
+    p_budget: input.budget,
+    p_status_pembayaran: input.statusPembayaran,
+    p_dp_amount: input.dpAmount ?? 0,
+    p_materials: input.materials,
+    p_catatan: input.catatan ?? null,
+  });
 
   if (error) {
+    if (error.message.startsWith("RACE_CONFLICT:")) {
+      return { ok: false, error: error.message.replace("RACE_CONFLICT: ", "") };
+    }
     console.error("[production] updateProject gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }

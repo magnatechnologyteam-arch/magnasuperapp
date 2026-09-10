@@ -20,7 +20,18 @@ export type MutationResult = { ok: true } | { ok: false; error: string };
  * membatasi baris yang kebaca/tertulis cuma milik divisi Magnative/akses
  * penuh, jadi pengecekan divisi tidak diulang di sini.
  */
+/** Divalidasi ulang di server — form di UI sudah punya `required`, tapi Server Action ini bisa dipanggil langsung sebagai fungsi. */
+function validateClientInput(input: Omit<Client, "id">): string | null {
+  if (!input.name?.trim() || !input.industry?.trim() || !input.picName?.trim()) {
+    return "Nama klien, industri, dan nama PIC wajib diisi.";
+  }
+  return null;
+}
+
 export async function addClient(input: Omit<Client, "id">): Promise<MutationResult> {
+  const validationError = validateClientInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
   const { error } = await supabase.from("magnative_clients").insert({
     name: input.name,
@@ -42,6 +53,9 @@ export async function addClient(input: Omit<Client, "id">): Promise<MutationResu
 }
 
 export async function updateClient(id: string, input: Omit<Client, "id">): Promise<MutationResult> {
+  const validationError = validateClientInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("magnative_clients")
@@ -101,7 +115,25 @@ export async function deleteClient(id: string): Promise<MutationResult> {
   return { ok: true };
 }
 
+/** Sama alasannya dengan `validateClientInput` — dicek ulang di server, bukan cuma diandalkan dari form. */
+function validateMagnativeProjectInput(input: Omit<Project, "id">): string | null {
+  if (!input.name?.trim()) return "Nama proyek wajib diisi.";
+  if (!input.tanggalMulai || !input.tanggalSelesai || input.tanggalMulai > input.tanggalSelesai) {
+    return "Tanggal selesai tidak boleh sebelum tanggal mulai.";
+  }
+  if (!Number.isFinite(input.budget) || input.budget < 0) {
+    return "Budget tidak boleh negatif.";
+  }
+  if (input.dpAmount !== undefined && (!Number.isFinite(input.dpAmount) || input.dpAmount < 0)) {
+    return "Nominal DP tidak valid.";
+  }
+  return null;
+}
+
 export async function addProject(input: Omit<Project, "id">): Promise<MutationResult> {
+  const validationError = validateMagnativeProjectInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
   const { error } = await supabase.from("magnative_projects").insert({
     client_id: input.clientId,
@@ -142,6 +174,9 @@ export async function addProject(input: Omit<Project, "id">): Promise<MutationRe
 }
 
 export async function updateProject(id: string, input: Omit<Project, "id">): Promise<MutationResult> {
+  const validationError = validateMagnativeProjectInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("magnative_projects")
@@ -194,6 +229,13 @@ export async function deleteProject(id: string): Promise<MutationResult> {
  * tahap apa pun, termasuk "Pitching" yang belum pasti deal.
  */
 export async function addProjectCost(input: Omit<ProjectCost, "id">): Promise<MutationResult> {
+  if (!input.description?.trim()) {
+    return { ok: false, error: "Deskripsi biaya wajib diisi." };
+  }
+  if (!Number.isFinite(input.amount) || input.amount <= 0) {
+    return { ok: false, error: "Nominal biaya harus lebih dari 0." };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -245,6 +287,13 @@ export async function deleteProjectCost(id: string): Promise<MutationResult> {
 }
 
 export async function addContentPost(input: Omit<ContentPost, "id">): Promise<MutationResult> {
+  if (!input.title?.trim()) {
+    return { ok: false, error: "Judul konten wajib diisi." };
+  }
+  if (!input.tanggalPosting) {
+    return { ok: false, error: "Tanggal posting wajib diisi." };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.from("magnative_content_posts").insert({
     client_id: input.clientId ?? null,
@@ -265,6 +314,13 @@ export async function addContentPost(input: Omit<ContentPost, "id">): Promise<Mu
 }
 
 export async function updateContentPost(id: string, input: Omit<ContentPost, "id">): Promise<MutationResult> {
+  if (!input.title?.trim()) {
+    return { ok: false, error: "Judul konten wajib diisi." };
+  }
+  if (!input.tanggalPosting) {
+    return { ok: false, error: "Tanggal posting wajib diisi." };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("magnative_content_posts")

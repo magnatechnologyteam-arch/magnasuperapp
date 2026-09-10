@@ -33,10 +33,27 @@ export async function addCapitalRequest(input: NewCapitalRequestInput): Promise<
     return { ok: false, error: "Hanya akun akses penuh yang bisa mengajukan modal." };
   }
 
+  // Divalidasi ulang di server — form di UI sudah punya `required`/`min`,
+  // tapi Server Action ini bisa dipanggil langsung sebagai fungsi (bukan
+  // cuma lewat submit form biasa), jadi validasi HTML saja tidak cukup.
+  const eventName = input.eventName?.trim();
+  const location = input.location?.trim();
+  if (!eventName || !location) {
+    return { ok: false, error: "Nama event dan lokasi wajib diisi." };
+  }
+  if (
+    !Number.isFinite(input.billingEstimate) ||
+    input.billingEstimate < 0 ||
+    !Number.isFinite(input.modalEstimate) ||
+    input.modalEstimate < 0
+  ) {
+    return { ok: false, error: "Perkiraan Billing dan Modal harus angka 0 atau lebih." };
+  }
+
   const supabase = await createClient();
   const { error } = await supabase.from("capital_requests").insert({
-    event_name: input.eventName,
-    location: input.location,
+    event_name: eventName,
+    location,
     event_date: input.eventDate || null,
     billing_estimate: input.billingEstimate,
     modal_estimate: input.modalEstimate,
@@ -54,12 +71,12 @@ export async function addCapitalRequest(input: NewCapitalRequestInput): Promise<
     module: "admin",
     action: "create",
     entityType: "pengajuan modal",
-    entityLabel: input.eventName,
+    entityLabel: eventName,
     detail: `Billing ${formatRupiah(input.billingEstimate)}, Modal ${formatRupiah(input.modalEstimate)}`,
   });
   void notifyDivision(["investor"], {
     title: "Pengajuan Modal Baru",
-    body: `${input.eventName} — Billing ${formatRupiah(input.billingEstimate)} / Modal ${formatRupiah(input.modalEstimate)}`,
+    body: `${eventName} — Billing ${formatRupiah(input.billingEstimate)} / Modal ${formatRupiah(input.modalEstimate)}`,
     url: INVESTOR_PATH,
   });
 

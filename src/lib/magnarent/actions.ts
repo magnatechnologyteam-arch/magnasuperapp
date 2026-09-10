@@ -46,7 +46,30 @@ export type BookingInput = {
  * memanggil bukan divisi Magnarent/akses penuh, query-nya otomatis kena
  * kosong/ditolak oleh Postgres, bukan cuma disembunyikan di UI.
  */
+/** Sama alasannya dengan `validateBookingInput` — dicek ulang di server, bukan cuma diandalkan dari form. */
+function validateInventoryInput(input: Omit<InventoryItem, "id">): string | null {
+  if (!input.name?.trim() || !input.category?.trim() || !input.location?.trim()) {
+    return "Nama, kategori, dan lokasi wajib diisi.";
+  }
+  if (!Number.isInteger(input.totalUnit) || input.totalUnit <= 0) {
+    return "Total unit harus bilangan bulat lebih dari 0.";
+  }
+  if (!Number.isInteger(input.unitMaintenance) || input.unitMaintenance < 0) {
+    return "Unit maintenance tidak boleh negatif.";
+  }
+  if (input.unitMaintenance > input.totalUnit) {
+    return "Unit maintenance tidak boleh lebih besar dari total unit.";
+  }
+  if (!Number.isFinite(input.pricePerDay) || input.pricePerDay < 0) {
+    return "Harga per hari tidak valid.";
+  }
+  return null;
+}
+
 export async function addInventoryItem(input: Omit<InventoryItem, "id">): Promise<MutationResult> {
+  const validationError = validateInventoryInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
   const { error } = await supabase.from("magnarent_inventory").insert({
     name: input.name,
@@ -71,6 +94,9 @@ export async function updateInventoryItem(
   id: string,
   input: Omit<InventoryItem, "id">
 ): Promise<MutationResult> {
+  const validationError = validateInventoryInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("magnarent_inventory")
@@ -181,7 +207,30 @@ async function checkBookingCapacity(
   return { item, overlapping, available };
 }
 
+/**
+ * Divalidasi ulang di server — form di UI sudah punya `required`/`min`/
+ * `type="date"`, tapi `addBooking`/`updateBooking` bisa dipanggil langsung
+ * sebagai fungsi, jadi validasi HTML saja tidak cukup untuk mencegah data
+ * rusak (mis. jumlah unit negatif, tanggal selesai sebelum tanggal mulai).
+ */
+function validateBookingInput(input: BookingInput): string | null {
+  if (!input.namaKlien?.trim()) return "Nama klien wajib diisi.";
+  if (!Number.isInteger(input.jumlahUnit) || input.jumlahUnit <= 0) {
+    return "Jumlah unit harus bilangan bulat lebih dari 0.";
+  }
+  if (!input.tanggalMulai || !input.tanggalSelesai || input.tanggalMulai > input.tanggalSelesai) {
+    return "Tanggal selesai tidak boleh sebelum tanggal mulai.";
+  }
+  if (input.dpAmount !== undefined && (!Number.isFinite(input.dpAmount) || input.dpAmount < 0)) {
+    return "Nominal DP tidak valid.";
+  }
+  return null;
+}
+
 export async function addBooking(input: BookingInput): Promise<SaveBookingResult> {
+  const validationError = validateBookingInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
   const capacity = await checkBookingCapacity(supabase, input);
   if ("error" in capacity) return { ok: false, error: capacity.error };
@@ -193,21 +242,29 @@ export async function addBooking(input: BookingInput): Promise<SaveBookingResult
     };
   }
 
-  const { error } = await supabase.from("magnarent_bookings").insert({
-    item_id: input.itemId,
-    client_id: input.clientId ?? null,
-    nama_klien: input.namaKlien,
-    telepon_klien: input.teleponKlien ?? null,
-    tanggal_mulai: input.tanggalMulai,
-    tanggal_selesai: input.tanggalSelesai,
-    jumlah_unit: input.jumlahUnit,
-    status: "Menunggu",
-    status_pembayaran: input.statusPembayaran,
-    dp_amount: input.dpAmount ?? 0,
-    catatan: input.catatan ?? null,
+  // Pre-check di atas cuma untuk pesan konflik yang informatif — penulisan
+  // sungguhan lewat RPC `save_booking_checked` (migrasi 0020) yang
+  // menghitung ulang + insert dalam SATU transaksi terkunci, supaya staf
+  // lain yang submit nyaris bersamaan untuk alat yang sama tidak bisa lolos
+  // bersama-sama (lihat komentar migrasinya untuk detail race condition-nya).
+  const { error } = await supabase.rpc("save_booking_checked", {
+    p_booking_id: null,
+    p_item_id: input.itemId,
+    p_client_id: input.clientId ?? null,
+    p_nama_klien: input.namaKlien,
+    p_telepon_klien: input.teleponKlien ?? null,
+    p_tanggal_mulai: input.tanggalMulai,
+    p_tanggal_selesai: input.tanggalSelesai,
+    p_jumlah_unit: input.jumlahUnit,
+    p_status_pembayaran: input.statusPembayaran,
+    p_dp_amount: input.dpAmount ?? 0,
+    p_catatan: input.catatan ?? null,
   });
 
   if (error) {
+    if (error.message.startsWith("RACE_CONFLICT:")) {
+      return { ok: false, error: error.message.replace("RACE_CONFLICT: ", "") };
+    }
     console.error("[magnarent] addBooking gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
@@ -241,6 +298,9 @@ export async function addBooking(input: BookingInput): Promise<SaveBookingResult
 }
 
 export async function updateBooking(id: string, input: BookingInput): Promise<SaveBookingResult> {
+  const validationError = validateBookingInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
   const supabase = await createClient();
   const capacity = await checkBookingCapacity(supabase, input, id);
   if ("error" in capacity) return { ok: false, error: capacity.error };
@@ -252,23 +312,26 @@ export async function updateBooking(id: string, input: BookingInput): Promise<Sa
     };
   }
 
-  const { error } = await supabase
-    .from("magnarent_bookings")
-    .update({
-      item_id: input.itemId,
-      client_id: input.clientId ?? null,
-      nama_klien: input.namaKlien,
-      telepon_klien: input.teleponKlien ?? null,
-      tanggal_mulai: input.tanggalMulai,
-      tanggal_selesai: input.tanggalSelesai,
-      jumlah_unit: input.jumlahUnit,
-      status_pembayaran: input.statusPembayaran,
-      dp_amount: input.dpAmount ?? 0,
-      catatan: input.catatan ?? null,
-    })
-    .eq("id", id);
+  // Sama seperti addBooking — penulisan sungguhan lewat RPC terkunci
+  // `save_booking_checked` (migrasi 0020), bukan UPDATE langsung.
+  const { error } = await supabase.rpc("save_booking_checked", {
+    p_booking_id: id,
+    p_item_id: input.itemId,
+    p_client_id: input.clientId ?? null,
+    p_nama_klien: input.namaKlien,
+    p_telepon_klien: input.teleponKlien ?? null,
+    p_tanggal_mulai: input.tanggalMulai,
+    p_tanggal_selesai: input.tanggalSelesai,
+    p_jumlah_unit: input.jumlahUnit,
+    p_status_pembayaran: input.statusPembayaran,
+    p_dp_amount: input.dpAmount ?? 0,
+    p_catatan: input.catatan ?? null,
+  });
 
   if (error) {
+    if (error.message.startsWith("RACE_CONFLICT:")) {
+      return { ok: false, error: error.message.replace("RACE_CONFLICT: ", "") };
+    }
     console.error("[magnarent] updateBooking gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }

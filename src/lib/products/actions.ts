@@ -51,6 +51,9 @@ export async function addProduct(formData: FormData): Promise<MutationResult> {
   if (!fields.name) {
     return { ok: false, error: "Nama produk wajib diisi." };
   }
+  if (fields.price < 0 || fields.stock < 0) {
+    return { ok: false, error: "Harga dan stok tidak boleh negatif." };
+  }
 
   let photoUrl: string | null = null;
   let photoStoragePath: string | null = null;
@@ -110,6 +113,9 @@ export async function updateProduct(id: string, formData: FormData): Promise<Mut
 
   if (!fields.name) {
     return { ok: false, error: "Nama produk wajib diisi." };
+  }
+  if (fields.price < 0 || fields.stock < 0) {
+    return { ok: false, error: "Harga dan stok tidak boleh negatif." };
   }
 
   const updatePayload: Record<string, unknown> = {
@@ -223,6 +229,14 @@ export async function bulkImportProducts(rows: ProductImportRow[]): Promise<Impo
       continue;
     }
 
+    const price = Number.isFinite(row.price) ? Number(row.price) : 0;
+    const stock = Number.isFinite(row.stock) ? Number(row.stock) : 0;
+    if (price < 0 || stock < 0) {
+      summary.skipped++;
+      summary.errors.push(`Baris ${index + 2} (${name}): harga/stok tidak boleh negatif, dilewati.`);
+      continue;
+    }
+
     const division: ProductDivision =
       row.division && VALID_DIVISIONS.includes(row.division) ? row.division : "umum";
     const sku = row.sku?.trim() || null;
@@ -231,9 +245,9 @@ export async function bulkImportProducts(rows: ProductImportRow[]): Promise<Impo
       division,
       category: row.category?.trim() || "",
       sku,
-      price: Number.isFinite(row.price) ? Number(row.price) : 0,
+      price,
       unit: row.unit?.trim() || "unit",
-      stock: Number.isFinite(row.stock) ? Number(row.stock) : 0,
+      stock,
       supplier: row.supplier?.trim() || null,
       catatan: row.catatan?.trim() || null,
     };

@@ -7,6 +7,7 @@ import { formatDisplayName } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import { DIVISION_LABELS, type Profile } from "@/lib/supabase/types";
 import { PushNotificationBell } from "@/components/push/PushNotificationBell";
+import { GlobalSearch } from "@/components/layout/GlobalSearch";
 
 /**
  * Bar atas persisten di seluruh /dashboard/** — dipasang di AppShell,
@@ -53,6 +54,7 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
       </p>
 
       <div className="flex items-center gap-2.5">
+      <GlobalSearch />
       <PushNotificationBell />
       <div className="relative" ref={ref}>
         <button
