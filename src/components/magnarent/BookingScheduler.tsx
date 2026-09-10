@@ -1,8 +1,20 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { AlertTriangle, BadgeCheck, Calendar, Check, Pencil, Plus, Search, Trash2, X as XIcon } from "lucide-react";
+import {
+  AlertTriangle,
+  BadgeCheck,
+  Calendar,
+  Check,
+  ClipboardCheck,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X as XIcon,
+} from "lucide-react";
 import { useMagnarentData, type BookingConflict } from "./MagnarentDataProvider";
+import { BookingConditionModal } from "./BookingConditionModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -100,6 +112,8 @@ export function BookingScheduler() {
   const [deleteTarget, setDeleteTarget] = useState<Booking | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
+  // Tahap 28a: checklist kondisi alat + jaminan — dibuka lewat tombol baru di baris.
+  const [conditionTarget, setConditionTarget] = useState<Booking | null>(null);
 
   const itemName = (id: string) => inventory.find((i) => i.id === id)?.name ?? "—";
   const clientById = (id?: string) => (id ? clients.find((c) => c.id === id) : undefined);
@@ -417,6 +431,15 @@ export function BookingScheduler() {
                         )}
                         <button
                           type="button"
+                          onClick={() => setConditionTarget(b)}
+                          title="Checklist kondisi & jaminan"
+                          aria-label="Checklist kondisi & jaminan"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10 dark:hover:text-blue-300"
+                        >
+                          <ClipboardCheck className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openEditModal(b)}
                           title="Edit pesanan"
                           aria-label="Edit pesanan"
@@ -688,6 +711,15 @@ export function BookingScheduler() {
           )
         }
       />
+
+      {conditionTarget && (
+        <BookingConditionModal
+          bookingId={conditionTarget.id}
+          clientName={conditionTarget.namaKlien}
+          open={conditionTarget !== null}
+          onClose={() => setConditionTarget(null)}
+        />
+      )}
     </div>
   );
 }

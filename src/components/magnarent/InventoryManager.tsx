@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { MapPin, Package, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { MapPin, Package, Pencil, Plus, Search, Trash2, Wrench } from "lucide-react";
 import { useMagnarentData } from "./MagnarentDataProvider";
+import { MaintenanceLogModal } from "./MaintenanceLogModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -51,6 +52,8 @@ export function InventoryManager() {
   const [deleteTarget, setDeleteTarget] = useState<InventoryItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
+  // Tahap 28a: riwayat servis alat — dibuka lewat tombol kunci pas di baris.
+  const [maintenanceTarget, setMaintenanceTarget] = useState<InventoryItem | null>(null);
 
   const categories = useMemo(
     () => Array.from(new Set(inventory.map((i) => i.category))),
@@ -267,6 +270,15 @@ export function InventoryManager() {
                       <div className="flex justify-end gap-1">
                         <button
                           type="button"
+                          onClick={() => setMaintenanceTarget(item)}
+                          title="Riwayat servis alat"
+                          aria-label="Riwayat servis alat"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10 dark:hover:text-amber-300"
+                        >
+                          <Wrench className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openEditModal(item)}
                           title="Edit alat"
                           aria-label="Edit alat"
@@ -438,6 +450,15 @@ export function InventoryManager() {
           )
         }
       />
+
+      {maintenanceTarget && (
+        <MaintenanceLogModal
+          itemId={maintenanceTarget.id}
+          itemName={maintenanceTarget.name}
+          open={maintenanceTarget !== null}
+          onClose={() => setMaintenanceTarget(null)}
+        />
+      )}
     </div>
   );
 }
