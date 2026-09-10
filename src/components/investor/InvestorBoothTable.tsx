@@ -26,7 +26,11 @@ export function InvestorBoothTable({ projects }: { projects: BoothProject[] }) {
             {projects.length === 0 && (
               <tr>
                 <td colSpan={7}>
-                  <EmptyState icon={PackageSearch} title="Belum ada proyek booth" description="Belum ada data yang tercatat." />
+                  <EmptyState
+                    icon={PackageSearch}
+                    title="Belum ada proyek booth"
+                    description="Begitu ada proyek booth baru dari Production, langsung muncul di sini."
+                  />
                 </td>
               </tr>
             )}

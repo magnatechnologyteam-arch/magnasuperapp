@@ -35,7 +35,11 @@ export function InvestorBookingTable({
             {rows.length === 0 && (
               <tr>
                 <td colSpan={8}>
-                  <EmptyState icon={Calendar} title="Belum ada booking" description="Belum ada data yang tercatat." />
+                  <EmptyState
+                    icon={Calendar}
+                    title="Belum ada booking"
+                    description="Begitu ada booking baru dari Magnarent, langsung muncul di sini."
+                  />
                 </td>
               </tr>
             )}

@@ -29,7 +29,7 @@ export default async function InvestorProductionPage() {
     <div>
       <InvestorSectionHeader
         icon={PackageSearch}
-        eyebrow="Investor · Read Only"
+        eyebrow="Investor"
         title="Production — Proyek Booth & Material"
         description={`${projects.length} proyek booth, ${stokMenipis} material stok menipis.`}
         accent="#F59E0B"

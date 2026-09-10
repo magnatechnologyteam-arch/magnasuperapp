@@ -26,7 +26,11 @@ export function InvestorProjectTable({ rows }: { rows: { project: Project; clien
             {rows.length === 0 && (
               <tr>
                 <td colSpan={7}>
-                  <EmptyState icon={Hammer} title="Belum ada proyek" description="Belum ada data yang tercatat." />
+                  <EmptyState
+                    icon={Hammer}
+                    title="Belum ada proyek"
+                    description="Begitu ada proyek baru dari Magnativ, langsung muncul di sini."
+                  />
                 </td>
               </tr>
             )}

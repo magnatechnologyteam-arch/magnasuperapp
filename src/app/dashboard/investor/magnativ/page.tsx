@@ -42,7 +42,7 @@ export default async function InvestorMagnativPage() {
     <div>
       <InvestorSectionHeader
         icon={Hammer}
-        eyebrow="Investor · Read Only"
+        eyebrow="Investor"
         title="Magnativ — Proyek & Konten"
         description={`${projects.length} proyek, ${posts.length} jadwal konten tercatat.`}
         accent="#8B5CF6"

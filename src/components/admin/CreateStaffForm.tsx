@@ -10,7 +10,7 @@ const DIVISION_OPTIONS: Array<{ value: Division; hint: string }> = [
   { value: "magnarent", hint: "Hanya modul Magnarent" },
   { value: "magnative", hint: "Hanya modul Magnativ" },
   { value: "all", hint: "Semua modul (Finance/Owner)" },
-  { value: "investor", hint: "Read only lintas divisi + Approve/Reject Pengajuan Modal" },
+  { value: "investor", hint: "Bisa lihat semua divisi (tanpa ubah data) + Approve/Reject Pengajuan Modal" },
 ];
 
 function generatePassword() {

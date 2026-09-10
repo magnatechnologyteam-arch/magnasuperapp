@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Plus_Jakarta_Sans } from "next/font/google";
+import { getCurrentProfile } from "@/lib/supabase/server";
+import { cn } from "@/lib/cn";
 import "./globals.css";
 
 const jakarta = Plus_Jakarta_Sans({
@@ -39,15 +41,48 @@ export const viewport: Viewport = {
 };
 
 /**
- * Root layout — hanya font & metadata global. AppShell (Sidebar/Topbar)
+ * Root layout — font & metadata global, DAN (Tahap 27) pemilihan tema
+ * terang/gelap di level paling atas (<html>) supaya berlaku di halaman
+ * publik (/login, /register) maupun dashboard. AppShell (Sidebar/Topbar)
  * TIDAK dipasang di sini — lihat `src/app/dashboard/layout.tsx` — supaya
- * rute publik seperti "/login" dan "/register" tetap bebas dari chrome
- * dashboard. Font "Plus Jakarta Sans" dipasang lewat next/font/google di
- * root supaya konsisten di seluruh aplikasi (termasuk halaman login).
+ * rute publik tetap bebas dari chrome dashboard. Font "Plus Jakarta Sans"
+ * dipasang lewat next/font/google di root supaya konsisten di seluruh
+ * aplikasi (termasuk halaman login).
+ *
+ * Layout ini async supaya bisa membaca `theme_preference` pengguna yang
+ * sedang login (kalau ada sesi) SEBELUM render pertama — hasilnya class
+ * "dark" bisa langsung dipasang server-side, tanpa kedipan warna salah
+ * sesaat (flash) seperti kalau baru ditentukan di klien belakangan.
+ * Kalau belum login atau pilihannya "Ikuti Sistem" (default), server
+ * tidak tahu preferensi OS pengunjung — skrip kecil di <head> di bawah
+ * yang menentukannya lewat `matchMedia`, dijalankan SEBELUM apa pun
+ * digambar (blocking script pertama di <head>), supaya tetap tidak ada
+ * flash walau keputusannya baru diambil di browser.
  */
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const profile = await getCurrentProfile().catch(() => null);
+  const theme = profile?.theme_preference ?? "system";
+
   return (
-    <html lang="id" className={jakarta.variable}>
+    <html
+      lang="id"
+      className={cn(jakarta.variable, theme === "dark" && "dark")}
+      suppressHydrationWarning
+    >
+      <head>
+        {theme === "system" && (
+          <script
+            // Sengaja inline (bukan file .js terpisah) supaya jalan sinkron
+            // sebelum browser sempat menggambar apa pun — kalau dimuat
+            // sebagai file eksternal biasa, ada jeda yang bikin sempat
+            // kelihatan versi terang dulu baru berubah gelap (flash).
+            dangerouslySetInnerHTML={{
+              __html:
+                "(function(){try{if(window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.classList.add('dark');}}catch(e){}})();",
+            }}
+          />
+        )}
+      </head>
       <body className="antialiased">{children}</body>
     </html>
   );

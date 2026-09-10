@@ -45,7 +45,7 @@ export default async function InvestorRingkasanPage() {
     <div>
       <div className="animate-fade-up mb-8">
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-500 dark:text-emerald-400">
-          Investor · Read Only
+          Investor
         </p>
         <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
           {firstName ? `Ringkasan untuk ${firstName}` : "Ringkasan Investor"}

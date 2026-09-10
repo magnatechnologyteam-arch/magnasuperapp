@@ -37,7 +37,7 @@ export default async function InvestorMagnarentPage() {
     <div>
       <InvestorSectionHeader
         icon={CalendarRange}
-        eyebrow="Investor · Read Only"
+        eyebrow="Investor"
         title="Magnarent — Booking"
         description={`${bookings.length} booking tercatat, terbaru di atas.`}
         accent="#3B82F6"

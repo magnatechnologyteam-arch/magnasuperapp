@@ -23,7 +23,11 @@ export function InvestorMaterialTable({ materials }: { materials: MaterialItem[]
             {materials.length === 0 && (
               <tr>
                 <td colSpan={5}>
-                  <EmptyState icon={AlertTriangle} title="Belum ada material" description="Belum ada data yang tercatat." />
+                  <EmptyState
+                    icon={AlertTriangle}
+                    title="Belum ada material"
+                    description="Begitu Production mencatat stok material, langsung muncul di sini."
+                  />
                 </td>
               </tr>
             )}

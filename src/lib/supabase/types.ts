@@ -5,7 +5,7 @@ export const DIVISION_LABELS: Record<Division, string> = {
   magnative: "Magnativ",
   production: "Production",
   all: "Akses Penuh",
-  investor: "Investor (Read Only)",
+  investor: "Investor",
 };
 
 /**
@@ -22,6 +22,9 @@ export const DIVISION_BADGE_CLASSES: Record<Division, string> = {
   investor: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
 };
 
+export type ThemePreference = "light" | "dark" | "system";
+export type LanguagePreference = "id" | "en";
+
 export type Profile = {
   id: string;
   email: string;
@@ -29,5 +32,8 @@ export type Profile = {
   username: string | null;
   division: Division;
   role: "member" | "admin";
+  avatar_url: string | null;
+  theme_preference: ThemePreference;
+  language_preference: LanguagePreference;
   created_at: string;
 };

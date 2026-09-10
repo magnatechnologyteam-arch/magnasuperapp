@@ -62,6 +62,9 @@ export async function getCurrentProfile(): Promise<(Profile & { email: string })
     // atau division tidak dikenali, anggap akses paling terbatas.
     division: (profile?.division as Division | undefined) ?? "production",
     role: profile?.role ?? "member",
+    avatar_url: profile?.avatar_url ?? null,
+    theme_preference: (profile?.theme_preference as Profile["theme_preference"] | undefined) ?? "system",
+    language_preference: (profile?.language_preference as Profile["language_preference"] | undefined) ?? "id",
     created_at: profile?.created_at ?? user.created_at,
   };
 }

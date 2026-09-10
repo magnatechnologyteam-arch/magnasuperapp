@@ -3,6 +3,20 @@
 
 @import "tailwindcss";
 
+/* Tahap 27: dulu semua "dark:" di aplikasi murni ikut pengaturan sistem
+   perangkat (media query prefers-color-scheme) — sekarang bisa dipilih
+   sendiri lewat halaman Pengaturan. Baris ini mengganti variant "dark:"
+   supaya aktif berdasarkan class ".dark" di <html> (dipasang server-side
+   di src/app/layout.tsx dari kolom theme_preference, atau oleh skrip kecil
+   di <head> kalau pengguna belum login/pilih "Ikuti Sistem") — BUKAN lagi
+   otomatis dari media query, supaya pilihan "Terang"/"Gelap" bisa menang
+   walau berbeda dari pengaturan sistem si pengguna. Semua utility "dark:"
+   yang sudah ada di puluhan komponen TIDAK perlu diubah satu per satu —
+   Tailwind otomatis mengikuti definisi variant ini di seluruh aplikasi.
+   Class ".dark" yang berlaku ke elemen di bawahnya juga (bukan cuma
+   dirinya sendiri) supaya cukup dipasang sekali di <html>. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /**
  * Design tokens — sebelumnya tidak ada sama sekali (semua warna hardcode
  * inline di tiap komponen). Token di sini jadi satu-satunya tempat untuk
@@ -24,6 +38,7 @@
   --animate-pop-in: pop-in 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   --animate-blob: blob 14s ease-in-out infinite;
   --animate-float: float 5s ease-in-out infinite;
+  --animate-slide-in-left: slide-in-left 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
 
   @keyframes fade-up {
     from {
@@ -41,6 +56,18 @@
     }
     to {
       opacity: 1;
+    }
+  }
+  /* Panel laci menu mobile (Tahap 25) — masuk dari tepi kiri layar, bukan
+     cuma muncul tiba-tiba, supaya terasa seperti laci sungguhan. */
+  @keyframes slide-in-left {
+    from {
+      opacity: 0;
+      transform: translateX(-12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
     }
   }
   /* Dipakai DonutChart — donut "muncul" dengan sedikit membesar dari 70%,
@@ -102,6 +129,28 @@
 @keyframes text-shine {
   to {
     background-position: 200% center;
+  }
+}
+
+/* Dipakai MaintenanceBanner.tsx (Tahap 29) lewat class arbitrary
+   "animate-[shimmer_...]"/"animate-[wiggle_...]" — sengaja keyframes biasa
+   di sini (bukan token --animate-* di @theme) karena cuma dipakai satu
+   komponen ini, beda dari animasi lain di atas yang dipakai lintas file. */
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@keyframes wiggle {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-12deg);
+  }
+  75% {
+    transform: rotate(12deg);
   }
 }
 

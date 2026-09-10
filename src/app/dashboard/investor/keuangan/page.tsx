@@ -26,7 +26,7 @@ export default async function InvestorKeuanganPage() {
     <div>
       <InvestorSectionHeader
         icon={Wallet2}
-        eyebrow="Investor · Read Only"
+        eyebrow="Investor"
         title="Keuangan — Invoice"
         description={`Lunas ${formatRupiah(totalLunas)} · Piutang berjalan ${formatRupiah(totalPiutang)}.`}
         accent="#10B981"

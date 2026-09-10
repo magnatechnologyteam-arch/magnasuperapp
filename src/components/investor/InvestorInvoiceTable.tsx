@@ -31,7 +31,11 @@ export function InvestorInvoiceTable({ invoices }: { invoices: Invoice[] }) {
             {invoices.length === 0 && (
               <tr>
                 <td colSpan={6}>
-                  <EmptyState icon={Receipt} title="Belum ada invoice" description="Belum ada data yang tercatat." />
+                  <EmptyState
+                    icon={Receipt}
+                    title="Belum ada invoice"
+                    description="Begitu ada invoice baru dari salah satu divisi, langsung muncul di sini."
+                  />
                 </td>
               </tr>
             )}

@@ -13,6 +13,7 @@ import {
   Users,
   Users2,
   Wallet2,
+  Wrench,
 } from "lucide-react";
 
 export type SubNavItem = {
@@ -117,6 +118,7 @@ export const ADMIN_LINKS: QuickLink[] = [
   { href: "/dashboard/admin/faktur", label: "Faktur", shortLabel: "Faktur", icon: Receipt },
   { href: "/dashboard/admin/arus-kas", label: "Arus Kas Proyek", shortLabel: "Arus Kas", icon: ArrowLeftRight },
   { href: "/dashboard/admin/pengajuan-modal", label: "Pengajuan Modal", shortLabel: "Pengajuan Modal", icon: HandCoins },
+  { href: "/dashboard/admin/status-sistem", label: "Status Sistem", shortLabel: "Status", icon: Wrench },
 ];
 
 /** Tautan halaman Investor (division "investor" atau "all") — sama alasannya dengan ADMIN_LINKS di atas. */

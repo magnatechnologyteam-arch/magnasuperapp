@@ -24,7 +24,11 @@ export function InvestorContentTable({ rows }: { rows: { post: ContentPost; clie
             {rows.length === 0 && (
               <tr>
                 <td colSpan={5}>
-                  <EmptyState icon={CalendarPlus} title="Belum ada konten" description="Belum ada data yang tercatat." />
+                  <EmptyState
+                    icon={CalendarPlus}
+                    title="Belum ada konten"
+                    description="Begitu ada jadwal konten baru dari Magnativ, langsung muncul di sini."
+                  />
                 </td>
               </tr>
             )}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, LogOut, ShieldCheck, User as UserIcon } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, LogOut, Settings, ShieldCheck, User as UserIcon } from "lucide-react";
 import { signOut } from "@/lib/supabase/actions";
 import { formatDisplayName } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
@@ -63,11 +64,14 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
           className="flex items-center gap-2.5 rounded-full border border-black/5 bg-white py-1.5 pl-1.5 pr-3 shadow-sm transition-colors hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-900 dark:hover:bg-white/5"
         >
           <span className="relative shrink-0">
-            {/* Foto profil belum ada — placeholder template siluet, tinggal
-                ganti dengan foto asli staf begitu fitur upload foto tersedia. */}
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-zinc-200 text-zinc-400 dark:bg-white/10 dark:text-zinc-500">
-              <UserIcon className="h-4 w-4" strokeWidth={2.5} />
-            </span>
+            {user?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- foto dari Supabase Storage, bukan aset lokal Next.js
+              <img src={user.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
+            ) : (
+              <span className="grid h-8 w-8 place-items-center rounded-full bg-zinc-200 text-zinc-400 dark:bg-white/10 dark:text-zinc-500">
+                <UserIcon className="h-4 w-4" strokeWidth={2.5} />
+              </span>
+            )}
             <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-zinc-950">
               <span className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-75" />
             </span>
@@ -95,10 +99,18 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
                 {DIVISION_LABELS[user?.division ?? "production"]}
               </span>
             </div>
+            <Link
+              href="/dashboard/pengaturan"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2 px-4 py-3 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/5"
+            >
+              <Settings className="h-4 w-4" />
+              Pengaturan
+            </Link>
             <form action={signOut}>
               <button
                 type="submit"
-                className="flex w-full items-center gap-2 px-4 py-3 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10"
+                className="flex w-full items-center gap-2 border-t border-black/5 px-4 py-3 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 dark:border-white/10 dark:text-rose-400 dark:hover:bg-rose-500/10"
               >
                 <LogOut className="h-4 w-4" />
                 Keluar

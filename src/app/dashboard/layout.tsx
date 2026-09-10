@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { getCurrentProfile } from "@/lib/supabase/server";
+import { getMaintenanceStatus } from "@/lib/system-status/actions";
 
 /**
  * Layout portal — dipasang di `src/app/dashboard/layout.tsx`, BUKAN di root.
@@ -16,6 +17,10 @@ import { getCurrentProfile } from "@/lib/supabase/server";
  * termasuk Sidebar, Topbar, state-nya, dan scroll position-nya.
  */
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  const profile = await getCurrentProfile();
-  return <AppShell user={profile}>{children}</AppShell>;
+  const [profile, maintenance] = await Promise.all([getCurrentProfile(), getMaintenanceStatus()]);
+  return (
+    <AppShell user={profile} maintenance={maintenance}>
+      {children}
+    </AppShell>
+  );
 }
