@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { Pencil, Plus, Rss, Search, Trash2 } from "lucide-react";
+import { CheckCircle2, MessageSquareWarning, Pencil, Plus, Rss, Search, Trash2 } from "lucide-react";
 import { useMagnativeData } from "./MagnativeDataProvider";
+import { updateContentStatus } from "@/lib/magnative/actions";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -15,8 +16,25 @@ import { CONTENT_STATUS_STYLES as STATUS_STYLES, PLATFORM_STYLES } from "@/lib/s
 const GRADIENT = "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)";
 
 const ALL_PLATFORMS: Platform[] = ["Instagram", "TikTok", "Facebook", "YouTube", "LinkedIn", "Lainnya"];
-const ALL_STATUSES: ContentStatus[] = ["Draft", "Review", "Terjadwal", "Tayang"];
+/**
+ * Alur approval (Tahap 28b): Draft → Revisi (kalau perlu diperbaiki) →
+ * Disetujui → Tayang. Lihat `NEXT_APPROVAL_STATUS` di bawah untuk logika
+ * tombol "lanjut" per status.
+ */
+const ALL_STATUSES: ContentStatus[] = ["Draft", "Revisi", "Disetujui", "Tayang"];
 const ALL_FILTER = "Semua";
+
+/** Status tujuan tombol "lanjut" (CheckCircle2) di tiap baris — null berarti sudah status akhir. */
+const NEXT_APPROVAL_STATUS: Partial<Record<ContentStatus, ContentStatus>> = {
+  Draft: "Disetujui",
+  Revisi: "Disetujui",
+  Disetujui: "Tayang",
+};
+const NEXT_APPROVAL_LABEL: Partial<Record<ContentStatus, string>> = {
+  Draft: "Setujui",
+  Revisi: "Setujui",
+  Disetujui: "Tandai Tayang",
+};
 
 function emptyForm() {
   return {
@@ -26,6 +44,7 @@ function emptyForm() {
     tanggalPosting: todayISO(),
     status: "Draft" as ContentStatus,
     catatan: "",
+    feedbackRevisi: "",
   };
 }
 
@@ -37,6 +56,7 @@ function postToForm(p: ContentPost) {
     tanggalPosting: p.tanggalPosting,
     status: p.status,
     catatan: p.catatan ?? "",
+    feedbackRevisi: p.feedbackRevisi ?? "",
   };
 }
 
@@ -59,6 +79,14 @@ export function ContentPlanner() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
   const [platformFilter, setPlatformFilter] = useState<string>(ALL_FILTER);
+
+  // Tombol "Minta Revisi" (Tahap 28b) — butuh catatan singkat sebelum
+  // statusnya berubah, jadi dibuka lewat modal kecil ini alih-alih langsung
+  // mengubah status seperti tombol "Setujui"/"Tandai Tayang".
+  const [revisionTarget, setRevisionTarget] = useState<ContentPost | null>(null);
+  const [revisionNote, setRevisionNote] = useState("");
+  const [revisionSubmitting, setRevisionSubmitting] = useState(false);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
 
   const clientName = (id?: string) => (id ? clients.find((c) => c.id === id)?.name ?? "—" : "Internal");
 
@@ -110,6 +138,11 @@ export function ContentPlanner() {
       return;
     }
 
+    if (form.status === "Revisi" && !form.feedbackRevisi.trim()) {
+      setError('Catatan revisi wajib diisi kalau status "Revisi".');
+      return;
+    }
+
     const payload = {
       clientId: form.clientId || undefined,
       title: form.title.trim(),
@@ -117,6 +150,7 @@ export function ContentPlanner() {
       tanggalPosting: form.tanggalPosting,
       status: form.status,
       catatan: form.catatan.trim() || undefined,
+      feedbackRevisi: form.status === "Revisi" ? form.feedbackRevisi.trim() : undefined,
     };
 
     setSubmitting(true);
@@ -142,6 +176,43 @@ export function ContentPlanner() {
     }
     showToast(`Konten "${deleteTarget.title}" berhasil dihapus.`);
     setDeleteTarget(null);
+  }
+
+  /** Tombol "Setujui"/"Tandai Tayang" — lompat langsung ke status berikutnya tanpa buka modal. */
+  async function handleAdvanceStatus(post: ContentPost) {
+    const next = NEXT_APPROVAL_STATUS[post.status];
+    if (!next) return;
+    setStatusUpdatingId(post.id);
+    const result = await updateContentStatus(post.id, next);
+    setStatusUpdatingId(null);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    showToast(`Konten "${post.title}" sekarang berstatus "${next}".`);
+  }
+
+  function openRevisionModal(post: ContentPost) {
+    setRevisionTarget(post);
+    setRevisionNote("");
+  }
+
+  async function handleSubmitRevision(e: FormEvent) {
+    e.preventDefault();
+    if (!revisionTarget) return;
+    if (!revisionNote.trim()) return;
+
+    setRevisionSubmitting(true);
+    const result = await updateContentStatus(revisionTarget.id, "Revisi", revisionNote.trim());
+    setRevisionSubmitting(false);
+
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    showToast(`Konten "${revisionTarget.title}" dikembalikan untuk revisi.`);
+    setRevisionTarget(null);
+    setRevisionNote("");
   }
 
   return (
@@ -231,7 +302,15 @@ export function ContentPlanner() {
               )}
               {filteredPosts.map((p) => (
                 <tr key={p.id} className="border-b border-black/5 last:border-0 dark:border-white/5">
-                  <td className="px-5 py-3 font-medium text-zinc-900 dark:text-white">{p.title}</td>
+                  <td className="px-5 py-3 font-medium text-zinc-900 dark:text-white">
+                    {p.title}
+                    {p.status === "Revisi" && p.feedbackRevisi && (
+                      <p className="mt-1 max-w-[220px] text-xs font-normal text-amber-600 dark:text-amber-300">
+                        <MessageSquareWarning className="mr-1 inline h-3 w-3" />
+                        {p.feedbackRevisi}
+                      </p>
+                    )}
+                  </td>
                   <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">{clientName(p.clientId)}</td>
                   <td className="px-5 py-3">
                     <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", PLATFORM_STYLES[p.platform])}>
@@ -248,6 +327,29 @@ export function ContentPlanner() {
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex justify-end gap-1">
+                      {NEXT_APPROVAL_STATUS[p.status] && (
+                        <button
+                          type="button"
+                          onClick={() => handleAdvanceStatus(p)}
+                          disabled={statusUpdatingId === p.id}
+                          title={NEXT_APPROVAL_LABEL[p.status]}
+                          aria-label={NEXT_APPROVAL_LABEL[p.status]}
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                        </button>
+                      )}
+                      {p.status !== "Tayang" && (
+                        <button
+                          type="button"
+                          onClick={() => openRevisionModal(p)}
+                          title="Minta revisi"
+                          aria-label="Minta revisi"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10 dark:hover:text-amber-300"
+                        >
+                          <MessageSquareWarning className="h-4 w-4" />
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => openEditModal(p)}
@@ -359,6 +461,22 @@ export function ContentPlanner() {
             </select>
           </div>
 
+          {form.status === "Revisi" && (
+            <div>
+              <label htmlFor="content-feedback-revisi" className="mb-1.5 block text-xs font-semibold text-amber-600 dark:text-amber-300">
+                Catatan Revisi — apa yang perlu diperbaiki?
+              </label>
+              <textarea
+                id="content-feedback-revisi"
+                value={form.feedbackRevisi}
+                onChange={(e) => setForm((f) => ({ ...f, feedbackRevisi: e.target.value }))}
+                rows={2}
+                placeholder="mis. warna teks kurang kontras, ganti caption jadi lebih santai"
+                className="w-full rounded-xl border border-amber-200 bg-amber-50/40 px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-amber-500/30 dark:bg-amber-500/5 dark:text-white"
+              />
+            </div>
+          )}
+
           <div>
             <label htmlFor="content-catatan" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Catatan/Caption (opsional)
@@ -411,6 +529,45 @@ export function ContentPlanner() {
           )
         }
       />
+
+      <Modal
+        open={revisionTarget !== null}
+        onClose={() => setRevisionTarget(null)}
+        title={`Minta Revisi — ${revisionTarget?.title ?? ""}`}
+      >
+        <form onSubmit={handleSubmitRevision} className="space-y-4">
+          <div>
+            <label htmlFor="revision-note" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Apa yang perlu diperbaiki?
+            </label>
+            <textarea
+              id="revision-note"
+              value={revisionNote}
+              onChange={(e) => setRevisionNote(e.target.value)}
+              rows={3}
+              autoFocus
+              placeholder="mis. warna teks kurang kontras, ganti caption jadi lebih santai"
+              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setRevisionTarget(null)}
+              className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={revisionSubmitting || !revisionNote.trim()}
+              className="rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-60"
+            >
+              {revisionSubmitting ? "Mengirim…" : "Kirim ke Revisi"}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

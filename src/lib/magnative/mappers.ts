@@ -2,7 +2,13 @@ import type {
   Client,
   ClientStatus,
   ContentPost,
+  ContentRequest,
+  ContentRequestPriority,
+  ContentRequestStatus,
   ContentStatus,
+  CreativeAsset,
+  CreativeAssetCategory,
+  CreativeAssetFileType,
   Platform,
   PaymentStatus,
   PortfolioPhoto,
@@ -50,6 +56,7 @@ export type ContentPostRow = {
   tanggal_posting: string;
   status: ContentStatus;
   catatan: string | null;
+  feedback_revisi: string | null;
 };
 
 export function rowToClient(row: ClientRow): Client {
@@ -93,6 +100,53 @@ export function rowToContentPost(row: ContentPostRow): ContentPost {
     tanggalPosting: row.tanggal_posting,
     status: row.status,
     catatan: row.catatan ?? undefined,
+    feedbackRevisi: row.feedback_revisi ?? undefined,
+  };
+}
+
+export type ContentRequestRow = {
+  id: string;
+  client_id: string;
+  title: string;
+  description: string;
+  deadline: string | null;
+  priority: ContentRequestPriority;
+  status: ContentRequestStatus;
+  catatan: string | null;
+};
+
+export function rowToContentRequest(row: ContentRequestRow): ContentRequest {
+  return {
+    id: row.id,
+    clientId: row.client_id,
+    title: row.title,
+    description: row.description,
+    deadline: row.deadline ?? undefined,
+    priority: row.priority,
+    status: row.status,
+    catatan: row.catatan ?? undefined,
+  };
+}
+
+export type CreativeAssetRow = {
+  id: string;
+  title: string;
+  category: CreativeAssetCategory;
+  file_url: string;
+  storage_path: string;
+  file_type: CreativeAssetFileType;
+  caption: string | null;
+};
+
+export function rowToCreativeAsset(row: CreativeAssetRow): CreativeAsset {
+  return {
+    id: row.id,
+    title: row.title,
+    category: row.category,
+    fileUrl: row.file_url,
+    storagePath: row.storage_path,
+    fileType: row.file_type,
+    caption: row.caption ?? undefined,
   };
 }
 

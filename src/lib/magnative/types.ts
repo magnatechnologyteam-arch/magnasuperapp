@@ -78,7 +78,15 @@ export type PortfolioPhoto = {
 };
 
 export type Platform = "Instagram" | "TikTok" | "Facebook" | "YouTube" | "LinkedIn" | "Lainnya";
-export type ContentStatus = "Draft" | "Review" | "Terjadwal" | "Tayang";
+/**
+ * Alur approval konten (Tahap 28b, migrasi 0026) — Draft (sedang dibuat) →
+ * Revisi (dikembalikan dengan catatan apa yang perlu diperbaiki, lihat
+ * `feedbackRevisi`) → Disetujui (lolos review, tinggal tunggu tanggal
+ * tayang) → Tayang (sudah posting). Menggantikan status lama
+ * Draft/Review/Terjadwal/Tayang — lihat komentar migrasi 0026 untuk
+ * pemetaan data lama ke status baru.
+ */
+export type ContentStatus = "Draft" | "Revisi" | "Disetujui" | "Tayang";
 
 export type ContentPost = {
   id: string;
@@ -88,4 +96,47 @@ export type ContentPost = {
   tanggalPosting: string;
   status: ContentStatus;
   catatan?: string;
+  /** Catatan reviewer saat status "Revisi" — kosong lagi begitu status berubah lagi. Migrasi 0026. */
+  feedbackRevisi?: string;
+};
+
+/**
+ * Permintaan konten dari klien (Tahap 28b, migrasi 0026) — antrean masuk
+ * SEBELUM jadi entri terjadwal di `ContentPost`. Staf mencatat permintaan
+ * mentah di sini (lewat telepon/WA/email dari klien), lalu setelah
+ * diproses membuatkan `ContentPost` sungguhan secara terpisah — dua tabel
+ * ini sengaja tidak ditautkan otomatis supaya staf tetap bisa menyesuaikan
+ * judul/platform/tanggal saat menjadwalkan.
+ */
+export type ContentRequestPriority = "Rendah" | "Sedang" | "Tinggi";
+export type ContentRequestStatus = "Baru" | "Diproses" | "Selesai" | "Ditolak";
+
+export type ContentRequest = {
+  id: string;
+  clientId: string;
+  title: string;
+  description: string;
+  deadline?: string;
+  priority: ContentRequestPriority;
+  status: ContentRequestStatus;
+  catatan?: string;
+};
+
+/**
+ * Galeri aset kreatif (Tahap 28b, migrasi 0026) — perpustakaan kerja
+ * internal tim (template, foto mentah, video, file desain). BEDA dari
+ * `PortfolioPhoto` di atas: portofolio adalah showcase hasil JADI untuk
+ * klien/investor, aset kreatif adalah bahan MENTAH/kerja tim sendiri.
+ */
+export type CreativeAssetCategory = "Template" | "Foto Mentah" | "Video" | "Desain Grafis" | "Lainnya";
+export type CreativeAssetFileType = "image" | "video" | "other";
+
+export type CreativeAsset = {
+  id: string;
+  title: string;
+  category: CreativeAssetCategory;
+  fileUrl: string;
+  storagePath: string;
+  fileType: CreativeAssetFileType;
+  caption?: string;
 };

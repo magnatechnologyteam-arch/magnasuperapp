@@ -51,6 +51,8 @@ export const MODULES: ModuleConfig[] = [
     subnav: [
       { label: "Ringkasan", href: "/dashboard/magnative" },
       { label: "Sosial Media", href: "/dashboard/magnative/sosial-media" },
+      { label: "Permintaan Konten", href: "/dashboard/magnative/permintaan" },
+      { label: "Aset Kreatif", href: "/dashboard/magnative/aset" },
       { label: "Klien", href: "/dashboard/magnative/klien" },
       { label: "Proyek", href: "/dashboard/magnative/proyek" },
     ],

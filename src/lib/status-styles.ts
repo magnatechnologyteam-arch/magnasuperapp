@@ -57,12 +57,32 @@ export const PROJECT_STATUS_STYLES: Record<
   Dibatalkan: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
 };
 
-/** Konten Magnativ — dipakai ContentPlanner (Owner) & InvestorContentTable. */
-export const CONTENT_STATUS_STYLES: Record<"Draft" | "Review" | "Terjadwal" | "Tayang", string> = {
+/**
+ * Konten Magnativ — dipakai ContentPlanner (Owner) & InvestorContentTable.
+ * Status "Revisi"/"Disetujui" (Tahap 28b, migrasi 0026) menggantikan
+ * "Review"/"Terjadwal" lama — warnanya sengaja dipertahankan sama supaya
+ * badge tidak mendadak berubah warna di data lama yang sudah dimigrasi.
+ */
+export const CONTENT_STATUS_STYLES: Record<"Draft" | "Revisi" | "Disetujui" | "Tayang", string> = {
   Draft: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
-  Review: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
-  Terjadwal: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
+  Revisi: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  Disetujui: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
   Tayang: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+};
+
+/** Prioritas permintaan konten (Tahap 28b) — cuma dipakai ContentRequestManager. */
+export const CONTENT_REQUEST_PRIORITY_STYLES: Record<"Rendah" | "Sedang" | "Tinggi", string> = {
+  Rendah: "bg-zinc-100 text-zinc-600 dark:bg-white/10 dark:text-zinc-300",
+  Sedang: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  Tinggi: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
+};
+
+/** Status permintaan konten (Tahap 28b) — cuma dipakai ContentRequestManager. */
+export const CONTENT_REQUEST_STATUS_STYLES: Record<"Baru" | "Diproses" | "Selesai" | "Ditolak", string> = {
+  Baru: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
+  Diproses: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  Selesai: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+  Ditolak: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
 };
 
 /** Platform media sosial — dipakai ContentPlanner (Owner) & InvestorContentTable. */
