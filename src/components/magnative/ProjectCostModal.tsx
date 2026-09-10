@@ -91,10 +91,11 @@ export function ProjectCostModal({ project, onClose }: { project: Project; onClo
 
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="project-cost-description" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Deskripsi
             </label>
             <input
+              id="project-cost-description"
               value={form.description}
               onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               placeholder="mis. Biaya pitching deck & presentasi"
@@ -103,10 +104,11 @@ export function ProjectCostModal({ project, onClose }: { project: Project; onClo
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="project-cost-amount" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Nominal (Rp)
               </label>
               <input
+                id="project-cost-amount"
                 type="number"
                 min={0}
                 value={form.amount}
@@ -115,10 +117,11 @@ export function ProjectCostModal({ project, onClose }: { project: Project; onClo
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="project-cost-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Tanggal
               </label>
               <input
+                id="project-cost-date"
                 type="date"
                 value={form.costDate}
                 onChange={(e) => setForm((f) => ({ ...f, costDate: e.target.value }))}
@@ -170,6 +173,7 @@ export function ProjectCostModal({ project, onClose }: { project: Project; onClo
                       onClick={() => handleDelete(c.id)}
                       disabled={deletingId === c.id}
                       title="Hapus biaya"
+                      aria-label="Hapus biaya"
                       className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                     >
                       <Trash2 className="h-4 w-4" />

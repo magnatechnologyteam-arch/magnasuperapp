@@ -389,6 +389,7 @@ export function BoothProjectManager() {
                         type="button"
                         onClick={() => openEditModal(p)}
                         title="Edit proyek"
+                        aria-label="Edit proyek"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10 dark:hover:text-amber-300"
                       >
                         <Pencil className="h-4 w-4" />
@@ -397,6 +398,7 @@ export function BoothProjectManager() {
                         type="button"
                         onClick={() => setDeleteTarget(p)}
                         title="Hapus proyek"
+                        aria-label="Hapus proyek"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -418,10 +420,11 @@ export function BoothProjectManager() {
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="booth-project-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Nama Proyek
             </label>
             <input
+              id="booth-project-name"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="mis. Booth Pameran IIMS 2026"
@@ -431,10 +434,11 @@ export function BoothProjectManager() {
 
           {clients.length > 0 && (
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booth-client-select" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Klien Terdaftar (opsional)
               </label>
               <select
+                id="booth-client-select"
                 value={form.clientId}
                 onChange={(e) => handlePickClient(e.target.value)}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -454,10 +458,11 @@ export function BoothProjectManager() {
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="booth-client-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Nama Klien
             </label>
             <input
+              id="booth-client-name"
               value={form.namaKlien}
               onChange={(e) => setForm((f) => ({ ...f, namaKlien: e.target.value, clientId: "" }))}
               placeholder="mis. PT Auto Perkasa"
@@ -467,10 +472,11 @@ export function BoothProjectManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booth-lokasi-acara" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Lokasi Acara
               </label>
               <input
+                id="booth-lokasi-acara"
                 value={form.lokasiAcara}
                 onChange={(e) => setForm((f) => ({ ...f, lokasiAcara: e.target.value }))}
                 placeholder="mis. JIExpo Kemayoran"
@@ -478,10 +484,11 @@ export function BoothProjectManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booth-status" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Status
               </label>
               <select
+                id="booth-status"
                 value={form.status}
                 onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as BoothStatus }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -497,10 +504,11 @@ export function BoothProjectManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booth-start-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Tanggal Mulai
               </label>
               <input
+                id="booth-start-date"
                 type="date"
                 value={form.tanggalMulai}
                 onChange={(e) => setForm((f) => ({ ...f, tanggalMulai: e.target.value }))}
@@ -508,10 +516,11 @@ export function BoothProjectManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booth-install-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Tanggal Instalasi (Deadline)
               </label>
               <input
+                id="booth-install-date"
                 type="date"
                 value={form.tanggalInstalasi}
                 onChange={(e) => setForm((f) => ({ ...f, tanggalInstalasi: e.target.value }))}
@@ -522,10 +531,11 @@ export function BoothProjectManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booth-budget" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Budget (Rp)
               </label>
               <input
+                id="booth-budget"
                 type="number"
                 min={0}
                 step={1_000_000}
@@ -535,10 +545,11 @@ export function BoothProjectManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booth-payment-status" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Status Pembayaran
               </label>
               <select
+                id="booth-payment-status"
                 value={form.statusPembayaran}
                 onChange={(e) => setForm((f) => ({ ...f, statusPembayaran: e.target.value as PaymentStatus }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -552,10 +563,11 @@ export function BoothProjectManager() {
 
           {form.statusPembayaran === "DP" && (
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booth-dp-amount" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Nominal DP Diterima (Rp)
               </label>
               <input
+                id="booth-dp-amount"
                 type="number"
                 min={0}
                 value={form.dpAmount}
@@ -629,6 +641,7 @@ export function BoothProjectManager() {
                         type="button"
                         onClick={() => removeMaterialRow(index)}
                         title="Hapus baris"
+                        aria-label="Hapus baris"
                         className="mt-1.5 shrink-0 rounded-full p-1 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                       >
                         <XIcon className="h-4 w-4" />
@@ -661,10 +674,11 @@ export function BoothProjectManager() {
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="booth-catatan" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Catatan (opsional)
             </label>
             <input
+              id="booth-catatan"
               value={form.catatan}
               onChange={(e) => setForm((f) => ({ ...f, catatan: e.target.value }))}
               placeholder="mis. detail desain, kontak PIC lapangan"

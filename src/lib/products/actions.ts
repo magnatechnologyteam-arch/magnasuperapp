@@ -243,8 +243,9 @@ export async function bulkImportProducts(rows: ProductImportRow[]): Promise<Impo
       if (existing) {
         const { error } = await supabase.from("products").update(payload).eq("id", existing.id);
         if (error) {
+          console.error(`[products] bulkImportProducts update baris ${index + 2} gagal:`, error.message);
           summary.skipped++;
-          summary.errors.push(`Baris ${index + 2} (${name}): ${error.message}`);
+          summary.errors.push(`Baris ${index + 2} (${name}): ${GENERIC_ERROR}`);
         } else {
           summary.updated++;
         }
@@ -254,8 +255,9 @@ export async function bulkImportProducts(rows: ProductImportRow[]): Promise<Impo
 
     const { error } = await supabase.from("products").insert(payload);
     if (error) {
+      console.error(`[products] bulkImportProducts insert baris ${index + 2} gagal:`, error.message);
       summary.skipped++;
-      summary.errors.push(`Baris ${index + 2} (${name}): ${error.message}`);
+      summary.errors.push(`Baris ${index + 2} (${name}): ${GENERIC_ERROR}`);
     } else {
       summary.inserted++;
     }

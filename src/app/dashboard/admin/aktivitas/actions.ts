@@ -5,6 +5,10 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireFullAccess } from "@/app/dashboard/admin/actions";
 
+/** Konsisten dengan `GENERIC_ERROR` di `admin/actions.ts` — pesan error database mentah
+ * tidak pernah ditampilkan langsung ke pengguna, cuma dicatat lewat `console.error`. */
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
+
 /**
  * Hapus SATU baris log aktivitas. Dijaga dobel: middleware.ts + halaman
  * ini sendiri sudah menolak akses selain division "all", dan
@@ -26,7 +30,8 @@ export async function deleteActivityLogEntry(formData: FormData) {
   const { error } = await supabase.from("activity_log").delete().eq("id", id);
 
   if (error) {
-    redirect(`/dashboard/admin/aktivitas?error=${encodeURIComponent(error.message)}`);
+    console.error("[aktivitas] deleteActivityLogEntry gagal:", error.message);
+    redirect(`/dashboard/admin/aktivitas?error=${encodeURIComponent(GENERIC_ERROR)}`);
   }
 
   revalidatePath("/dashboard/admin/aktivitas");
@@ -46,7 +51,8 @@ export async function deleteAllActivityLogs() {
     .neq("id", "00000000-0000-0000-0000-000000000000");
 
   if (error) {
-    redirect(`/dashboard/admin/aktivitas?error=${encodeURIComponent(error.message)}`);
+    console.error("[aktivitas] deleteAllActivityLogs gagal:", error.message);
+    redirect(`/dashboard/admin/aktivitas?error=${encodeURIComponent(GENERIC_ERROR)}`);
   }
 
   revalidatePath("/dashboard/admin/aktivitas");

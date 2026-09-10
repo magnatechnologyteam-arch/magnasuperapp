@@ -106,12 +106,14 @@ export async function updateStaffDivision(formData: FormData) {
     app_metadata: { ...currentAppMetadata, division },
   });
   if (authError) {
-    redirect(`/dashboard/admin/pengguna?error=${encodeURIComponent(authError.message)}`);
+    console.error("[admin] updateStaffDivision (auth) gagal:", authError.message);
+    redirect(`/dashboard/admin/pengguna?error=${encodeURIComponent(GENERIC_ERROR)}`);
   }
 
   const { error: profileError } = await admin.from("profiles").update({ division }).eq("id", userId);
   if (profileError) {
-    redirect(`/dashboard/admin/pengguna?error=${encodeURIComponent(profileError.message)}`);
+    console.error("[admin] updateStaffDivision (profile) gagal:", profileError.message);
+    redirect(`/dashboard/admin/pengguna?error=${encodeURIComponent(GENERIC_ERROR)}`);
   }
 
   revalidatePath("/dashboard/admin/pengguna");

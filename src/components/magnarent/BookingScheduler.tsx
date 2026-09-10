@@ -409,6 +409,7 @@ export function BookingScheduler() {
                             type="button"
                             onClick={() => handleQuickStatus(b, "Dikonfirmasi")}
                             title="Konfirmasi pesanan"
+                            aria-label="Konfirmasi pesanan"
                             className="rounded-full p-1.5 text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
                           >
                             <Check className="h-4 w-4" />
@@ -418,6 +419,7 @@ export function BookingScheduler() {
                           type="button"
                           onClick={() => openEditModal(b)}
                           title="Edit pesanan"
+                          aria-label="Edit pesanan"
                           className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-sky-500/10 dark:hover:text-sky-300"
                         >
                           <Pencil className="h-4 w-4" />
@@ -426,6 +428,7 @@ export function BookingScheduler() {
                           type="button"
                           onClick={() => setDeleteTarget(b)}
                           title="Hapus pesanan"
+                          aria-label="Hapus pesanan"
                           className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -443,10 +446,11 @@ export function BookingScheduler() {
       <Modal open={formOpen} onClose={closeFormModal} title={editingId ? "Edit Pesanan" : "Buat Pesanan Baru"}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="booking-item" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Alat
             </label>
             <select
+              id="booking-item"
               value={form.itemId}
               onChange={(e) => setForm((f) => ({ ...f, itemId: e.target.value }))}
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-blue-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -462,10 +466,11 @@ export function BookingScheduler() {
 
           {clients.length > 0 && (
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booking-client-select" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Klien Terdaftar (opsional)
               </label>
               <select
+                id="booking-client-select"
                 value={form.clientId}
                 onChange={(e) => handlePickClient(e.target.value)}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-blue-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -486,10 +491,11 @@ export function BookingScheduler() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booking-client-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Nama Klien
               </label>
               <input
+                id="booking-client-name"
                 value={form.namaKlien}
                 onChange={(e) => setForm((f) => ({ ...f, namaKlien: e.target.value, clientId: "" }))}
                 placeholder="mis. PT Sinergi Membangun"
@@ -497,10 +503,11 @@ export function BookingScheduler() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booking-client-phone" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Telepon (opsional)
               </label>
               <input
+                id="booking-client-phone"
                 value={form.teleponKlien}
                 onChange={(e) => setForm((f) => ({ ...f, teleponKlien: e.target.value }))}
                 placeholder="0812-xxxx-xxxx"
@@ -511,10 +518,11 @@ export function BookingScheduler() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booking-start-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Tanggal Mulai
               </label>
               <input
+                id="booking-start-date"
                 type="date"
                 value={form.tanggalMulai}
                 onChange={(e) => setForm((f) => ({ ...f, tanggalMulai: e.target.value }))}
@@ -522,10 +530,11 @@ export function BookingScheduler() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booking-end-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Tanggal Selesai
               </label>
               <input
+                id="booking-end-date"
                 type="date"
                 value={form.tanggalSelesai}
                 onChange={(e) => setForm((f) => ({ ...f, tanggalSelesai: e.target.value }))}
@@ -536,10 +545,11 @@ export function BookingScheduler() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booking-unit-count" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Jumlah Unit
               </label>
               <input
+                id="booking-unit-count"
                 type="number"
                 min={1}
                 value={form.jumlahUnit}
@@ -560,10 +570,11 @@ export function BookingScheduler() {
               )}
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booking-payment-status" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Status Pembayaran
               </label>
               <select
+                id="booking-payment-status"
                 value={form.statusPembayaran}
                 onChange={(e) => setForm((f) => ({ ...f, statusPembayaran: e.target.value as PaymentStatus }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-blue-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -577,10 +588,11 @@ export function BookingScheduler() {
 
           {form.statusPembayaran === "DP" && (
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="booking-dp-amount" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Nominal DP Diterima (Rp)
               </label>
               <input
+                id="booking-dp-amount"
                 type="number"
                 min={0}
                 value={form.dpAmount}
@@ -603,10 +615,11 @@ export function BookingScheduler() {
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="booking-catatan" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Catatan (opsional)
             </label>
             <input
+              id="booking-catatan"
               value={form.catatan}
               onChange={(e) => setForm((f) => ({ ...f, catatan: e.target.value }))}
               placeholder="mis. lokasi acara, kontak PIC"

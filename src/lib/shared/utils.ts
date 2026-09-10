@@ -1,16 +1,39 @@
 /**
- * Util generik lintas-modul (dipakai Magnative, dan modul berikutnya).
- * Magnarent sengaja tidak direfactor ke sini supaya tidak menyentuh kode
- * yang sudah stabil & teruji — util-nya sendiri (src/lib/magnarent/date.ts)
- * isinya identik secara fungsional.
+ * Util generik lintas-modul, dipakai semua modul termasuk Magnarent
+ * (src/lib/magnarent/date.ts sekarang tinggal re-export dari sini — dulu
+ * py isinya duplikat identik, disatukan supaya perbaikan seperti bug
+ * timezone di bawah cukup sekali, tidak perlu diingat-ingat dua tempat).
  */
 
 export function genId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+/**
+ * Format sebuah momen waktu jadi tanggal kalender ISO (YYYY-MM-DD) menurut
+ * WIB (Asia/Jakarta) — SENGAJA bukan `date.toISOString().slice(0, 10)` biasa.
+ * `toISOString()` selalu UTC apa pun lokasi server/browser-nya; server
+ * Vercel jalan di UTC, jadi versi biasa itu menganggap tanggal masih
+ * "kemarin" dari jam 00:00-06:59 WIB (WIB = UTC+7) — staf yang buka
+ * aplikasi pagi-pagi bisa lihat "hari ini" yang salah (kalender booking,
+ * jadwal konten, laporan perputaran alat, dsb). `Intl.DateTimeFormat`
+ * dengan `timeZone: "Asia/Jakarta"` menghitung tanggal kalender yang benar
+ * di zona itu, terlepas dari zona waktu mesin yang menjalankannya.
+ */
+function formatISODateJakarta(date: Date): string {
+  // Locale "en-CA" kebetulan memformat tanggal sebagai YYYY-MM-DD — pas
+  // dengan format ISO date (tanpa waktu) yang dipakai di seluruh aplikasi.
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(date);
+}
+
+/** "Hari ini" menurut WIB — SATU-SATUNYA cara yang benar untuk dapat tanggal hari ini di seluruh aplikasi (lihat catatan di atas). */
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return formatISODateJakarta(new Date());
+}
+
+/** Tanggal ISO N hari dari sekarang, tetap dihitung menurut kalender WIB (mis. untuk window "7 hari ke depan"). */
+export function isoDaysFromNow(days: number): string {
+  return formatISODateJakarta(new Date(Date.now() + days * 24 * 60 * 60 * 1000));
 }
 
 export function formatDateID(iso: string): string {

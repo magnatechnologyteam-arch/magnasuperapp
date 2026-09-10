@@ -306,6 +306,7 @@ export function ProjectManager() {
                         type="button"
                         onClick={() => setCostTarget(p)}
                         title="Biaya proyek"
+                        aria-label="Biaya proyek"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-500/10 dark:hover:text-violet-300"
                       >
                         <Wallet2 className="h-4 w-4" />
@@ -314,6 +315,7 @@ export function ProjectManager() {
                         type="button"
                         onClick={() => openEditModal(p)}
                         title="Edit proyek"
+                        aria-label="Edit proyek"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
                       >
                         <Pencil className="h-4 w-4" />
@@ -322,6 +324,7 @@ export function ProjectManager() {
                         type="button"
                         onClick={() => setDeleteTarget(p)}
                         title="Hapus proyek"
+                        aria-label="Hapus proyek"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -338,10 +341,11 @@ export function ProjectManager() {
       <Modal open={formOpen} onClose={closeFormModal} title={editingId ? "Edit Proyek" : "Buat Proyek Baru"}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="project-client" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Klien
             </label>
             <select
+              id="project-client"
               value={form.clientId}
               onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -356,10 +360,11 @@ export function ProjectManager() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="project-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Nama Proyek
             </label>
             <input
+              id="project-name"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="mis. Product Launch App v2"
@@ -369,10 +374,11 @@ export function ProjectManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="project-type" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Tipe
               </label>
               <select
+                id="project-type"
                 value={form.type}
                 onChange={(e) => setForm((f) => ({ ...f, type: e.target.value as ProjectType }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -385,10 +391,11 @@ export function ProjectManager() {
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="project-status" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Status
               </label>
               <select
+                id="project-status"
                 value={form.status}
                 onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as ProjectStatus }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -404,10 +411,11 @@ export function ProjectManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="project-start-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Tanggal Mulai
               </label>
               <input
+                id="project-start-date"
                 type="date"
                 value={form.tanggalMulai}
                 onChange={(e) => setForm((f) => ({ ...f, tanggalMulai: e.target.value }))}
@@ -415,10 +423,11 @@ export function ProjectManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="project-end-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Tanggal Selesai
               </label>
               <input
+                id="project-end-date"
                 type="date"
                 value={form.tanggalSelesai}
                 onChange={(e) => setForm((f) => ({ ...f, tanggalSelesai: e.target.value }))}
@@ -429,10 +438,11 @@ export function ProjectManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="project-budget" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Budget (Rp)
               </label>
               <input
+                id="project-budget"
                 type="number"
                 min={0}
                 step={1_000_000}
@@ -442,10 +452,11 @@ export function ProjectManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="project-payment-status" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Status Pembayaran
               </label>
               <select
+                id="project-payment-status"
                 value={form.statusPembayaran}
                 onChange={(e) => setForm((f) => ({ ...f, statusPembayaran: e.target.value as PaymentStatus }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -459,10 +470,11 @@ export function ProjectManager() {
 
           {form.statusPembayaran === "DP" && (
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="project-dp-amount" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Nominal DP Diterima (Rp)
               </label>
               <input
+                id="project-dp-amount"
                 type="number"
                 min={0}
                 value={form.dpAmount}
@@ -480,10 +492,11 @@ export function ProjectManager() {
           )}
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="project-catatan" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Catatan (opsional)
             </label>
             <input
+              id="project-catatan"
               value={form.catatan}
               onChange={(e) => setForm((f) => ({ ...f, catatan: e.target.value }))}
               placeholder="mis. lokasi acara, jumlah tamu"

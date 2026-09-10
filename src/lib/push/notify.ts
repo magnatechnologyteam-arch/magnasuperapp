@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Division } from "@/lib/supabase/types";
@@ -42,6 +43,23 @@ export function configureWebPush() {
  * ke browser.
  */
 export async function notifyDivision(
+  divisions: Division | Division[],
+  payload: NotifyPayload,
+  excludeUserId?: string
+): Promise<void> {
+  // Didaftarkan lewat `after()` (bawaan Next.js), bukan dieksekusi langsung —
+  // pemanggil selalu memakai `void notifyDivision(...)` (fire-and-forget)
+  // tepat setelah aksi bisnis utama berhasil, lalu Server Action-nya langsung
+  // redirect/return. Di platform serverless, begitu response terkirim,
+  // instance-nya BISA dibekukan sebelum promise yang dibuang itu sempat
+  // selesai — kiriman push ke tiap subscription jadi berisiko tidak pernah
+  // benar-benar terkirim, tanpa error yang kelihatan di mana pun. `after()`
+  // memastikan instance ini tetap hidup sampai callback-nya benar-benar
+  // selesai, walau response sendiri sudah balik duluan ke pengguna.
+  after(() => sendPushToDivisions(divisions, payload, excludeUserId));
+}
+
+async function sendPushToDivisions(
   divisions: Division | Division[],
   payload: NotifyPayload,
   excludeUserId?: string

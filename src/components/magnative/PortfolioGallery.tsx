@@ -176,6 +176,7 @@ export function PortfolioGallery({ photos }: { photos: PortfolioPhoto[] }) {
                     type="button"
                     onClick={() => openEditModal(photo)}
                     title="Edit keterangan"
+                    aria-label="Edit keterangan"
                     className="rounded-full bg-white/90 p-1.5 text-zinc-600 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-fuchsia-600 dark:bg-zinc-900/90 dark:text-zinc-300"
                   >
                     <Pencil className="h-3.5 w-3.5" />
@@ -184,6 +185,7 @@ export function PortfolioGallery({ photos }: { photos: PortfolioPhoto[] }) {
                     type="button"
                     onClick={() => setDeleteTarget(photo)}
                     title="Hapus foto"
+                    aria-label="Hapus foto"
                     className="rounded-full bg-white/90 p-1.5 text-zinc-600 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-rose-600 dark:bg-zinc-900/90 dark:text-zinc-300"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -206,8 +208,9 @@ export function PortfolioGallery({ photos }: { photos: PortfolioPhoto[] }) {
       <Modal open={addOpen} onClose={closeAddModal} title="Tambah Foto Portofolio">
         <form onSubmit={handleAddSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Foto</label>
+            <label htmlFor="portfolio-add-photo" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Foto</label>
             <input
+              id="portfolio-add-photo"
               ref={fileInputRef}
               type="file"
               accept="image/*"
@@ -223,8 +226,9 @@ export function PortfolioGallery({ photos }: { photos: PortfolioPhoto[] }) {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Judul</label>
+            <label htmlFor="portfolio-add-title" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Judul</label>
             <input
+              id="portfolio-add-title"
               value={addTitle}
               onChange={(e) => setAddTitle(e.target.value)}
               placeholder="mis. Dokumentasi Gala Dinner Amal"
@@ -233,10 +237,11 @@ export function PortfolioGallery({ photos }: { photos: PortfolioPhoto[] }) {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="portfolio-add-caption" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Keterangan (opsional)
             </label>
             <input
+              id="portfolio-add-caption"
               value={addCaption}
               onChange={(e) => setAddCaption(e.target.value)}
               placeholder="mis. panggung utama, momen highlight acara"
@@ -278,18 +283,20 @@ export function PortfolioGallery({ photos }: { photos: PortfolioPhoto[] }) {
             </div>
           )}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Judul</label>
+            <label htmlFor="portfolio-edit-title" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Judul</label>
             <input
+              id="portfolio-edit-title"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
             />
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="portfolio-edit-caption" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Keterangan (opsional)
             </label>
             <input
+              id="portfolio-edit-caption"
               value={editCaption}
               onChange={(e) => setEditCaption(e.target.value)}
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white"

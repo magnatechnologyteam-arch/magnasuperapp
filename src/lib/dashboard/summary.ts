@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_BOOTH_STATUSES } from "@/lib/production/availability";
-import { todayISO } from "@/lib/shared/utils";
+import { isoDaysFromNow, todayISO } from "@/lib/shared/utils";
 
 /**
  * Angka ringkasan untuk Dashboard Hub (`src/app/dashboard/page.tsx`).
@@ -44,7 +44,7 @@ export type MagnativeSummary = { proyekBerjalan: number; kontenMingguIni: number
 export async function getMagnativeSummary(): Promise<MagnativeSummary> {
   const supabase = await createClient();
   const today = todayISO();
-  const in7Days = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const in7Days = isoDaysFromNow(7);
 
   const [berjalan, konten] = await Promise.all([
     supabase.from("magnative_projects").select("id", { count: "exact", head: true }).eq("status", "Berjalan"),

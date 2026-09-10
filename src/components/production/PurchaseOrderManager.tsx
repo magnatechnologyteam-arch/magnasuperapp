@@ -278,6 +278,7 @@ export function PurchaseOrderManager() {
                             onClick={() => setReceiveTarget(po)}
                             disabled={actingId === po.id}
                             title="Tandai diterima (stok bertambah)"
+                            aria-label="Tandai diterima (stok bertambah)"
                             className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-50 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
                           >
                             <CheckCircle2 className="h-4 w-4" />
@@ -287,6 +288,7 @@ export function PurchaseOrderManager() {
                             onClick={() => setCancelTarget(po)}
                             disabled={actingId === po.id}
                             title="Batalkan PO"
+                            aria-label="Batalkan PO"
                             className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-amber-50 hover:text-amber-600 disabled:opacity-50 dark:hover:bg-amber-500/10 dark:hover:text-amber-300"
                           >
                             <XCircle className="h-4 w-4" />
@@ -299,6 +301,7 @@ export function PurchaseOrderManager() {
                           onClick={() => setDeleteTarget(po)}
                           disabled={actingId === po.id}
                           title="Hapus PO"
+                          aria-label="Hapus PO"
                           className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -316,10 +319,11 @@ export function PurchaseOrderManager() {
       <Modal open={formOpen} onClose={closeFormModal} title="Buat Purchase Order">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="po-supplier-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Supplier
             </label>
             <input
+              id="po-supplier-name"
               value={form.supplierName}
               onChange={(e) => setForm((f) => ({ ...f, supplierName: e.target.value }))}
               placeholder="mis. Toko Bangunan Jaya Abadi"
@@ -328,10 +332,11 @@ export function PurchaseOrderManager() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="po-material" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Material (opsional)
             </label>
             <select
+              id="po-material"
               value={form.materialId}
               onChange={(e) => setForm((f) => ({ ...f, materialId: e.target.value }))}
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-orange-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -347,8 +352,9 @@ export function PurchaseOrderManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Qty</label>
+              <label htmlFor="po-qty" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Qty</label>
               <input
+                id="po-qty"
                 type="number"
                 min={1}
                 value={form.qty}
@@ -357,10 +363,11 @@ export function PurchaseOrderManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="po-unit-price" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Harga Satuan (Rp)
               </label>
               <input
+                id="po-unit-price"
                 type="number"
                 min={0}
                 value={form.unitPrice}
@@ -378,10 +385,11 @@ export function PurchaseOrderManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="po-order-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Tanggal Pesan
               </label>
               <input
+                id="po-order-date"
                 type="date"
                 value={form.orderDate}
                 onChange={(e) => setForm((f) => ({ ...f, orderDate: e.target.value }))}
@@ -389,10 +397,11 @@ export function PurchaseOrderManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="po-expected-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Perkiraan Tiba (opsional)
               </label>
               <input
+                id="po-expected-date"
                 type="date"
                 value={form.expectedDate}
                 onChange={(e) => setForm((f) => ({ ...f, expectedDate: e.target.value }))}
@@ -402,10 +411,11 @@ export function PurchaseOrderManager() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="po-catatan" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Catatan (opsional)
             </label>
             <input
+              id="po-catatan"
               value={form.catatan}
               onChange={(e) => setForm((f) => ({ ...f, catatan: e.target.value }))}
               placeholder="mis. nomor invoice supplier, kontak"

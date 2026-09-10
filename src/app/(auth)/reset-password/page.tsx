@@ -26,16 +26,17 @@ export default async function ResetPasswordPage({
 
       <form action={updatePassword} className="mt-6 space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          <label htmlFor="reset-password-new" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             Password Baru
           </label>
-          <PasswordInput name="password" required minLength={6} autoComplete="new-password" placeholder="min. 6 karakter" />
+          <PasswordInput id="reset-password-new" name="password" required minLength={6} autoComplete="new-password" placeholder="min. 6 karakter" />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          <label htmlFor="reset-password-confirm" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             Konfirmasi Password
           </label>
           <PasswordInput
+            id="reset-password-confirm"
             name="confirmPassword"
             required
             minLength={6}

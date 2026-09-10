@@ -254,11 +254,16 @@ export async function sendInvoiceWhatsApp(id: string): Promise<MutationResult> {
     })
     .eq("id", id);
 
+  // `revalidatePath` dipanggil di sini (sebelum cek webhook) karena update DB
+  // di atas (pdf_url/pdf_storage_path) sudah terjadi apa pun hasil webhook-nya
+  // — kalau ditaruh cuma di jalur sukses, halaman Faktur bisa nyangkut
+  // menampilkan data lama (link PDF belum muncul) kalau webhook-nya gagal.
+  revalidatePath(MODULE_PATH);
+
   if (!webhookResult.ok) {
     return { ok: false, error: webhookResult.error };
   }
 
-  revalidatePath(MODULE_PATH);
   void logActivity({
     module: "admin",
     action: "status_change",

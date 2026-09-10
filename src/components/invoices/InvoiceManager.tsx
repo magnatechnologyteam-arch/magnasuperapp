@@ -449,6 +449,7 @@ export function InvoiceManager({
                         onClick={() => handleSendWhatsApp(inv)}
                         disabled={sendingId === inv.id}
                         title={inv.clientPhone ? "Kirim ke WhatsApp" : "Nomor WhatsApp klien belum diisi"}
+                        aria-label={inv.clientPhone ? "Kirim ke WhatsApp" : "Nomor WhatsApp klien belum diisi"}
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 disabled:opacity-60 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
                       >
                         <MessageCircle className={cn("h-4 w-4", sendingId === inv.id && "animate-pulse")} />
@@ -457,6 +458,7 @@ export function InvoiceManager({
                         type="button"
                         onClick={() => openEditModal(inv)}
                         title="Edit invoice"
+                        aria-label="Edit invoice"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300"
                       >
                         <Pencil className="h-4 w-4" />
@@ -465,6 +467,7 @@ export function InvoiceManager({
                         type="button"
                         onClick={() => setDeleteTarget(inv)}
                         title="Hapus invoice"
+                        aria-label="Hapus invoice"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -483,7 +486,7 @@ export function InvoiceManager({
         <form onSubmit={handleSubmit} className="space-y-5">
           {!editingId && (
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="invoice-source-search" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Pilih dari booking/proyek yang sudah ada (opsional)
               </label>
               {form.sourceType ? (
@@ -498,6 +501,7 @@ export function InvoiceManager({
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
                     <input
+                      id="invoice-source-search"
                       value={sourceSearch}
                       onChange={(e) => setSourceSearch(e.target.value)}
                       placeholder="Cari booking/proyek atau nama klien…"
@@ -536,8 +540,9 @@ export function InvoiceManager({
 
           <div className="grid grid-cols-2 gap-3.5">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Divisi</label>
+              <label htmlFor="invoice-division" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Divisi</label>
               <select
+                id="invoice-division"
                 value={form.division}
                 onChange={(e) => setForm((f) => ({ ...f, division: e.target.value as InvoiceDivision }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -550,8 +555,9 @@ export function InvoiceManager({
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Jatuh Tempo (opsional)</label>
+              <label htmlFor="invoice-due-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Jatuh Tempo (opsional)</label>
               <input
+                id="invoice-due-date"
                 type="date"
                 value={form.dueDate}
                 onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
@@ -562,8 +568,9 @@ export function InvoiceManager({
 
           <div className="grid grid-cols-2 gap-3.5">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nama Klien</label>
+              <label htmlFor="invoice-client-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nama Klien</label>
               <input
+                id="invoice-client-name"
                 value={form.clientName}
                 onChange={(e) => setForm((f) => ({ ...f, clientName: e.target.value }))}
                 placeholder="mis. PT Sejahtera Abadi"
@@ -571,8 +578,9 @@ export function InvoiceManager({
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">No. WhatsApp</label>
+              <label htmlFor="invoice-client-phone" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">No. WhatsApp</label>
               <input
+                id="invoice-client-phone"
                 value={form.clientPhone}
                 onChange={(e) => setForm((f) => ({ ...f, clientPhone: e.target.value }))}
                 placeholder="mis. 081234567890"
@@ -635,8 +643,9 @@ export function InvoiceManager({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Catatan (opsional)</label>
+            <label htmlFor="invoice-catatan" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Catatan (opsional)</label>
             <textarea
+              id="invoice-catatan"
               value={form.catatan}
               onChange={(e) => setForm((f) => ({ ...f, catatan: e.target.value }))}
               rows={2}

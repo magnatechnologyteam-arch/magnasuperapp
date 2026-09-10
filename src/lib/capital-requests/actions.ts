@@ -83,9 +83,12 @@ export async function deleteCapitalRequest(id: string): Promise<MutationResult> 
     .from("capital_requests")
     .select("event_name, status")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
-  if (existing?.status && existing.status !== "Menunggu") {
+  if (!existing) {
+    return { ok: false, error: "Pengajuan ini sudah tidak ada — mungkin sudah dihapus lebih dulu." };
+  }
+  if (existing.status !== "Menunggu") {
     return { ok: false, error: "Pengajuan yang sudah diputuskan investor tidak bisa dihapus." };
   }
 
@@ -135,7 +138,7 @@ export async function decideCapitalRequest(
     .from("capital_requests")
     .select("event_name, location, event_date")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   const { error } = await supabase.rpc("decide_capital_request", {
     request_id: id,

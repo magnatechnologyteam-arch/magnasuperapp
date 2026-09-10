@@ -292,6 +292,7 @@ export function MaterialManager() {
                           type="button"
                           onClick={() => openEditModal(m)}
                           title="Edit material"
+                          aria-label="Edit material"
                           className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10 dark:hover:text-amber-300"
                         >
                           <Pencil className="h-4 w-4" />
@@ -300,6 +301,7 @@ export function MaterialManager() {
                           type="button"
                           onClick={() => setDeleteTarget(m)}
                           title="Hapus material"
+                          aria-label="Hapus material"
                           className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -317,10 +319,11 @@ export function MaterialManager() {
       <Modal open={formOpen} onClose={closeFormModal} title={editingId ? "Edit Material" : "Tambah Material Baru"}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="material-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Nama Material
             </label>
             <input
+              id="material-name"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="mis. Multiplek 18mm"
@@ -330,10 +333,11 @@ export function MaterialManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="material-category" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Kategori
               </label>
               <select
+                id="material-category"
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as MaterialCategory }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -346,10 +350,11 @@ export function MaterialManager() {
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="material-unit" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Satuan
               </label>
               <select
+                id="material-unit"
                 value={form.unit}
                 onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value as MaterialUnit }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -364,10 +369,11 @@ export function MaterialManager() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="material-location" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Lokasi/Gudang
             </label>
             <input
+              id="material-location"
               value={form.location}
               onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
               placeholder="mis. Gudang Cikarang"
@@ -377,10 +383,11 @@ export function MaterialManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="material-stock" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Stok Saat Ini
               </label>
               <input
+                id="material-stock"
                 type="number"
                 min={0}
                 value={form.stock}
@@ -389,10 +396,11 @@ export function MaterialManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="material-min-stock" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Ambang Stok Menipis
               </label>
               <input
+                id="material-min-stock"
                 type="number"
                 min={0}
                 value={form.minStock}
@@ -403,10 +411,11 @@ export function MaterialManager() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="material-price-per-unit" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Harga per Satuan (Rp)
             </label>
             <input
+              id="material-price-per-unit"
               type="number"
               min={0}
               step={1000}

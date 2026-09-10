@@ -1,4 +1,4 @@
-import { formatRupiah } from "@/lib/shared/utils";
+import { formatRupiah, todayISO } from "@/lib/shared/utils";
 import type { Invoice } from "./types";
 
 export type ReminderKind = "h3" | "h1" | "h0" | "overdue";
@@ -37,7 +37,7 @@ function diffInDays(dueDateISO: string, todayISODate: string): number {
  * Invoice berstatus "Lunas" atau yang belum diisi `dueDate`-nya sengaja
  * dilewati sepenuhnya — tidak ada yang perlu ditagih dari keduanya.
  */
-export function computeDueReminders(invoices: Invoice[], today: string = todayISODate()): DueReminder[] {
+export function computeDueReminders(invoices: Invoice[], today: string = todayISO()): DueReminder[] {
   const reminders: DueReminder[] = [];
 
   for (const invoice of invoices) {
@@ -57,10 +57,6 @@ export function computeDueReminders(invoices: Invoice[], today: string = todayIS
   }
 
   return reminders;
-}
-
-function todayISODate(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 export function reminderTitle(kind: ReminderKind): string {

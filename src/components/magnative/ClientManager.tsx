@@ -249,6 +249,7 @@ export function ClientManager() {
                         type="button"
                         onClick={() => openEditModal(c)}
                         title="Edit klien"
+                        aria-label="Edit klien"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
                       >
                         <Pencil className="h-4 w-4" />
@@ -257,6 +258,7 @@ export function ClientManager() {
                         type="button"
                         onClick={() => setDeleteTarget(c)}
                         title="Hapus klien"
+                        aria-label="Hapus klien"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -274,10 +276,11 @@ export function ClientManager() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="client-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Nama Klien
               </label>
               <input
+                id="client-name"
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="mis. PT Nusantara Digital"
@@ -285,10 +288,11 @@ export function ClientManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="client-industry" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Industri
               </label>
               <input
+                id="client-industry"
                 value={form.industry}
                 onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
                 placeholder="mis. Teknologi"
@@ -298,10 +302,11 @@ export function ClientManager() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="client-pic-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Nama PIC
             </label>
             <input
+              id="client-pic-name"
               value={form.picName}
               onChange={(e) => setForm((f) => ({ ...f, picName: e.target.value }))}
               placeholder="mis. Rangga Prasetyo"
@@ -311,10 +316,11 @@ export function ClientManager() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="client-pic-phone" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Telepon PIC (opsional)
               </label>
               <input
+                id="client-pic-phone"
                 value={form.picPhone}
                 onChange={(e) => setForm((f) => ({ ...f, picPhone: e.target.value }))}
                 placeholder="0812-xxxx-xxxx"
@@ -322,10 +328,11 @@ export function ClientManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="client-pic-email" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Email PIC (opsional)
               </label>
               <input
+                id="client-pic-email"
                 value={form.picEmail}
                 onChange={(e) => setForm((f) => ({ ...f, picEmail: e.target.value }))}
                 placeholder="nama@perusahaan.com"
@@ -335,10 +342,11 @@ export function ClientManager() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="client-status" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Status
             </label>
             <select
+              id="client-status"
               value={form.status}
               onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as ClientStatus }))}
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -352,10 +360,11 @@ export function ClientManager() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="client-catatan" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Catatan (opsional)
             </label>
             <input
+              id="client-catatan"
               value={form.catatan}
               onChange={(e) => setForm((f) => ({ ...f, catatan: e.target.value }))}
               placeholder="mis. preferensi komunikasi, riwayat kerja sama"

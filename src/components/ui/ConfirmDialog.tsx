@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Modal } from "./Modal";
 import { cn } from "@/lib/cn";
 
@@ -9,6 +9,12 @@ import { cn } from "@/lib/cn";
  * Mode `blocked` dipakai saat aksi tidak boleh dilanjutkan (mis. alat masih
  * dipakai booking aktif) — hanya menampilkan pesan + tombol Tutup, tanpa
  * tombol konfirmasi, supaya pengguna tidak bisa "memaksa" aksi yang tidak aman.
+ *
+ * Tombol konfirmasi otomatis nonaktif sesaat setelah diklik (state
+ * `submitting` di sini, bukan tanggung jawab tiap pemanggil) — mencegah klik
+ * ganda yang cepat memicu aksi (mis. hapus) dua kali sebelum dialog sempat
+ * tertutup, terutama di koneksi lambat. Direset otomatis begitu dialog
+ * ditutup (`open` jadi false), jadi pemanggil tidak perlu berubah sama sekali.
  */
 export function ConfirmDialog({
   open,
@@ -31,6 +37,18 @@ export function ConfirmDialog({
   blocked?: boolean;
   blockedMessage?: ReactNode;
 }) {
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) setSubmitting(false);
+  }, [open]);
+
+  function handleConfirm() {
+    if (submitting) return;
+    setSubmitting(true);
+    onConfirm?.();
+  }
+
   return (
     <Modal open={open} onClose={onClose} title={title} maxWidth="max-w-sm">
       <div className="space-y-4">
@@ -48,19 +66,21 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10"
+            disabled={submitting}
+            className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-white/10"
           >
             {blocked ? "Tutup" : cancelLabel}
           </button>
           {!blocked && (
             <button
               type="button"
-              onClick={onConfirm}
+              onClick={handleConfirm}
+              disabled={submitting}
               className={cn(
-                "rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-rose-500"
+                "rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
               )}
             >
-              {confirmLabel}
+              {submitting ? "Memproses…" : confirmLabel}
             </button>
           )}
         </div>

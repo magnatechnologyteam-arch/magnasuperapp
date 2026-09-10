@@ -470,6 +470,7 @@ export function ProductManager({ products }: { products: Product[] }) {
                         type="button"
                         onClick={() => openEditModal(p)}
                         title="Edit produk"
+                        aria-label="Edit produk"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-teal-500/10 dark:hover:text-teal-300"
                       >
                         <Pencil className="h-4 w-4" />
@@ -478,6 +479,7 @@ export function ProductManager({ products }: { products: Product[] }) {
                         type="button"
                         onClick={() => setDeleteTarget(p)}
                         title="Hapus produk"
+                        aria-label="Hapus produk"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -500,8 +502,9 @@ export function ProductManager({ products }: { products: Product[] }) {
       <Modal open={formOpen} onClose={closeFormModal} title={editingId ? "Edit Produk" : "Tambah Produk Baru"}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Foto (opsional)</label>
+            <label htmlFor="product-photo" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Foto (opsional)</label>
             <input
+              id="product-photo"
               ref={photoInputRef}
               type="file"
               accept="image/*"
@@ -517,8 +520,9 @@ export function ProductManager({ products }: { products: Product[] }) {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nama Produk</label>
+            <label htmlFor="product-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nama Produk</label>
             <input
+              id="product-name"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="mis. Tenda Roder 5x10m"
@@ -528,8 +532,9 @@ export function ProductManager({ products }: { products: Product[] }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Divisi</label>
+              <label htmlFor="product-division" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Divisi</label>
               <select
+                id="product-division"
                 value={form.division}
                 onChange={(e) => setForm((f) => ({ ...f, division: e.target.value as ProductDivision }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-teal-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -542,8 +547,9 @@ export function ProductManager({ products }: { products: Product[] }) {
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Kategori</label>
+              <label htmlFor="product-category" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Kategori</label>
               <input
+                id="product-category"
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                 placeholder="mis. Tenda & Struktur"
@@ -554,10 +560,11 @@ export function ProductManager({ products }: { products: Product[] }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="product-sku" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 SKU/Kode (opsional)
               </label>
               <input
+                id="product-sku"
                 value={form.sku}
                 onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
                 placeholder="mis. TR-5X10"
@@ -565,8 +572,9 @@ export function ProductManager({ products }: { products: Product[] }) {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Satuan</label>
+              <label htmlFor="product-unit" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Satuan</label>
               <input
+                id="product-unit"
                 value={form.unit}
                 onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))}
                 placeholder="mis. unit, pcs, paket"
@@ -577,8 +585,9 @@ export function ProductManager({ products }: { products: Product[] }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Harga (Rp)</label>
+              <label htmlFor="product-price" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Harga (Rp)</label>
               <input
+                id="product-price"
                 type="number"
                 min={0}
                 step={1000}
@@ -588,8 +597,9 @@ export function ProductManager({ products }: { products: Product[] }) {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Stok</label>
+              <label htmlFor="product-stock" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Stok</label>
               <input
+                id="product-stock"
                 type="number"
                 min={0}
                 value={form.stock}
@@ -600,10 +610,11 @@ export function ProductManager({ products }: { products: Product[] }) {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="product-supplier" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Supplier (opsional)
             </label>
             <input
+              id="product-supplier"
               value={form.supplier}
               onChange={(e) => setForm((f) => ({ ...f, supplier: e.target.value }))}
               placeholder="mis. CV Mitra Tenda"
@@ -612,10 +623,11 @@ export function ProductManager({ products }: { products: Product[] }) {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="product-catatan" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Catatan (opsional)
             </label>
             <input
+              id="product-catatan"
               value={form.catatan}
               onChange={(e) => setForm((f) => ({ ...f, catatan: e.target.value }))}
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-teal-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
@@ -664,10 +676,11 @@ export function ProductManager({ products }: { products: Product[] }) {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="product-import-file" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Pilih file (.xlsx, .xls, atau .csv)
             </label>
             <input
+              id="product-import-file"
               ref={importInputRef}
               type="file"
               accept=".xlsx,.xls,.csv"

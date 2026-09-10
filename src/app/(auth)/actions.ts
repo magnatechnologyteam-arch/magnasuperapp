@@ -131,7 +131,14 @@ export async function updatePassword(formData: FormData) {
 
   const { error } = await supabase.auth.updateUser({ password });
   if (error) {
-    redirect(`/reset-password?error=${encodeURIComponent(error.message)}`);
+    console.error("[updatePassword] auth.updateUser gagal:", error.message);
+    // Satu kasus yang pesannya memang berguna ditampilkan apa adanya (mirip
+    // pola "already been registered" di admin/actions.ts::createStaffAccount)
+    // — selain itu, pesan error Supabase mentah tidak pernah ditampilkan.
+    const message = error.message.toLowerCase().includes("different from the old password")
+      ? "Password baru harus berbeda dari password lama."
+      : "Terjadi kesalahan, coba lagi.";
+    redirect(`/reset-password?error=${encodeURIComponent(message)}`);
   }
 
   redirect(`/login?notice=${encodeURIComponent("Password berhasil diubah — silakan masuk.")}`);

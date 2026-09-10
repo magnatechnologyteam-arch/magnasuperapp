@@ -252,6 +252,7 @@ export function ContentPlanner() {
                         type="button"
                         onClick={() => openEditModal(p)}
                         title="Edit konten"
+                        aria-label="Edit konten"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-fuchsia-50 hover:text-fuchsia-600 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
                       >
                         <Pencil className="h-4 w-4" />
@@ -260,6 +261,7 @@ export function ContentPlanner() {
                         type="button"
                         onClick={() => setDeleteTarget(p)}
                         title="Hapus konten"
+                        aria-label="Hapus konten"
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -276,10 +278,11 @@ export function ContentPlanner() {
       <Modal open={formOpen} onClose={closeFormModal} title={editingId ? "Edit Konten" : "Tambah Konten Baru"}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="content-title" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Judul/Topik Konten
             </label>
             <input
+              id="content-title"
               value={form.title}
               onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               placeholder="mis. Teaser Product Launch"
@@ -288,10 +291,11 @@ export function ContentPlanner() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="content-client" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Klien (opsional — kosongkan untuk konten internal)
             </label>
             <select
+              id="content-client"
               value={form.clientId}
               onChange={(e) => setForm((f) => ({ ...f, clientId: e.target.value }))}
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -307,10 +311,11 @@ export function ContentPlanner() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="content-platform" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Platform
               </label>
               <select
+                id="content-platform"
                 value={form.platform}
                 onChange={(e) => setForm((f) => ({ ...f, platform: e.target.value as Platform }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -323,10 +328,11 @@ export function ContentPlanner() {
               </select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="content-post-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Tanggal Posting
               </label>
               <input
+                id="content-post-date"
                 type="date"
                 value={form.tanggalPosting}
                 onChange={(e) => setForm((f) => ({ ...f, tanggalPosting: e.target.value }))}
@@ -336,10 +342,11 @@ export function ContentPlanner() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="content-status" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Status
             </label>
             <select
+              id="content-status"
               value={form.status}
               onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as ContentStatus }))}
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
@@ -353,10 +360,11 @@ export function ContentPlanner() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="content-catatan" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Catatan/Caption (opsional)
             </label>
             <input
+              id="content-catatan"
               value={form.catatan}
               onChange={(e) => setForm((f) => ({ ...f, catatan: e.target.value }))}
               placeholder="mis. draft caption, brief visual"

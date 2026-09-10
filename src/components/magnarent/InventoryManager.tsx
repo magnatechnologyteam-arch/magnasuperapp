@@ -269,6 +269,7 @@ export function InventoryManager() {
                           type="button"
                           onClick={() => openEditModal(item)}
                           title="Edit alat"
+                          aria-label="Edit alat"
                           className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-sky-500/10 dark:hover:text-sky-300"
                         >
                           <Pencil className="h-4 w-4" />
@@ -277,6 +278,7 @@ export function InventoryManager() {
                           type="button"
                           onClick={() => setDeleteTarget(item)}
                           title="Hapus alat"
+                          aria-label="Hapus alat"
                           className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -294,10 +296,11 @@ export function InventoryManager() {
       <Modal open={formOpen} onClose={closeFormModal} title={editingId ? "Edit Alat" : "Tambah Alat Baru"}>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="inventory-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Nama Alat
             </label>
             <input
+              id="inventory-name"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="mis. Tenda Roder 5x10m"
@@ -306,10 +309,11 @@ export function InventoryManager() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="inventory-category" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Kategori
               </label>
               <input
+                id="inventory-category"
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                 placeholder="mis. Tenda & Struktur"
@@ -323,10 +327,11 @@ export function InventoryManager() {
               </datalist>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="inventory-location" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Lokasi/Gudang
               </label>
               <input
+                id="inventory-location"
                 value={form.location}
                 onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
                 placeholder="mis. Gudang Cikarang"
@@ -335,10 +340,11 @@ export function InventoryManager() {
             </div>
           </div>
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="inventory-price-per-day" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Harga Sewa / Hari (Rp)
             </label>
             <input
+              id="inventory-price-per-day"
               type="number"
               min={0}
               step={1000}
@@ -349,10 +355,11 @@ export function InventoryManager() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="inventory-total-unit" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Total Unit
               </label>
               <input
+                id="inventory-total-unit"
                 type="number"
                 min={1}
                 value={form.totalUnit}
@@ -361,10 +368,11 @@ export function InventoryManager() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="inventory-unit-maintenance" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Unit Maintenance
               </label>
               <input
+                id="inventory-unit-maintenance"
                 type="number"
                 min={0}
                 value={form.unitMaintenance}

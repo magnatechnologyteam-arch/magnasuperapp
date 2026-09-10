@@ -161,6 +161,7 @@ export function ActivityLogTable({ rows }: { rows: ActivityRow[] }) {
                           type="button"
                           onClick={() => setConfirmRowId(row.id)}
                           title="Hapus baris ini"
+                          aria-label="Hapus baris ini"
                           className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
                         >
                           <Trash2 className="h-4 w-4" />

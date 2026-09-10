@@ -10,12 +10,14 @@ import { Eye, EyeOff, Lock } from "lucide-react";
  * form manapun tanpa mengubah cara form itu submit.
  */
 export function PasswordInput({
+  id,
   name,
   placeholder,
   autoComplete,
   required,
   minLength,
 }: {
+  id?: string;
   name: string;
   placeholder?: string;
   autoComplete?: string;
@@ -28,6 +30,7 @@ export function PasswordInput({
     <div className="relative">
       <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
       <input
+        id={id}
         type={visible ? "text" : "password"}
         name={name}
         required={required}

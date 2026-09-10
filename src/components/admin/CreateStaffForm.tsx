@@ -56,10 +56,11 @@ export function CreateStaffForm() {
 
       <form action={createStaffAccount} onSubmit={() => setIsPending(true)} className="mt-4 space-y-3.5">
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          <label htmlFor="create-staff-full-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             Nama Lengkap
           </label>
           <input
+            id="create-staff-full-name"
             type="text"
             name="fullName"
             required
@@ -69,10 +70,11 @@ export function CreateStaffForm() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          <label htmlFor="create-staff-username" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             Username
           </label>
           <input
+            id="create-staff-username"
             type="text"
             name="username"
             required
@@ -85,10 +87,11 @@ export function CreateStaffForm() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          <label htmlFor="create-staff-recovery-email" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             Email Pemulihan
           </label>
           <input
+            id="create-staff-recovery-email"
             type="email"
             name="recoveryEmail"
             required
@@ -101,10 +104,11 @@ export function CreateStaffForm() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          <label htmlFor="create-staff-division" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             Divisi / Akses
           </label>
           <select
+            id="create-staff-division"
             name="division"
             required
             defaultValue="production"
@@ -119,13 +123,14 @@ export function CreateStaffForm() {
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          <label htmlFor="create-staff-password" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             Password Awal
           </label>
           <div className="flex gap-2">
             <div className="relative flex-1">
               <KeyRound className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
               <input
+                id="create-staff-password"
                 type="text"
                 name="password"
                 required
@@ -148,6 +153,7 @@ export function CreateStaffForm() {
                 type="button"
                 onClick={handleCopy}
                 title="Salin password"
+                aria-label="Salin password"
                 className="shrink-0 rounded-xl border border-black/10 px-2.5 text-zinc-500 transition-colors hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/5"
               >
                 <Copy className="h-3.5 w-3.5" />

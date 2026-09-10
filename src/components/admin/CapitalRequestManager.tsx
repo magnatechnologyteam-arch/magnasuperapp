@@ -178,6 +178,7 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
                             onClick={() => setDeleteTarget(req)}
                             disabled={actingId === req.id}
                             title="Hapus pengajuan"
+                            aria-label="Hapus pengajuan"
                             className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -196,8 +197,9 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
       <Modal open={formOpen} onClose={closeFormModal} title="Ajukan Modal Event Baru">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nama Event</label>
+            <label htmlFor="capital-request-event-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nama Event</label>
             <input
+              id="capital-request-event-name"
               value={form.eventName}
               onChange={(e) => setForm((f) => ({ ...f, eventName: e.target.value }))}
               placeholder="mis. Wedding Expo Jakarta 2026"
@@ -206,8 +208,9 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Lokasi</label>
+            <label htmlFor="capital-request-location" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Lokasi</label>
             <input
+              id="capital-request-location"
               value={form.location}
               onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))}
               placeholder="mis. JCC Senayan"
@@ -216,10 +219,11 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="capital-request-event-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Tanggal (opsional — boleh dikosongkan kalau belum pasti)
             </label>
             <input
+              id="capital-request-event-date"
               type="date"
               value={form.eventDate}
               onChange={(e) => setForm((f) => ({ ...f, eventDate: e.target.value }))}
@@ -229,10 +233,11 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="capital-request-billing" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Estimasi Pendapatan
               </label>
               <input
+                id="capital-request-billing"
                 type="number"
                 min={0}
                 value={form.billingEstimate}
@@ -241,10 +246,11 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              <label htmlFor="capital-request-modal" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Modal Dibutuhkan
               </label>
               <input
+                id="capital-request-modal"
                 type="number"
                 min={0}
                 value={form.modalEstimate}

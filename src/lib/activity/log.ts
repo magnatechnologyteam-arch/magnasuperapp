@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 export type ActivityModule = "magnarent" | "magnative" | "production" | "admin";
@@ -29,6 +30,15 @@ export type LogActivityInput = {
  * perlu melewati RLS di sini.
  */
 export async function logActivity(input: LogActivityInput): Promise<void> {
+  // Sama seperti `notifyDivision` (src/lib/push/notify.ts) — pemanggil selalu
+  // memakai `void logActivity(...)` (fire-and-forget), jadi kerjanya
+  // sungguhan didaftarkan lewat `after()` supaya tidak ada risiko instance
+  // serverless-nya dibekukan sebelum baris log ini sempat benar-benar
+  // tersimpan.
+  after(() => writeActivityLog(input));
+}
+
+async function writeActivityLog(input: LogActivityInput): Promise<void> {
   try {
     const supabase = await createClient();
     const {

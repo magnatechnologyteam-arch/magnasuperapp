@@ -153,10 +153,11 @@ export function CapitalRequestInbox({ requests }: { requests: CapitalRequest[] }
             </p>
           )}
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            <label htmlFor="capital-request-decision-note" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Catatan (opsional)
             </label>
             <textarea
+              id="capital-request-decision-note"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={3}

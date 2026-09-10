@@ -34,12 +34,13 @@ export default async function LoginPage({
         <input type="hidden" name="redirectTo" value={redirectTo ?? "/dashboard"} />
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          <label htmlFor="login-username" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             Username
           </label>
           <div className="relative">
             <User className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
+              id="login-username"
               type="text"
               name="username"
               required
@@ -51,10 +52,10 @@ export default async function LoginPage({
         </div>
 
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          <label htmlFor="login-password" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             Password
           </label>
-          <PasswordInput name="password" required autoComplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" />
+          <PasswordInput id="login-password" name="password" required autoComplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" />
         </div>
 
         <div className="flex justify-end">

@@ -26,12 +26,13 @@ export default async function LupaPasswordPage({
 
       <form action={requestPasswordReset} className="mt-6 space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+          <label htmlFor="lupa-password-email" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
             Email Pemulihan
           </label>
           <div className="relative">
             <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
             <input
+              id="lupa-password-email"
               type="email"
               name="email"
               required
