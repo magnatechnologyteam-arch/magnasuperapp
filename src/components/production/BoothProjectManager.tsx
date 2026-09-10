@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { AlertTriangle, BadgeCheck, Hammer, MapPin, Pencil, Plus, Search, Trash2, X as XIcon } from "lucide-react";
+import { AlertTriangle, BadgeCheck, FolderOpen, Hammer, MapPin, Pencil, Plus, Search, Trash2, X as XIcon } from "lucide-react";
 import { useProductionData } from "./ProductionDataProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -12,6 +12,7 @@ import type { MaterialConflict } from "@/lib/production/availability";
 import { cn } from "@/lib/cn";
 import type { BoothProject, BoothStatus, PaymentStatus } from "@/lib/production/types";
 import { BOOTH_STATUS_STYLES as STATUS_STYLES, PAYMENT_STYLES } from "@/lib/status-styles";
+import { ProjectDetailModal } from "./ProjectDetailModal";
 
 const GRADIENT = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
 
@@ -78,6 +79,7 @@ export function BoothProjectManager() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<BoothProject | null>(null);
+  const [detailTarget, setDetailTarget] = useState<BoothProject | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
 
@@ -385,6 +387,15 @@ export function BoothProjectManager() {
                   </td>
                   <td className="px-5 py-3">
                     <div className="flex justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setDetailTarget(p)}
+                        title="Detail — checklist & kru"
+                        aria-label="Detail — checklist & kru"
+                        className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-sky-500/10 dark:hover:text-sky-300"
+                      >
+                        <FolderOpen className="h-4 w-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => openEditModal(p)}
@@ -741,6 +752,15 @@ export function BoothProjectManager() {
           )
         }
       />
+
+      {detailTarget && (
+        <ProjectDetailModal
+          projectId={detailTarget.id}
+          projectName={detailTarget.name}
+          open={detailTarget !== null}
+          onClose={() => setDetailTarget(null)}
+        />
+      )}
     </div>
   );
 }

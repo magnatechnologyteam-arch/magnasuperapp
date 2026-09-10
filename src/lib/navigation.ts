@@ -87,6 +87,8 @@ export const MODULES: ModuleConfig[] = [
       { label: "Ringkasan", href: "/dashboard/production" },
       { label: "Material", href: "/dashboard/production/material" },
       { label: "Proyek Booth", href: "/dashboard/production/proyek" },
+      { label: "Dokumentasi", href: "/dashboard/production/dokumentasi" },
+      { label: "Alat & Perkakas", href: "/dashboard/production/alat" },
       { label: "Jadwal", href: "/dashboard/production/jadwal" },
       { label: "Pemakaian", href: "/dashboard/production/pemakaian" },
       { label: "Pembelian", href: "/dashboard/production/pembelian" },

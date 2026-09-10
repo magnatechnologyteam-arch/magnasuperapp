@@ -143,6 +143,13 @@ export const CAPITAL_REQUEST_STATUS_STYLES: Record<"Menunggu" | "Disetujui" | "D
   Ditolak: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
 };
 
+/** Kondisi alat berat/perkakas Production (Tahap 28c) — cuma dipakai EquipmentManager. */
+export const EQUIPMENT_CONDITION_STYLES: Record<"Baik" | "Perlu Servis" | "Rusak", string> = {
+  Baik: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+  "Perlu Servis": "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  Rusak: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
+};
+
 /** Klien Magnativ — cuma dipakai ClientManager, disatukan di sini untuk konsistensi pola. */
 export const CLIENT_STATUS_STYLES: Record<
   "Prospek" | "Aktif" | "Selesai" | "Tidak Lanjut",
