@@ -8,7 +8,6 @@ import { calculateBookingTotal } from "@/lib/magnarent/pricing";
 import { rowToProject, type ProjectRow } from "@/lib/magnative/mappers";
 import { rowToBoothProject, rowToMaterial, type BoothProjectRow, type MaterialRow } from "@/lib/production/mappers";
 import { ACTIVE_BOOTH_STATUSES } from "@/lib/production/availability";
-import type { Division } from "@/lib/supabase/types";
 
 const DIVISION_LABEL: Record<string, string> = {
   magnarent: "Magnarent",
@@ -51,7 +50,9 @@ export default async function LaporanPage() {
     redirect("/dashboard");
   }
 
-  const scope: "all" | Division = isFullAccess ? "all" : (profile.division as Division);
+  const scope: "all" | "magnarent" | "magnative" | "production" = isFullAccess
+    ? "all"
+    : (profile.division as "magnarent" | "magnative" | "production");
   const supabase = await createClient();
 
   const wantMagnarent = scope === "all" || scope === "magnarent";
