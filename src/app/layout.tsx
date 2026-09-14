@@ -39,8 +39,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Tahap 30: senada dengan logo resmi (lihat BrandLogo.tsx & manifest.ts)
-  themeColor: "#FFC107",
+  // Tahap 31: senada persis dengan emas logo resmi Production (lihat manifest.ts)
+  themeColor: "#D4AF37",
 };
 
 /**

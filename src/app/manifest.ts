@@ -26,11 +26,11 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     orientation: "portrait-primary",
-    // Tahap 30: disamakan dengan latar & warna aksen logo resmi (lihat
-    // BrandLogo.tsx) supaya splash screen PWA & tint status bar senada
-    // dengan ikon aplikasi — sebelumnya near-black polos & indigo generik.
+    // Tahap 31: theme_color disamakan persis dengan emas logo resmi Production
+    // (lihat navigation.ts BRAND_GRADIENT) — sebelumnya perkiraan warna dari
+    // render 3D ikon (Tahap 30).
     background_color: "#0A1528",
-    theme_color: "#FFC107",
+    theme_color: "#D4AF37",
     lang: "id",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

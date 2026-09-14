@@ -4,14 +4,20 @@ import { usePathname } from "next/navigation";
 import { getModuleByPath } from "@/lib/navigation";
 
 /**
- * Judul halaman dalam modul — otomatis mengambil ikon & warna aksen modul
+ * Judul halaman dalam modul — otomatis mengambil logo & warna aksen modul
  * yang sedang aktif lewat pathname, jadi tiap page.tsx tidak perlu tahu/
- * mengirim gradient-nya sendiri (single source of truth tetap di
- * navigation.ts). Badge ikon di sini dipakai konsisten di SEMUA halaman
- * setiap modul (bukan cuma Ringkasan) supaya identitas modul terasa di
- * mana pun pengguna berada — label modul di atas judul (eyebrow) & halo
- * warna di belakang ikon jadi pembeda kecil supaya tidak melulu terasa
- * satu pola yang sama persis di tiap halaman.
+ * mengirim logo/gradient-nya sendiri (single source of truth tetap di
+ * navigation.ts). Badge di sini dipakai konsisten di SEMUA halaman setiap
+ * modul (bukan cuma Ringkasan) supaya identitas divisi terasa di mana pun
+ * pengguna berada.
+ *
+ * Tahap 31: badge diganti dari ikon Lucide generik di atas ubin gradient
+ * jadi LOGO RESMI tiap divisi (Magnativ/Magnarent/Production) di atas ubin
+ * putih — logo lockup-nya punya warna sendiri (teal/navy-merah/emas), jadi
+ * ditaruh di ubin putih supaya warnanya kebaca bersih di mode terang MAUPUN
+ * gelap, sementara halo blur warna-warni di belakangnya tetap pakai
+ * `mod.gradient` untuk ambience. Modul yang belum punya `logo` (kalau ada
+ * suatu saat) otomatis jatuh ke tampilan ikon lama.
  */
 export function ModuleHeader({
   title,
@@ -26,19 +32,28 @@ export function ModuleHeader({
 
   return (
     <div className="animate-fade-up flex items-start gap-4">
-      {Icon && (
+      {mod && (
         <div className="relative shrink-0">
           <span
             className="absolute -inset-1.5 animate-pulse rounded-2xl opacity-30 blur-lg"
             style={{ background: mod.gradient }}
             aria-hidden
           />
-          <div
-            className="relative grid h-12 w-12 place-items-center rounded-2xl text-white shadow-sm"
-            style={{ background: mod.gradient }}
-          >
-            <Icon className="h-6 w-6" />
-          </div>
+          {mod.logo ? (
+            <div className="relative flex h-12 min-w-[3rem] items-center justify-center rounded-2xl bg-white px-2 shadow-sm ring-1 ring-black/5">
+              {/* eslint-disable-next-line @next/next/no-img-element -- logo lokal statis, ukuran per-file beda-beda (lockup, bukan ikon kotak) jadi lebih sederhana pakai <img> daripada next/image */}
+              <img src={mod.logo} alt={mod.label} className="h-7 w-auto max-w-[6.5rem] object-contain" />
+            </div>
+          ) : (
+            Icon && (
+              <div
+                className="relative grid h-12 w-12 place-items-center rounded-2xl text-white shadow-sm"
+                style={{ background: mod.gradient }}
+              >
+                <Icon className="h-6 w-6" />
+              </div>
+            )
+          )}
         </div>
       )}
       <div className="min-w-0">

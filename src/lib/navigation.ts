@@ -32,6 +32,13 @@ export type ModuleConfig = {
   href: string;
   description: string;
   icon: LucideIcon;
+  /** Logo resmi divisi (Tahap 31) — file gambar dari desainer brand
+   * (`public/brand/*.png`), dipakai di badge `ModuleHeader` & kartu modul di
+   * Dashboard Hub menggantikan ikon Lucide generik. `icon` di atas
+   * dipertahankan sebagai fallback (dipakai di daftar Sidebar/MobileNav yang
+   * ruangnya terlalu sempit untuk logo lockup, dan buat modul yang suatu
+   * saat belum punya logo resmi). */
+  logo: string;
   gradient: string;
   solid: string;
   soft: string;
@@ -40,12 +47,12 @@ export type ModuleConfig = {
 
 export const HUB_HREF = "/dashboard";
 
-// Tahap 30: disesuaikan dengan logo resmi MagnaSuperApp dari desainer brand
-// (emas -> merah -> teal, diambil dari warna mark & garis di logo itu sendiri)
-// — sebelumnya indigo/pink/amber generik, sekarang senada persis dengan
-// warna yang tampil di ikon aplikasi (lihat `BrandLogo.tsx` & `src/app/icon.png`).
+// Tahap 31: diambil LANGSUNG dari warna asli tiga logo resmi divisi (emas
+// Production, merah Magnarent, teal Magnativ — lihat MODULES di bawah)
+// supaya identitas brand keseluruhan aplikasi benar-benar senada dengan
+// logo resmi, bukan cuma perkiraan warna dari render 3D ikon (Tahap 30).
 export const BRAND_GRADIENT =
-  "linear-gradient(135deg, #FFC107 0%, #F0173D 50%, #05CBA6 100%)";
+  "linear-gradient(135deg, #D4AF37 0%, #E5484D 50%, #0B7A63 100%)";
 
 export const MODULES: ModuleConfig[] = [
   {
@@ -54,9 +61,11 @@ export const MODULES: ModuleConfig[] = [
     href: "/dashboard/magnative",
     description: "Manajemen EO, creative agency & media sosial",
     icon: Megaphone,
-    gradient: "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)",
-    solid: "#8B5CF6",
-    soft: "bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-500/10 dark:text-fuchsia-300",
+    logo: "/brand/magnativ-logo.png",
+    // Tahap 31: teal, diambil dari logo resmi Magnativ (sebelumnya ungu/pink generik)
+    gradient: "linear-gradient(135deg, #0B7A63 0%, #14B8A6 100%)",
+    solid: "#0B7A63",
+    soft: "bg-teal-50 text-teal-700 dark:bg-teal-500/10 dark:text-teal-300",
     subnav: [
       { label: "Ringkasan", href: "/dashboard/magnative" },
       { label: "Sosial Media", href: "/dashboard/magnative/sosial-media" },
@@ -73,9 +82,11 @@ export const MODULES: ModuleConfig[] = [
     href: "/dashboard/magnarent",
     description: "Rental booking, inventaris & kalender interaktif",
     icon: CalendarClock,
-    gradient: "linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)",
-    solid: "#3B82F6",
-    soft: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
+    logo: "/brand/magnarent-logo.png",
+    // Tahap 31: navy -> merah, diambil dari logo resmi Magnarent (sebelumnya biru/cyan generik)
+    gradient: "linear-gradient(135deg, #262C3A 0%, #E5484D 100%)",
+    solid: "#E5484D",
+    soft: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
     subnav: [
       { label: "Ringkasan", href: "/dashboard/magnarent" },
       { label: "Inventaris", href: "/dashboard/magnarent/inventaris" },
@@ -91,9 +102,11 @@ export const MODULES: ModuleConfig[] = [
     href: "/dashboard/production",
     description: "Produksi booth, interior & material gudang",
     icon: Factory,
-    gradient: "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)",
-    solid: "#F59E0B",
-    soft: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300",
+    logo: "/brand/production-logo.png",
+    // Tahap 31: emas, diambil dari logo resmi Production (sebelumnya amber/merah generik)
+    gradient: "linear-gradient(135deg, #B8860B 0%, #F4D35E 100%)",
+    solid: "#B8860B",
+    soft: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
     subnav: [
       { label: "Ringkasan", href: "/dashboard/production" },
       { label: "Material", href: "/dashboard/production/material" },

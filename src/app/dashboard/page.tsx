@@ -1,7 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
 import { redirect } from "next/navigation";
-import { cn } from "@/lib/cn";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -27,15 +25,6 @@ type StatCard = {
   accent: string;
   href: string;
   warn?: boolean;
-};
-
-// Foto sampul per modul — placeholder/dummy on-brand sementara (lihat
-// public/images/placeholders/ dan PlaceholderGallery di halaman
-// Inventaris/Proyek Booth untuk keterangan foto asli).
-const MODULE_BANNERS: Record<string, string> = {
-  magnarent: "/images/placeholders/module-magnarent.jpg",
-  magnative: "/images/placeholders/module-magnative.jpg",
-  production: "/images/placeholders/module-production.jpg",
 };
 
 const QUICK_ACTIONS = [
@@ -248,8 +237,6 @@ export default async function DashboardHubPage() {
       </p>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {modules.map((mod, i) => {
-          const Icon = mod.icon;
-          const banner = MODULE_BANNERS[mod.id];
           return (
             <Link
               key={mod.id}
@@ -257,58 +244,29 @@ export default async function DashboardHubPage() {
               className="group animate-fade-up relative overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-zinc-900"
               style={{ animationDelay: `${120 + i * 60}ms` }}
             >
-              {banner ? (
-                <div className="relative aspect-[16/9] w-full overflow-hidden">
-                  <Image
-                    src={banner}
-                    alt=""
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div
-                    className="absolute inset-x-0 bottom-0 h-14"
-                    style={{
-                      background: "linear-gradient(to top, rgba(0,0,0,0.35), transparent)",
-                    }}
-                  />
-                  <div
-                    className="absolute -bottom-5 left-5 grid h-12 w-12 place-items-center rounded-xl text-white shadow-md ring-4 ring-white transition-transform group-hover:scale-110 dark:ring-zinc-900"
-                    style={{ background: mod.gradient }}
-                  >
-                    <Icon className="h-6 w-6" />
-                  </div>
-                </div>
-              ) : (
-                <span
-                  className="absolute inset-x-0 top-0 h-1.5"
-                  style={{ background: mod.gradient }}
+              {/* Tahap 31: sampul kartu modul diganti dari foto stok generik
+                  jadi latar warna resmi divisi + logo resmi-nya sendiri
+                  (menggantikan placeholder di public/images/placeholders/) —
+                  supaya tiap kartu langsung terasa identitas Magnativ/
+                  Magnarent/Production yang sebenarnya, bukan foto dummy. */}
+              <div
+                className="relative flex aspect-[16/9] w-full items-center justify-center overflow-hidden p-8"
+                style={{ background: mod.gradient }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- logo lokal statis, aspect ratio beda-beda per divisi */}
+                <img
+                  src={mod.logo}
+                  alt={mod.label}
+                  className="max-h-16 w-auto max-w-[75%] object-contain drop-shadow-sm transition-transform duration-300 group-hover:scale-105"
                 />
-              )}
-              <div className={banner ? "p-6 pt-8" : "p-6"}>
-                {!banner && (
-                  <div className="flex items-start justify-between">
-                    <div
-                      className="grid h-12 w-12 place-items-center rounded-xl text-white shadow-sm transition-transform group-hover:scale-110"
-                      style={{ background: mod.gradient }}
-                    >
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <ArrowUpRight className="h-4 w-4 text-zinc-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-zinc-500 dark:text-zinc-600" />
-                  </div>
-                )}
-                <div className={banner ? "flex items-start justify-between" : "contents"}>
+              </div>
+              <div className="p-6">
+                <div className="flex items-start justify-between">
                   <div>
-                    <h2 className={cn("text-base font-bold text-zinc-900 dark:text-white", !banner && "mt-4")}>
-                      {mod.label}
-                    </h2>
-                    <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-                      {mod.description}
-                    </p>
+                    <h2 className="text-base font-bold text-zinc-900 dark:text-white">{mod.label}</h2>
+                    <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{mod.description}</p>
                   </div>
-                  {banner && (
-                    <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-zinc-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-zinc-500 dark:text-zinc-600" />
-                  )}
+                  <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-zinc-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-zinc-500 dark:text-zinc-600" />
                 </div>
               </div>
             </Link>
