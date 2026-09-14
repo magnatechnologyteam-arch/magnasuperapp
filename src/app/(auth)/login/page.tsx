@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AlertCircle, CheckCircle2, User } from "lucide-react";
 import { signIn } from "../actions";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { LoginSubmitButton } from "./LoginSubmitButton";
 
 export default async function LoginPage({
   searchParams,
@@ -67,12 +68,7 @@ export default async function LoginPage({
           </Link>
         </div>
 
-        <button
-          type="submit"
-          className="w-full rounded-full bg-gradient-to-r from-[#D4AF37] via-[#E5484D] to-[#0B7A63] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99]"
-        >
-          Masuk
-        </button>
+        <LoginSubmitButton />
       </form>
 
       <p className="mt-6 text-center text-xs text-zinc-400 dark:text-zinc-500">

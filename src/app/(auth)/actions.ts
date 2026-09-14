@@ -58,7 +58,12 @@ export async function signIn(formData: FormData) {
   }
 
   console.log(`[signIn] Login berhasil untuk username "${username}".`);
-  redirect(redirectTo);
+  // `welcome=1` memicu animasi popup selamat datang SEKALI di dashboard
+  // (lihat WelcomeSplash.tsx) — dibaca lalu langsung dibuang dari URL di
+  // sana, jadi tidak terulang kalau halaman di-refresh/dibuka lagi lewat
+  // tombol back.
+  const separator = redirectTo.includes("?") ? "&" : "?";
+  redirect(`${redirectTo}${separator}welcome=1`);
 }
 
 /**
@@ -69,6 +74,16 @@ export async function signIn(formData: FormData) {
  * itu terdaftar atau tidak (pesan sukses selalu sama), jadi kita tidak
  * perlu lagi lapisan "cari email dari username" seperti sebelumnya — cukup
  * teruskan langsung ke `resetPasswordForEmail`.
+ *
+ * `redirectTo` mengarah LANGSUNG ke /reset-password (BUKAN lewat
+ * /auth/callback seperti sebelumnya) — itu bug yang baru diperbaiki:
+ * /auth/callback cuma menangani `?code=` (alur OAuth Google) lalu
+ * me-redirect lagi ke `next`, dan redirect server semacam itu MEMBUANG hash
+ * fragment URL (`#access_token=...`) yang justru dipakai Supabase untuk
+ * tautan reset password gaya lama — jadi token pemulihannya hilang sebelum
+ * sempat diproses. Sekarang /reset-password sendiri (lewat
+ * ResetPasswordClient.tsx) yang menangani SEMUA kemungkinan bentuk tautan
+ * Supabase: hash fragment, `?code=`, maupun `?token_hash=&type=recovery`.
  */
 export async function requestPasswordReset(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -79,7 +94,7 @@ export async function requestPasswordReset(formData: FormData) {
       const origin = (await headers()).get("origin") ?? "";
       const supabase = await createClient();
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/reset-password")}`,
+        redirectTo: `${origin}/reset-password`,
       });
       // Dicatat HANYA di terminal server (bukan ditampilkan ke browser) —
       // supaya kita bisa lacak kalau email gagal terkirim (redirect URL
@@ -102,10 +117,11 @@ export async function requestPasswordReset(formData: FormData) {
 }
 
 /**
- * Set password baru — dipanggil dari halaman /reset-password SETELAH
- * pengguna klik tautan reset di email (yang menukar kode OAuth-style lewat
- * /auth/callback lebih dulu, jadi di titik ini pengguna sudah punya sesi
- * resmi yang sah untuk mengganti password miliknya sendiri).
+ * Set password baru — dipanggil dari form di ResetPasswordClient.tsx
+ * SETELAH komponen itu berhasil menukar tautan reset dari email jadi sesi
+ * resmi (lihat komentar panjang di ResetPasswordClient.tsx soal 3 kemungkinan
+ * bentuk tautan yang ditangani), jadi di titik ini pengguna sudah punya sesi
+ * yang sah untuk mengganti password miliknya sendiri.
  */
 export async function updatePassword(formData: FormData) {
   const password = String(formData.get("password") ?? "");

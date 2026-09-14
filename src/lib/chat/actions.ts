@@ -7,6 +7,13 @@ import { notifyUsers } from "@/lib/push/notify";
 import { CHAT_ROOM_LABELS, isRoomAllowed, type ChatRoom } from "@/lib/chat/rooms";
 import type { Division } from "@/lib/supabase/types";
 
+// Batas waktu edit/hapus 15 menit (Tahap 39) TIDAK dicek manual di sini —
+// cukup ditegakkan lewat RLS `chat_messages_update_own` (migrasi 0040) dan
+// dideteksi lewat "0 baris ter-update" di editChatMessage/deleteChatMessage
+// di bawah. Konstanta `EDIT_DELETE_WINDOW_MS` (nilai sama, 15 menit) hidup
+// di @/lib/chat/rooms — dipakai ChatClient.tsx untuk sembunyikan tombol
+// edit/hapus di UI begitu lewat jendela waktunya.
+
 /**
  * Fitur Chat (Tahap 37) — permintaan Owner: chat untuk keseluruhan KECUALI
  * investor, dengan @tag username yang otomatis kirim push notification ke
@@ -50,6 +57,12 @@ export type ChatAttachment = {
   size: number;
 };
 
+export type ChatReplySnapshot = {
+  senderName: string;
+  body: string;
+  attachmentName: string | null;
+};
+
 export type ChatMessage = {
   id: string;
   room: ChatRoom;
@@ -60,6 +73,9 @@ export type ChatMessage = {
   body: string;
   mentionedUserIds: string[];
   attachment: ChatAttachment | null;
+  replyTo: ChatReplySnapshot | null;
+  editedAt: string | null;
+  deletedAt: string | null;
   createdAt: string;
 };
 
@@ -76,6 +92,11 @@ type ChatMessageRow = {
   attachment_name: string | null;
   attachment_type: string | null;
   attachment_size: number | null;
+  reply_to_sender_name: string | null;
+  reply_to_body: string | null;
+  reply_to_attachment_name: string | null;
+  edited_at: string | null;
+  deleted_at: string | null;
   created_at: string;
 };
 
@@ -93,6 +114,12 @@ function mapRow(row: ChatMessageRow): ChatMessage {
       row.attachment_url && row.attachment_name && row.attachment_type && row.attachment_size != null
         ? { url: row.attachment_url, name: row.attachment_name, type: row.attachment_type, size: row.attachment_size }
         : null,
+    replyTo:
+      row.reply_to_sender_name != null
+        ? { senderName: row.reply_to_sender_name, body: row.reply_to_body ?? "", attachmentName: row.reply_to_attachment_name }
+        : null,
+    editedAt: row.edited_at,
+    deletedAt: row.deleted_at,
     createdAt: row.created_at,
   };
 }
@@ -125,7 +152,8 @@ export type SendChatMessageResult = { ok: true; message: ChatMessage } | { ok: f
 export async function sendChatMessage(
   room: ChatRoom,
   rawBody: string,
-  fileFormData?: FormData
+  fileFormData?: FormData,
+  replyToId?: string | null
 ): Promise<SendChatMessageResult> {
   const profile = await requireChatAccess();
 
@@ -182,6 +210,29 @@ export async function sendChatMessage(
 
   const supabase = await createClient();
 
+  // Snapshot balasan (reply) — DIREKAM SEKARANG, bukan di-JOIN saat tampil,
+  // supaya kutipannya tidak ikut berubah kalau pesan asli belakangan
+  // diedit/dihapus (lihat komentar panjang di migrasi 0040). Kalau pesan yang
+  // dibalas ternyata sudah tidak ada/sudah dihapus/beda ruang (mis. race
+  // klik "Balas" lalu pesannya keburu dihapus orang lain), balasan diam-diam
+  // dikirim TANPA kutipan alih-alih menggagalkan seluruh pengiriman.
+  let replySnapshot: ChatReplySnapshot | null = null;
+  if (replyToId) {
+    const { data: original } = await supabase
+      .from("chat_messages")
+      .select("sender_name, body, attachment_name, deleted_at, room")
+      .eq("id", replyToId)
+      .maybeSingle();
+
+    if (original && !original.deleted_at && original.room === room) {
+      replySnapshot = {
+        senderName: original.sender_name,
+        body: original.body,
+        attachmentName: original.attachment_name,
+      };
+    }
+  }
+
   // Upload dulu (kalau ada lampiran), baru insert baris pesan — sama seperti
   // pola bukti pembayaran di src/lib/capital-requests/actions.ts. Kalau
   // insert-nya gagal setelah upload berhasil, file yang sudah terlanjur
@@ -231,6 +282,10 @@ export async function sendChatMessage(
       attachment_name: attachmentName,
       attachment_type: attachmentType,
       attachment_size: attachmentSize,
+      reply_to_id: replySnapshot ? replyToId : null,
+      reply_to_sender_name: replySnapshot?.senderName ?? null,
+      reply_to_body: replySnapshot?.body ?? null,
+      reply_to_attachment_name: replySnapshot?.attachmentName ?? null,
     })
     .select("*")
     .single();
@@ -287,11 +342,17 @@ export async function getChatMessages(room: ChatRoom, sinceIso?: string | null):
   let error: { message: string } | null = null;
 
   if (sinceIso) {
+    // Tahap 39: BUKAN CUMA pesan baru — juga tangkap pesan LAMA yang baru
+    // saja diedit/dihapus setelah cursor ini. Kalau cuma `created_at >
+    // cursor` (kondisi lama, sebelum ada edit/hapus), sebuah pesan LAMA yang
+    // diedit/dihapus ORANG LAIN tidak akan pernah ke-poll ulang (created_at
+    // baris itu kan tidak berubah) — perubahannya tidak akan pernah sampai
+    // ke tab orang lain yang chat-nya sedang terbuka tanpa reload manual.
     const res = await supabase
       .from("chat_messages")
       .select("*")
       .eq("room", room)
-      .gt("created_at", sinceIso)
+      .or(`created_at.gt.${sinceIso},edited_at.gt.${sinceIso},deleted_at.gt.${sinceIso}`)
       .order("created_at", { ascending: true })
       .limit(200);
     data = res.data as ChatMessageRow[] | null;
@@ -351,4 +412,149 @@ export async function searchTaggableUsers(query: string): Promise<TaggableUser[]
       fullName: (p.full_name as string) || (p.username as string),
       division: p.division as Division,
     }));
+}
+
+/**
+ * Edit teks pesan sendiri — dibatasi 15 menit setelah terkirim, ditegakkan
+ * DUA LAPIS: di sini (supaya pesan errornya jelas) dan di RLS
+ * `chat_messages_update_own` (migrasi 0040, backstop kalau ada yang lewat
+ * jalur lain). Kalau UPDATE tidak mengenai baris manapun (RLS menolak —
+ * bukan pemilik, atau sudah lewat 15 menit), PostgREST TIDAK melempar error,
+ * cuma mengembalikan 0 baris — makanya dicek lewat `.select()` + panjang
+ * array, bukan cuma field `error`.
+ */
+export async function editChatMessage(id: string, rawBody: string): Promise<SendChatMessageResult> {
+  await requireChatAccess();
+  const body = rawBody.trim();
+
+  if (body.length > MAX_BODY_LENGTH) {
+    return { ok: false, error: `Pesan maksimal ${MAX_BODY_LENGTH} karakter.` };
+  }
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("chat_messages")
+    .select("attachment_url, deleted_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existing) return { ok: false, error: "Pesan tidak ditemukan." };
+  if (existing.deleted_at) return { ok: false, error: "Pesan ini sudah dihapus." };
+  if (!body && !existing.attachment_url) {
+    return { ok: false, error: "Pesan tidak boleh kosong." };
+  }
+
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .update({ body, edited_at: new Date().toISOString() })
+    .eq("id", id)
+    .select("*");
+
+  if (error) {
+    console.error("[chat] editChatMessage gagal:", error.message);
+    return { ok: false, error: "Gagal mengedit pesan, coba lagi." };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Pesan ini sudah tidak bisa diedit (lewat 15 menit atau bukan milik Anda)." };
+  }
+
+  return { ok: true, message: mapRow(data[0] as ChatMessageRow) };
+}
+
+/**
+ * Hapus pesan (soft-delete — lihat komentar panjang di migrasi 0040 kenapa
+ * bukan DELETE baris sungguhan). Dua jalur yang sah-sah saja lewat sini:
+ * pengirim sendiri (dibatasi 15 menit, RLS `chat_messages_update_own`) ATAU
+ * akses penuh untuk moderasi (tanpa batas waktu, RLS
+ * `chat_messages_update_moderation`) — server action ini tidak perlu
+ * membedakan keduanya secara eksplisit, cukup coba UPDATE-nya dan biarkan
+ * RLS yang memutuskan sah/tidak (sama pola deteksi 0-baris seperti
+ * `editChatMessage`).
+ */
+export async function deleteChatMessage(id: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const profile = await requireChatAccess();
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("chat_messages")
+    .select("attachment_path")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existing) return { ok: false, error: "Pesan tidak ditemukan." };
+
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .update({
+      deleted_at: new Date().toISOString(),
+      deleted_by: profile.id,
+      body: "",
+      attachment_url: null,
+      attachment_path: null,
+      attachment_name: null,
+      attachment_type: null,
+      attachment_size: null,
+    })
+    .eq("id", id)
+    .select("id");
+
+  if (error) {
+    console.error("[chat] deleteChatMessage gagal:", error.message);
+    return { ok: false, error: "Gagal menghapus pesan, coba lagi." };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: "Pesan ini sudah tidak bisa dihapus (lewat 15 menit atau bukan milik Anda)." };
+  }
+
+  // Bersihkan file lampiran dari Storage kalau ada — pakai ADMIN client
+  // (bukan client biasa) karena kebijakan `chat_attachments_delete` (migrasi
+  // 0039) cuma izinkan `owner = auth.uid()` menghapus filenya SENDIRI,
+  // padahal ini bisa saja moderasi akses penuh menghapus lampiran milik
+  // ORANG LAIN — client biasa akan ditolak RLS Storage-nya.
+  if (existing.attachment_path) {
+    const admin = createAdminClient();
+    const { error: removeError } = await admin.storage.from(ATTACHMENT_BUCKET).remove([existing.attachment_path]);
+    if (removeError) {
+      console.error("[chat] Hapus file lampiran gagal (baris pesan tetap terhapus):", removeError.message);
+    }
+  }
+
+  return { ok: true };
+}
+
+/**
+ * "Hapus Seluruh Chat" — bersihkan TOTAL riwayat satu ruang, khusus akses
+ * penuh (dikonfirmasi Owner). Beda dengan `deleteChatMessage` di atas: ini
+ * DELETE baris sungguhan (bukan soft-delete), sesuai RLS
+ * `chat_messages_delete_full_access` (migrasi 0040) yang memang cuma
+ * mengizinkan `division = 'all'`.
+ */
+export async function clearChatRoom(room: ChatRoom): Promise<{ ok: true } | { ok: false; error: string }> {
+  const profile = await requireChatAccess();
+
+  if (profile.division !== "all") {
+    return { ok: false, error: "Hanya akses penuh yang bisa menghapus seluruh chat." };
+  }
+  if (!isRoomAllowed(room, profile.division)) {
+    return { ok: false, error: "Ruang chat tidak valid." };
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("chat_messages").delete().eq("room", room).select("attachment_path");
+
+  if (error) {
+    console.error("[chat] clearChatRoom gagal:", error.message);
+    return { ok: false, error: "Gagal menghapus seluruh chat, coba lagi." };
+  }
+
+  const paths = (data ?? []).map((r) => r.attachment_path as string | null).filter((p): p is string => !!p);
+  if (paths.length > 0) {
+    const admin = createAdminClient();
+    const { error: removeError } = await admin.storage.from(ATTACHMENT_BUCKET).remove(paths);
+    if (removeError) {
+      console.error("[chat] Hapus lampiran saat clearChatRoom gagal (pesan tetap terhapus):", removeError.message);
+    }
+  }
+
+  return { ok: true };
 }

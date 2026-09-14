@@ -42,6 +42,10 @@
   --animate-blob: blob 14s ease-in-out infinite;
   --animate-float: float 5s ease-in-out infinite;
   --animate-slide-in-left: slide-in-left 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* Popup "Selamat Datang" (WelcomeSplash.tsx) — muncul sekali setelah
+     login berhasil, tampak "melompat" masuk (overshoot scale 1.03) bukan
+     cuma fade polos, supaya terasa seperti perayaan kecil. */
+  --animate-welcome-pop: welcome-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 
   @keyframes fade-up {
     from {
@@ -108,6 +112,20 @@
     }
     50% {
       transform: translateY(-6px);
+    }
+  }
+  @keyframes welcome-pop {
+    0% {
+      opacity: 0;
+      transform: scale(0.85) translateY(8px);
+    }
+    60% {
+      opacity: 1;
+      transform: scale(1.03) translateY(0);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
     }
   }
 }

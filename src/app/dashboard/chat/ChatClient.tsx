@@ -9,15 +9,30 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Download, FileText, Loader2, Paperclip, Send, X } from "lucide-react";
 import {
+  AlertTriangle,
+  Check,
+  Download,
+  FileText,
+  Loader2,
+  Paperclip,
+  Pencil,
+  Reply,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  deleteChatMessage,
+  clearChatRoom,
+  editChatMessage,
   getChatMessages,
   searchTaggableUsers,
   sendChatMessage,
   type ChatMessage,
   type TaggableUser,
 } from "@/lib/chat/actions";
-import { CHAT_ROOM_LABELS, type ChatRoom } from "@/lib/chat/rooms";
+import { CHAT_ROOM_LABELS, EDIT_DELETE_WINDOW_MS, type ChatRoom } from "@/lib/chat/rooms";
 import { DIVISION_BADGE_CLASSES, DIVISION_LABELS, type Division } from "@/lib/supabase/types";
 import { cn } from "@/lib/cn";
 import { GLASS_BORDER, GLASS_INPUT, GLASS_PILL, GLASS_SURFACE, GLASS_SURFACE_STRONG } from "@/lib/glass";
@@ -70,6 +85,28 @@ function renderMessageBody(body: string) {
       <span key={i}>{part}</span>
     )
   );
+}
+
+/** Waktu aktivitas TERBARU sebuah pesan — dipakai untuk kursor polling (lihat
+ * komentar panjang di getChatMessages, src/lib/chat/actions.ts): edit/hapus
+ * pesan LAMA tidak mengubah `createdAt`-nya, jadi kursor harus ikut memandang
+ * `editedAt`/`deletedAt` juga, bukan cuma `createdAt` pesan terakhir. */
+function latestActivityIso(msg: ChatMessage): string {
+  let latest = msg.createdAt;
+  if (msg.editedAt && msg.editedAt > latest) latest = msg.editedAt;
+  if (msg.deletedAt && msg.deletedAt > latest) latest = msg.deletedAt;
+  return latest;
+}
+
+/** Gabungkan hasil poll (`incoming`) ke daftar pesan yang sudah ada —
+ * UPSERT per-id (bukan sekadar ditempel di akhir seperti sebelum ada
+ * edit/hapus), supaya pesan LAMA yang baru diedit/dihapus orang lain
+ * ter-update di tempatnya, bukan malah dobel muncul di akhir daftar. */
+function mergeMessages(existing: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] {
+  if (incoming.length === 0) return existing;
+  const byId = new Map(existing.map((m) => [m.id, m]));
+  for (const msg of incoming) byId.set(msg.id, msg);
+  return Array.from(byId.values()).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 /** Lampiran gambar ditampilkan sebagai thumbnail yang bisa diklik untuk
@@ -136,9 +173,22 @@ export function ChatClient({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  // Cuma dipakai untuk MEMAKSA re-render tiap 30 detik, supaya tombol
+  // edit/hapus pesan sendiri otomatis hilang begitu lewat jendela 15 menit
+  // (EDIT_DELETE_WINDOW_MS) tanpa perlu pengguna berinteraksi apa pun dulu.
+  const [, forceTick] = useState(0);
 
   const cursorRef = useRef<Partial<Record<ChatRoom, string | null>>>({
-    [initialRoom]: initialMessages.length > 0 ? initialMessages[initialMessages.length - 1].createdAt : null,
+    [initialRoom]: initialMessages.length > 0 ? initialMessages.reduce((max, m) => {
+      const t = latestActivityIso(m);
+      return t > max ? t : max;
+    }, initialMessages[0].createdAt) : null,
   });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // Ditempel ke elemen <li> penanda "akhir daftar" (lihat JSX di bawah) —
@@ -158,7 +208,8 @@ export function ChatClient({
     (async () => {
       const { messages: fetched } = await getChatMessages(activeRoom, null);
       if (cancelled) return;
-      cursorRef.current[activeRoom] = fetched.length > 0 ? fetched[fetched.length - 1].createdAt : null;
+      cursorRef.current[activeRoom] =
+        fetched.length > 0 ? fetched.reduce((max, m) => (latestActivityIso(m) > max ? latestActivityIso(m) : max), fetched[0].createdAt) : null;
       setMessagesByRoom((prev) => ({ ...prev, [activeRoom]: fetched }));
     })();
     return () => {
@@ -168,17 +219,25 @@ export function ChatClient({
   }, [activeRoom]);
 
   // Polling ringan (bukan Realtime, sesuai keputusan Owner) — cukup ambil
-  // pesan yang lebih baru dari kursor terakhir tiap ruang yang sedang aktif.
+  // pesan yang lebih baru/berubah dari kursor terakhir tiap ruang aktif.
+  // Digabung (upsert, bukan ditempel) lewat mergeMessages supaya edit/hapus
+  // pesan LAMA oleh orang lain ikut ter-update di tempatnya.
   useEffect(() => {
     const interval = setInterval(async () => {
       const cursor = cursorRef.current[activeRoom] ?? null;
       const { messages: fresh } = await getChatMessages(activeRoom, cursor);
       if (fresh.length === 0) return;
-      cursorRef.current[activeRoom] = fresh[fresh.length - 1].createdAt;
-      setMessagesByRoom((prev) => ({ ...prev, [activeRoom]: [...(prev[activeRoom] ?? []), ...fresh] }));
+      cursorRef.current[activeRoom] = fresh.reduce((max, m) => (latestActivityIso(m) > max ? latestActivityIso(m) : max), cursor ?? fresh[0].createdAt);
+      setMessagesByRoom((prev) => ({ ...prev, [activeRoom]: mergeMessages(prev[activeRoom] ?? [], fresh) }));
     }, POLL_MS);
     return () => clearInterval(interval);
   }, [activeRoom]);
+
+  // Lihat komentar di deklarasi state `forceTick` di atas.
+  useEffect(() => {
+    const interval = setInterval(() => forceTick((n) => n + 1), 30_000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
@@ -282,6 +341,88 @@ export function ChatClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Sesuai keputusan Owner: pengirim boleh edit/hapus pesannya SENDIRI
+  // selama masih dalam 15 menit sejak terkirim; akses penuh boleh menghapus
+  // pesan SIAPA PUN kapan saja (moderasi), tapi TIDAK boleh mengedit teks
+  // orang lain. Dicek ulang tiap 30 detik lewat `forceTick` (lihat atas)
+  // supaya tombolnya otomatis hilang begitu lewat jendela waktu.
+  function canEditOwn(msg: ChatMessage): boolean {
+    return (
+      msg.senderId === currentUser.id &&
+      !msg.deletedAt &&
+      Date.now() - new Date(msg.createdAt).getTime() < EDIT_DELETE_WINDOW_MS
+    );
+  }
+  function canDeleteMsg(msg: ChatMessage): boolean {
+    return !msg.deletedAt && (canEditOwn(msg) || currentUser.division === "all");
+  }
+
+  function startReply(msg: ChatMessage) {
+    setEditingId(null);
+    setReplyTarget(msg);
+    textareaRef.current?.focus();
+  }
+
+  function startEdit(msg: ChatMessage) {
+    setReplyTarget(null);
+    setEditingId(msg.id);
+    setEditText(msg.body);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditText("");
+  }
+
+  async function saveEdit(id: string) {
+    if (savingEdit) return;
+    setSavingEdit(true);
+    setError(null);
+    const result = await editChatMessage(id, editText);
+    setSavingEdit(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+
+    setMessagesByRoom((prev) => ({ ...prev, [activeRoom]: mergeMessages(prev[activeRoom] ?? [], [result.message]) }));
+    cancelEdit();
+  }
+
+  async function handleDeleteMessage(id: string) {
+    if (!window.confirm("Hapus pesan ini? Tindakan ini tidak bisa dibatalkan.")) return;
+    const result = await deleteChatMessage(id);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    // Optimistis di klien sendiri — polling (dan upsert-nya) tetap akan
+    // menyinkronkan versi resminya dari server, termasuk ke tab lain.
+    setMessagesByRoom((prev) => ({
+      ...prev,
+      [activeRoom]: (prev[activeRoom] ?? []).map((m) =>
+        m.id === id ? { ...m, body: "", attachment: null, deletedAt: new Date().toISOString() } : m
+      ),
+    }));
+  }
+
+  async function handleClearRoom() {
+    if (clearing) return;
+    setClearing(true);
+    setError(null);
+    const result = await clearChatRoom(activeRoom);
+    setClearing(false);
+    setClearConfirmOpen(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setMessagesByRoom((prev) => ({ ...prev, [activeRoom]: [] }));
+    cursorRef.current[activeRoom] = null;
+  }
+
   async function handleSend(e?: FormEvent) {
     e?.preventDefault();
     const text = composerText.trim();
@@ -296,7 +437,7 @@ export function ChatClient({
       fileFormData.set("file", selectedFile);
     }
 
-    const result = await sendChatMessage(activeRoom, text, fileFormData);
+    const result = await sendChatMessage(activeRoom, text, fileFormData, replyTarget?.id ?? null);
     setSending(false);
 
     if (!result.ok) {
@@ -306,29 +447,71 @@ export function ChatClient({
 
     setComposerText("");
     removeSelectedFile();
-    cursorRef.current[activeRoom] = result.message.createdAt;
+    setReplyTarget(null);
+    cursorRef.current[activeRoom] = latestActivityIso(result.message);
     setMessagesByRoom((prev) => ({ ...prev, [activeRoom]: [...(prev[activeRoom] ?? []), result.message] }));
   }
 
   return (
     <div className={cn("flex h-full min-h-[520px] flex-col overflow-hidden rounded-2xl border", GLASS_SURFACE, GLASS_BORDER)}>
-      <div className={cn("flex shrink-0 gap-2 overflow-x-auto border-b px-4 py-3", GLASS_BORDER)}>
-        {rooms.map((room) => (
+      <div className={cn("flex shrink-0 items-center justify-between gap-2 border-b px-4 py-3", GLASS_BORDER)}>
+        <div className="flex gap-2 overflow-x-auto">
+          {rooms.map((room) => (
+            <button
+              key={room}
+              type="button"
+              onClick={() => handleRoomChange(room)}
+              className={cn(
+                "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
+                activeRoom === room
+                  ? "border-transparent bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
+                  : cn("text-zinc-600 hover:bg-white/70 dark:text-zinc-300 dark:hover:bg-white/10", GLASS_PILL)
+              )}
+            >
+              {CHAT_ROOM_LABELS[room]}
+            </button>
+          ))}
+        </div>
+
+        {/* Hapus Seluruh Chat — cuma akses penuh (dikonfirmasi Owner). */}
+        {currentUser.division === "all" && (
           <button
-            key={room}
             type="button"
-            onClick={() => handleRoomChange(room)}
-            className={cn(
-              "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
-              activeRoom === room
-                ? "border-transparent bg-zinc-900 text-white dark:bg-white dark:text-zinc-900"
-                : cn("text-zinc-600 hover:bg-white/70 dark:text-zinc-300 dark:hover:bg-white/10", GLASS_PILL)
-            )}
+            onClick={() => setClearConfirmOpen((v) => !v)}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-zinc-400 transition-colors hover:bg-rose-500/10 hover:text-rose-600 dark:hover:text-rose-400"
+            aria-label="Hapus seluruh chat di ruang ini"
+            title="Hapus seluruh chat di ruang ini"
           >
-            {CHAT_ROOM_LABELS[room]}
+            <Trash2 className="h-4 w-4" />
           </button>
-        ))}
+        )}
       </div>
+
+      {clearConfirmOpen && (
+        <div className="flex shrink-0 flex-col gap-2 border-b border-rose-500/20 bg-rose-500/10 px-4 py-3 text-xs text-rose-700 dark:text-rose-300 sm:flex-row sm:items-center sm:justify-between">
+          <span className="flex items-center gap-1.5 font-medium">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            Yakin hapus SEMUA pesan di ruang &quot;{CHAT_ROOM_LABELS[activeRoom]}&quot;? Tidak bisa dibatalkan.
+          </span>
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => setClearConfirmOpen(false)}
+              className="rounded-full px-3 py-1 font-semibold text-zinc-500 transition-colors hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/10"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleClearRoom}
+              disabled={clearing}
+              className="rounded-full bg-rose-600 px-3 py-1 font-semibold text-white transition-colors hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {clearing ? "Menghapus…" : "Ya, Hapus Semua"}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
@@ -339,6 +522,7 @@ export function ChatClient({
           <ul className="space-y-3">
             {messages.map((msg) => {
               const isOwn = msg.senderId === currentUser.id;
+              const isEditing = editingId === msg.id;
               return (
                 <li key={msg.id} className={cn("flex items-end gap-2", isOwn && "flex-row-reverse")}>
                   <div
@@ -351,7 +535,7 @@ export function ChatClient({
                     {getInitials(msg.senderName)}
                   </div>
                   <div className={cn("flex max-w-[80%] flex-col gap-1", isOwn && "items-end")}>
-                    {!isOwn && (
+                    {!isOwn && !msg.deletedAt && (
                       <div className="flex items-center gap-1.5 px-1">
                         <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-200">
                           {msg.senderName}
@@ -366,25 +550,123 @@ export function ChatClient({
                         </span>
                       </div>
                     )}
-                    <div
-                      className={cn(
-                        "flex flex-col gap-1.5 rounded-2xl text-sm",
-                        msg.attachment && msg.attachment.type.startsWith("image/") ? "overflow-hidden p-1" : "px-3.5 py-2",
-                        isOwn
-                          ? "rounded-br-sm bg-indigo-600 text-white"
-                          : cn("rounded-bl-sm text-zinc-800 dark:text-zinc-100", GLASS_SURFACE)
-                      )}
-                    >
-                      {msg.attachment && <AttachmentPreview attachment={msg.attachment} isOwn={isOwn} />}
-                      {msg.body && (
-                        <span className={cn("whitespace-pre-wrap break-words", msg.attachment && "px-2.5 pb-1")}>
-                          {renderMessageBody(msg.body)}
-                        </span>
+
+                    {msg.deletedAt ? (
+                      <div className="rounded-2xl px-3.5 py-2 text-sm italic text-zinc-400 dark:text-zinc-500">
+                        Pesan telah dihapus
+                      </div>
+                    ) : isEditing ? (
+                      <div className={cn("flex w-64 max-w-full flex-col gap-2 rounded-2xl p-2", GLASS_SURFACE_STRONG)}>
+                        <textarea
+                          autoFocus
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Escape") cancelEdit();
+                            if (e.key === "Enter" && !e.shiftKey) {
+                              e.preventDefault();
+                              void saveEdit(msg.id);
+                            }
+                          }}
+                          rows={2}
+                          className="w-full resize-none rounded-lg border border-black/10 bg-white/70 px-2.5 py-1.5 text-sm text-zinc-800 outline-none focus:border-indigo-400 dark:border-white/10 dark:bg-black/20 dark:text-zinc-100"
+                        />
+                        <div className="flex justify-end gap-1.5">
+                          <button
+                            type="button"
+                            onClick={cancelEdit}
+                            className="grid h-7 w-7 place-items-center rounded-full text-zinc-500 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/10"
+                            aria-label="Batal edit"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void saveEdit(msg.id)}
+                            disabled={savingEdit}
+                            className="grid h-7 w-7 place-items-center rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60"
+                            aria-label="Simpan edit"
+                          >
+                            {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className={cn(
+                          "flex flex-col gap-1.5 rounded-2xl text-sm",
+                          msg.attachment && msg.attachment.type.startsWith("image/") ? "overflow-hidden p-1" : "px-3.5 py-2",
+                          isOwn
+                            ? "rounded-br-sm bg-indigo-600 text-white"
+                            : cn("rounded-bl-sm text-zinc-800 dark:text-zinc-100", GLASS_SURFACE)
+                        )}
+                      >
+                        {msg.replyTo && (
+                          <div
+                            className={cn(
+                              "rounded-lg border-l-2 px-2 py-1 text-xs",
+                              msg.attachment && msg.attachment.type.startsWith("image/") && "mx-1 mt-1",
+                              isOwn
+                                ? "border-white/50 bg-white/15 text-white/80"
+                                : "border-indigo-400 bg-black/5 text-zinc-500 dark:bg-white/5 dark:text-zinc-400"
+                            )}
+                          >
+                            <p className="truncate font-semibold">{msg.replyTo.senderName}</p>
+                            <p className="truncate">
+                              {msg.replyTo.body || (msg.replyTo.attachmentName ? `📎 ${msg.replyTo.attachmentName}` : "")}
+                            </p>
+                          </div>
+                        )}
+                        {msg.attachment && <AttachmentPreview attachment={msg.attachment} isOwn={isOwn} />}
+                        {msg.body && (
+                          <span className={cn("whitespace-pre-wrap break-words", msg.attachment && "px-2.5 pb-1")}>
+                            {renderMessageBody(msg.body)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    <div className={cn("flex items-center gap-1 px-1", isOwn && "flex-row-reverse")}>
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                        {formatTimeID(msg.createdAt)}
+                        {msg.editedAt && !msg.deletedAt && " · diedit"}
+                      </span>
+                      {!msg.deletedAt && !isEditing && (
+                        <div className="flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => startReply(msg)}
+                            aria-label="Balas"
+                            title="Balas"
+                            className="grid h-5 w-5 place-items-center rounded text-zinc-400 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
+                          >
+                            <Reply className="h-3 w-3" />
+                          </button>
+                          {canEditOwn(msg) && (
+                            <button
+                              type="button"
+                              onClick={() => startEdit(msg)}
+                              aria-label="Edit"
+                              title="Edit"
+                              className="grid h-5 w-5 place-items-center rounded text-zinc-400 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                          )}
+                          {canDeleteMsg(msg) && (
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteMessage(msg.id)}
+                              aria-label="Hapus"
+                              title="Hapus"
+                              className="grid h-5 w-5 place-items-center rounded text-zinc-400 transition-colors hover:text-rose-600 dark:hover:text-rose-400"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
-                    <span className="px-1 text-[10px] text-zinc-400 dark:text-zinc-500">
-                      {formatTimeID(msg.createdAt)}
-                    </span>
                   </div>
                 </li>
               );
@@ -445,6 +727,28 @@ export function ChatClient({
                 ))}
               </ul>
             )}
+          </div>
+        )}
+
+        {replyTarget && (
+          <div className={cn("mb-2 flex items-center gap-2.5 rounded-xl border-l-2 border-indigo-500 px-3 py-2", GLASS_PILL)}>
+            <Reply className="h-4 w-4 shrink-0 text-indigo-500 dark:text-indigo-400" />
+            <div className="min-w-0 flex-1">
+              <span className="block truncate text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                Membalas {replyTarget.senderName}
+              </span>
+              <span className="block truncate text-xs text-zinc-500 dark:text-zinc-400">
+                {replyTarget.body || (replyTarget.attachment ? `📎 ${replyTarget.attachment.name}` : "")}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyTarget(null)}
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-zinc-400 transition-colors hover:bg-black/5 hover:text-zinc-600 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+              aria-label="Batal balas"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
         )}
 

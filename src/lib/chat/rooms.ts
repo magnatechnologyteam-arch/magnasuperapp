@@ -42,3 +42,13 @@ export function availableChatRooms(division: Division): ChatRoom[] {
 export function isRoomAllowed(room: string, division: Division): room is ChatRoom {
   return (CHAT_ROOMS as readonly string[]).includes(room) && availableChatRooms(division).includes(room as ChatRoom);
 }
+
+/** Batas waktu edit/hapus pesan MILIK SENDIRI — 15 menit setelah terkirim
+ * (Tahap 39, dikonfirmasi Owner), sama persis dengan `interval '15 minutes'`
+ * di RLS `chat_messages_update_own` (migrasi 0040). Ditaruh di sini (bukan
+ * actions.ts) supaya bisa diimpor DUA arah: oleh actions.ts (pesan error)
+ * MAUPUN ChatClient.tsx (sembunyikan tombol edit/hapus di UI begitu lewat
+ * jendela waktu ini) — actions.ts sendiri tidak boleh meng-export konstanta
+ * biasa (lihat komentar panjang di atas soal "use server"). Akses penuh
+ * ("all") TIDAK terkena batas ini untuk moderasi. */
+export const EDIT_DELETE_WINDOW_MS = 15 * 60 * 1000;
