@@ -10,6 +10,7 @@ export type ProductRow = {
   id: string;
   name: string;
   division: ProductDivision;
+  divisions: ProductDivision[] | null;
   category: string;
   sku: string | null;
   price: number;
@@ -63,6 +64,10 @@ export function rowToProduct(row: ProductRow, photos: ProductPhoto[] = []): Prod
     id: row.id,
     name: row.name,
     division: row.division,
+    // Fallback ke `[division]` untuk baris lama yang entah kenapa belum
+    // sempat ikut backfill migrasi 0034 (seharusnya tidak terjadi, tapi
+    // jangan sampai baris itu jadi tidak kelihatan divisinya sama sekali).
+    divisions: row.divisions && row.divisions.length > 0 ? row.divisions : [row.division],
     category: row.category,
     sku: row.sku ?? undefined,
     price: row.price,

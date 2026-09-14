@@ -16,6 +16,7 @@ import { getVisibleModules, MODULES } from "@/lib/navigation";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getMagnarentSummary, getMagnativeSummary, getProductionSummary } from "@/lib/dashboard/summary";
 import { QuickStatCard } from "@/components/dashboard/QuickStatCard";
+import { t } from "@/lib/i18n/dictionary";
 
 type StatCard = {
   label: string;
@@ -71,6 +72,7 @@ const QUICK_ACTIONS = [
  */
 export default async function DashboardHubPage() {
   const profile = await getCurrentProfile();
+  const locale = profile?.language_preference ?? "id";
 
   // Investor punya dashboard sendiri (read only lintas divisi + kotak masuk
   // Pengajuan Modal) — bukan Hub biasa yang isinya kartu modul operasional
@@ -106,17 +108,17 @@ export default async function DashboardHubPage() {
   if (magnarentSummary) {
     statCards.push(
       {
-        label: "Booking Aktif",
+        label: t(locale, "Booking Aktif"),
         value: magnarentSummary.bookingAktif,
-        hint: "Menunggu & dikonfirmasi",
+        hint: t(locale, "Menunggu & dikonfirmasi"),
         icon: CalendarRange,
         accent: magnarentModule?.solid ?? "#E5484D",
         href: "/dashboard/magnarent/booking",
       },
       {
-        label: "Booking Bulan Ini",
+        label: t(locale, "Booking Bulan Ini"),
         value: magnarentSummary.bookingBulanIni,
-        hint: "Sejak tanggal 1 bulan ini",
+        hint: t(locale, "Sejak tanggal 1 bulan ini"),
         icon: ClipboardList,
         // Navy dari logo resmi Magnarent (pasangan warna merahnya di gradient)
         accent: "#262C3A",
@@ -127,17 +129,17 @@ export default async function DashboardHubPage() {
   if (magnativeSummary) {
     statCards.push(
       {
-        label: "Proyek Berjalan",
+        label: t(locale, "Proyek Berjalan"),
         value: magnativeSummary.proyekBerjalan,
-        hint: "Status: Berjalan",
+        hint: t(locale, "Status: Berjalan"),
         icon: Hammer,
         accent: magnativeModule?.solid ?? "#0B7A63",
         href: "/dashboard/magnative/proyek",
       },
       {
-        label: "Konten 7 Hari Ke Depan",
+        label: t(locale, "Konten 7 Hari Ke Depan"),
         value: magnativeSummary.kontenMingguIni,
-        hint: "Terjadwal tayang minggu ini",
+        hint: t(locale, "Terjadwal tayang minggu ini"),
         icon: CalendarPlus,
         // Teal lebih terang, ujung gradient resmi Magnativ
         accent: "#14B8A6",
@@ -148,17 +150,17 @@ export default async function DashboardHubPage() {
   if (productionSummary) {
     statCards.push(
       {
-        label: "Proyek Booth Aktif",
+        label: t(locale, "Proyek Booth Aktif"),
         value: productionSummary.proyekAktif,
-        hint: "Desain sampai Instalasi",
+        hint: t(locale, "Desain sampai Instalasi"),
         icon: PackageSearch,
         accent: productionModule?.solid ?? "#B8860B",
         href: "/dashboard/production/proyek",
       },
       {
-        label: "Stok Menipis",
+        label: t(locale, "Stok Menipis"),
         value: productionSummary.stokMenipis,
-        hint: "Di titik minimum atau di bawahnya",
+        hint: t(locale, "Di titik minimum atau di bawahnya"),
         icon: AlertTriangle,
         accent: productionSummary.stokMenipis > 0 ? "#EF4444" : (productionModule?.solid ?? "#B8860B"),
         href: "/dashboard/production/material",
@@ -184,10 +186,10 @@ export default async function DashboardHubPage() {
         />
         <div className="relative animate-fade-up">
           <h1 className="text-shine mt-2 text-3xl font-extrabold tracking-tight md:text-4xl">
-            {firstName ? `Selamat Datang ${firstName}!` : "Selamat Datang di MagnaSuperApp!"}
+            {firstName ? `${t(locale, "Selamat Datang")} ${firstName}!` : t(locale, "Selamat Datang di MagnaSuperApp!")}
           </h1>
           <p className="mt-2 max-w-xl text-sm text-zinc-500 dark:text-zinc-400">
-            Semangat kerja hari ini — yuk pilih menu di bawah.
+            {t(locale, "Semangat kerja hari ini — yuk pilih menu di bawah.")}
           </p>
         </div>
       </div>
@@ -195,7 +197,7 @@ export default async function DashboardHubPage() {
       {statCards.length > 0 && (
         <div className="mb-8" style={{ animationDelay: "30ms" }}>
           <p className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-            Ringkasan Cepat
+            {t(locale, "Ringkasan Cepat")}
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {statCards.map((card, i) => {
@@ -221,7 +223,7 @@ export default async function DashboardHubPage() {
       {quickActions.length > 0 && (
         <div className="mb-8 animate-fade-up" style={{ animationDelay: "60ms" }}>
           <p className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-            Mulai Cepat
+            {t(locale, "Mulai Cepat")}
           </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {quickActions.map((action) => {
@@ -242,7 +244,7 @@ export default async function DashboardHubPage() {
                     <Icon className="h-4.5 w-4.5" />
                   </div>
                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-700 dark:text-zinc-200">
-                    {action.label}
+                    {t(locale, action.label)}
                   </span>
                   <ArrowUpRight className="h-4 w-4 shrink-0 text-zinc-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-zinc-500 dark:text-zinc-600" />
                 </Link>
@@ -253,7 +255,7 @@ export default async function DashboardHubPage() {
       )}
 
       <p className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-        Menu Kerja
+        {t(locale, "Menu Kerja")}
       </p>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {modules.map((mod, i) => {
@@ -273,21 +275,31 @@ export default async function DashboardHubPage() {
                   gradient) karena warna logo & warna gradient-nya berasal
                   dari sumber yang SAMA (Tahap 31) — tanpa panel putih, logo
                   Magnativ (teal di atas teal) & Production (emas di atas
-                  emas) nyaris tak kelihatan. */}
+                  emas) nyaris tak kelihatan.
+                  Tahap 31 lanjutan: panel putihnya masih terasa "nempel
+                  rata" di beberapa layar — sekarang dikasih shadow berlapis
+                  (elevasi lebih tinggi + terasa melayang) DAN drop-shadow
+                  langsung di gambar logo (ikut bentuk transparansi PNG-nya,
+                  bukan cuma kotak) supaya logo terasa timbul/3D, jelas
+                  terpisah dari warna gradient di belakangnya. */}
               <div
                 className="relative flex aspect-[16/9] w-full items-center justify-center overflow-hidden p-8"
                 style={{ background: mod.gradient }}
               >
-                <div className="flex items-center justify-center rounded-2xl bg-white px-5 py-3.5 shadow-lg transition-transform duration-300 group-hover:scale-105">
+                <div className="flex items-center justify-center rounded-2xl bg-white px-5 py-4 shadow-[0_20px_40px_-8px_rgba(0,0,0,0.45)] ring-1 ring-black/5 transition-transform duration-300 group-hover:-translate-y-1 group-hover:scale-105">
                   {/* eslint-disable-next-line @next/next/no-img-element -- logo lokal statis, aspect ratio beda-beda per divisi */}
-                  <img src={mod.logo} alt={mod.label} className="max-h-12 w-auto max-w-[11rem] object-contain" />
+                  <img
+                    src={mod.logo}
+                    alt={mod.label}
+                    className="max-h-12 w-auto max-w-[11rem] object-contain drop-shadow-[0_6px_6px_rgba(0,0,0,0.25)]"
+                  />
                 </div>
               </div>
               <div className="p-6">
                 <div className="flex items-start justify-between">
                   <div>
-                    <h2 className="text-base font-bold text-zinc-900 dark:text-white">{mod.label}</h2>
-                    <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{mod.description}</p>
+                    <h2 className="text-base font-bold text-zinc-900 dark:text-white">{t(locale, mod.label)}</h2>
+                    <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{t(locale, mod.description)}</p>
                   </div>
                   <ArrowUpRight className="mt-1 h-4 w-4 shrink-0 text-zinc-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-zinc-500 dark:text-zinc-600" />
                 </div>

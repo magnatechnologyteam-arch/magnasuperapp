@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, LogOut, Settings, ShieldCheck, User as UserIcon } from "lucide-react";
+import { ChevronDown, User as UserIcon } from "lucide-react";
 import { signOut } from "@/lib/supabase/actions";
 import { formatDisplayName } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import { DIVISION_LABELS, type Profile } from "@/lib/supabase/types";
 import { PushNotificationBell } from "@/components/push/PushNotificationBell";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 /**
  * Bar atas persisten di seluruh /dashboard/** — dipasang di AppShell,
@@ -27,6 +28,7 @@ function greetingForHour(hour: number): string {
 export function Topbar({ user }: { user: (Profile & { email: string }) | null }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const t = useT();
   // Mulai dari sapaan netral (sama di server & klien) supaya tidak ada
   // hydration mismatch akibat jam server vs jam browser — begitu mount,
   // langsung disesuaikan ke jam sungguhan si pengguna.
@@ -45,13 +47,13 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  const displayName = formatDisplayName(user?.full_name, user?.email) || "Pengguna";
+  const displayName = formatDisplayName(user?.full_name, user?.email) || t("Pengguna");
   const email = user?.email ?? "";
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-black/5 bg-white/80 px-4 backdrop-blur-md dark:border-white/10 dark:bg-zinc-950/80 md:px-8">
       <p className="text-sm font-semibold text-zinc-900 dark:text-white">
-        {greeting}, {displayName.split(" ")[0]}
+        {t(greeting)}, {displayName.split(" ")[0]}
       </p>
 
       <div className="flex items-center gap-2.5">
@@ -81,7 +83,7 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
               {displayName}
             </span>
             <span className="block text-[11px] leading-tight text-zinc-400 dark:text-zinc-500">
-              {DIVISION_LABELS[user?.division ?? "production"]}
+              {t(DIVISION_LABELS[user?.division ?? "production"])}
             </span>
           </span>
           <ChevronDown className={cn("h-3.5 w-3.5 text-zinc-400 transition-transform", open && "rotate-180")} />
@@ -95,25 +97,22 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
                 {user?.username ? `@${user.username}` : email}
               </p>
               <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
-                <ShieldCheck className="h-3 w-3" />
-                {DIVISION_LABELS[user?.division ?? "production"]}
+                {t(DIVISION_LABELS[user?.division ?? "production"])}
               </span>
             </div>
             <Link
               href="/dashboard/pengaturan"
               onClick={() => setOpen(false)}
-              className="flex w-full items-center gap-2 px-4 py-3 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/5"
+              className="flex w-full items-center px-4 py-3 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 dark:text-zinc-300 dark:hover:bg-white/5"
             >
-              <Settings className="h-4 w-4" />
-              Pengaturan
+              {t("Pengaturan")}
             </Link>
             <form action={signOut}>
               <button
                 type="submit"
-                className="flex w-full items-center gap-2 border-t border-black/5 px-4 py-3 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 dark:border-white/10 dark:text-rose-400 dark:hover:bg-rose-500/10"
+                className="flex w-full items-center border-t border-black/5 px-4 py-3 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 dark:border-white/10 dark:text-rose-400 dark:hover:bg-rose-500/10"
               >
-                <LogOut className="h-4 w-4" />
-                Keluar
+                {t("Keluar")}
               </button>
             </form>
           </div>

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { LayoutGrid, Menu, X } from "lucide-react";
 import { ADMIN_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
 import type { Division } from "@/lib/supabase/types";
 
@@ -19,6 +20,7 @@ import type { Division } from "@/lib/supabase/types";
  */
 export function MobileNav({ division }: { division?: Division | null }) {
   const pathname = usePathname();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const modules = getVisibleModules(division);
   const isFullAccess = division === "all";
@@ -55,8 +57,8 @@ export function MobileNav({ division }: { division?: Division | null }) {
     : undefined;
   const currentLabel =
     pathname === HUB_HREF
-      ? "Dashboard Hub"
-      : activeModule?.label ?? activeAdminLink?.label ?? activeInvestorLink?.label ?? "Menu";
+      ? t("Dashboard Hub")
+      : t(activeModule?.label ?? activeAdminLink?.label ?? activeInvestorLink?.label ?? "Menu");
 
   function linkClass(isActive: boolean, activeClass: string) {
     return cn(
@@ -73,7 +75,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          aria-label="Buka menu"
+          aria-label={t("Buka menu")}
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-black/5 bg-white text-zinc-600 shadow-sm dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300"
         >
           <Menu className="h-4 w-4" />
@@ -99,7 +101,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                aria-label="Tutup menu"
+                aria-label={t("Tutup menu")}
                 className="grid h-8 w-8 place-items-center rounded-full text-zinc-400 transition-colors hover:bg-zinc-100 dark:hover:bg-white/10"
               >
                 <X className="h-4 w-4" />
@@ -112,13 +114,13 @@ export function MobileNav({ division }: { division?: Division | null }) {
                 className={linkClass(pathname === HUB_HREF, "bg-zinc-100 text-zinc-900 dark:bg-white/10 dark:text-white")}
               >
                 <LayoutGrid className="h-[18px] w-[18px]" />
-                Dashboard Hub
+                {t("Dashboard Hub")}
               </Link>
 
               {modules.length > 0 && (
                 <div className="pt-5">
                   <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                    Modul
+                    {t("Modul")}
                   </p>
                   <ul className="space-y-1">
                     {modules.map((mod) => {
@@ -131,7 +133,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
                               className="h-[18px] w-[18px] shrink-0"
                               style={isActive ? { color: mod.solid } : undefined}
                             />
-                            {mod.label}
+                            {t(mod.label)}
                             {isActive && (
                               <span
                                 className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full"
@@ -149,7 +151,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
               {isInvestor && (
                 <div className="pt-5">
                   <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                    Investor
+                    {t("Investor")}
                   </p>
                   <ul className="space-y-1">
                     {INVESTOR_LINKS.map((link) => {
@@ -165,7 +167,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
                             )}
                           >
                             <Icon className="h-[18px] w-[18px]" />
-                            {link.label}
+                            {t(link.label)}
                           </Link>
                         </li>
                       );
@@ -177,7 +179,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
               {isFullAccess && (
                 <div className="pt-5">
                   <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                    Admin
+                    {t("Admin")}
                   </p>
                   <ul className="space-y-1">
                     {ADMIN_LINKS.map((link) => {
@@ -190,7 +192,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
                             className={linkClass(isActive, "bg-zinc-100 text-zinc-900 dark:bg-white/10 dark:text-white")}
                           >
                             <Icon className="h-[18px] w-[18px]" />
-                            {link.label}
+                            {t(link.label)}
                           </Link>
                         </li>
                       );

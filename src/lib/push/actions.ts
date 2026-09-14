@@ -2,7 +2,9 @@
 
 import webpush from "web-push";
 import { createClient } from "@/lib/supabase/server";
-import { configureWebPush } from "./notify";
+import { requireFullAccess } from "@/app/dashboard/admin/actions";
+import { configureWebPush, notifyDivision } from "./notify";
+import type { Division } from "@/lib/supabase/types";
 
 export type SubscriptionInput = {
   endpoint: string;
@@ -137,4 +139,40 @@ export async function sendTestPush(): Promise<ActionResult> {
   }
 
   return { ok: true, message: `Notifikasi tes terkirim ke ${successCount} perangkat.` };
+}
+
+const BROADCASTABLE_DIVISIONS: Division[] = ["magnarent", "magnative", "production"];
+
+/**
+ * Kirim notifikasi manual ke staf — bukan dipicu otomatis oleh kejadian
+ * bisnis (booking/proyek baru dst, lihat `notifyDivision`), tapi ditulis
+ * langsung oleh admin lewat form "Kirim Notifikasi" (Tahap 32). Cuma akses
+ * penuh yang boleh — dijaga `requireFullAccess()` sama seperti Server
+ * Action admin lain, BUKAN cuma disembunyikan di UI.
+ *
+ * SENGAJA cuma menerima divisi operasional (magnarent/magnative/production)
+ * di `divisions` — akun Investor TIDAK PERNAH bisa jadi target broadcast
+ * ini (permintaan Owner: "agar semua divisi tahu tidak termasuk investor").
+ * `notifyDivision` sendiri otomatis ikut menyertakan akun akses penuh
+ * ('all') di luar daftar ini, konsisten dengan notifikasi otomatis lainnya.
+ */
+export async function broadcastNotification(
+  divisions: Division[],
+  payload: { title: string; body: string; url?: string }
+): Promise<ActionResult> {
+  await requireFullAccess();
+
+  const title = payload.title.trim();
+  const body = payload.body.trim();
+  if (!title || !body) {
+    return { ok: false, message: "Judul dan isi pesan wajib diisi." };
+  }
+
+  const targets = divisions.filter((d) => BROADCASTABLE_DIVISIONS.includes(d));
+  if (targets.length === 0) {
+    return { ok: false, message: "Pilih minimal satu divisi tujuan." };
+  }
+
+  await notifyDivision(targets, { title, body, url: payload.url || "/dashboard" });
+  return { ok: true, message: "Notifikasi sedang dikirim ke perangkat yang mengaktifkannya." };
 }

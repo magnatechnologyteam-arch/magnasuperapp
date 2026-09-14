@@ -57,7 +57,7 @@ const DIVISION_OPTIONS: ProductDivision[] = ["umum", "magnarent", "magnativ", "p
 const TEMPLATE_HEADERS = ["Nama", "Divisi", "Kategori", "SKU", "Harga", "Satuan", "Stok", "Supplier", "Catatan", "FotoURL"];
 const TEMPLATE_EXAMPLE = [
   "Tenda Roder 5x10m",
-  "magnarent",
+  "magnarent;production",
   "Tenda & Struktur",
   "TR-5X10",
   "850000",
@@ -71,7 +71,7 @@ const TEMPLATE_EXAMPLE = [
 function emptyForm() {
   return {
     name: "",
-    division: "umum" as ProductDivision,
+    divisions: ["umum"] as ProductDivision[],
     category: "",
     sku: "",
     price: "0",
@@ -85,7 +85,7 @@ function emptyForm() {
 function productToForm(p: Product) {
   return {
     name: p.name,
-    division: p.division,
+    divisions: p.divisions,
     category: p.category,
     sku: p.sku ?? "",
     price: String(p.price),
@@ -105,8 +105,9 @@ const HEADER_MAP: Record<string, keyof ProductImportRow> = {
   nama: "name",
   namaproduk: "name",
   produk: "name",
-  divisi: "division",
-  division: "division",
+  divisi: "divisions",
+  division: "divisions",
+  divisions: "divisions",
   kategori: "category",
   category: "category",
   sku: "sku",
@@ -143,9 +144,14 @@ function rowsFromParsedSheet(json: Record<string, unknown>[]): ProductImportRow[
       if (mapped === "price" || mapped === "stock") {
         const num = Number(value);
         if (Number.isFinite(num)) row[mapped] = num;
-      } else if (mapped === "division") {
-        const v = String(value).trim().toLowerCase();
-        row.division = ["magnarent", "magnativ", "production", "umum"].includes(v) ? v : "umum";
+      } else if (mapped === "divisions") {
+        // Satu sel boleh berisi lebih dari satu divisi dipisah koma ATAU
+        // titik-koma (mis. "magnarent;production") — sama seperti FotoURL.
+        const parts = String(value)
+          .split(/[,;]+/)
+          .map((v) => v.trim().toLowerCase())
+          .filter((v): v is ProductDivision => ["magnarent", "magnativ", "production", "umum"].includes(v));
+        row.divisions = parts.length > 0 ? Array.from(new Set(parts)) : ["umum"];
       } else if (mapped === "photoUrls") {
         // Satu sel bisa berisi beberapa URL dipisah koma ATAU titik-koma —
         // dua-duanya diterima supaya tidak mentok kalau URL-nya sendiri
@@ -242,10 +248,22 @@ export function ProductManager({ products }: { products: Product[] }) {
         p.name.toLowerCase().includes(term) ||
         p.category.toLowerCase().includes(term) ||
         (p.sku ?? "").toLowerCase().includes(term);
-      const matchesDivision = divisionFilter === ALL_DIVISIONS_FILTER || p.division === divisionFilter;
+      const matchesDivision =
+        divisionFilter === ALL_DIVISIONS_FILTER || p.divisions.includes(divisionFilter as ProductDivision);
       return matchesSearch && matchesDivision;
     });
   }, [products, searchTerm, divisionFilter]);
+
+  function toggleFormDivision(d: ProductDivision) {
+    setForm((f) => {
+      const has = f.divisions.includes(d);
+      const next = has ? f.divisions.filter((x) => x !== d) : [...f.divisions, d];
+      // Minimal satu divisi harus tetap terpilih — mencentang divisi
+      // terakhir yang tersisa tidak melakukan apa-apa (bukan dibiarkan
+      // kosong), konsisten dengan constraint di database.
+      return next.length > 0 ? { ...f, divisions: next } : f;
+    });
+  }
 
   function openAddModal() {
     setEditingId(null);
@@ -345,7 +363,7 @@ export function ProductManager({ products }: { products: Product[] }) {
 
     const formData = new FormData();
     formData.set("name", form.name.trim());
-    formData.set("division", form.division);
+    formData.set("divisions", JSON.stringify(form.divisions));
     formData.set("category", form.category.trim());
     formData.set("sku", form.sku.trim());
     formData.set("price", form.price);
@@ -565,9 +583,13 @@ export function ProductManager({ products }: { products: Product[] }) {
                     </span>
                   </td>
                   <td className="px-5 py-3">
-                    <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", DIVISION_BADGE[p.division])}>
-                      {DIVISION_LABEL[p.division]}
-                    </span>
+                    <div className="flex flex-wrap gap-1">
+                      {p.divisions.map((d) => (
+                        <span key={d} className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", DIVISION_BADGE[d])}>
+                          {DIVISION_LABEL[d]}
+                        </span>
+                      ))}
+                    </div>
                   </td>
                   <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">{p.category || "—"}</td>
                   <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">{p.sku || "—"}</td>
@@ -740,19 +762,30 @@ export function ProductManager({ products }: { products: Product[] }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="product-division" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Divisi</label>
-              <select
-                id="product-division"
-                value={form.division}
-                onChange={(e) => setForm((f) => ({ ...f, division: e.target.value as ProductDivision }))}
-                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-teal-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
-              >
-                {DIVISION_OPTIONS.map((d) => (
-                  <option key={d} value={d}>
-                    {DIVISION_LABEL[d]}
-                  </option>
-                ))}
-              </select>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Divisi <span className="font-normal text-zinc-400">(boleh lebih dari satu)</span>
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {DIVISION_OPTIONS.map((d) => {
+                  const active = form.divisions.includes(d);
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => toggleFormDivision(d)}
+                      aria-pressed={active}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                        active
+                          ? "border-teal-500 bg-teal-50 text-teal-700 dark:border-teal-400 dark:bg-teal-500/10 dark:text-teal-300"
+                          : "border-black/10 text-zinc-500 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/5"
+                      )}
+                    >
+                      {DIVISION_LABEL[d]}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div>
               <label htmlFor="product-category" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Kategori</label>
@@ -897,9 +930,10 @@ export function ProductManager({ products }: { products: Product[] }) {
             />
             <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
               Kolom yang dikenali: Nama, Divisi, Kategori, SKU, Harga, Satuan, Stok, Supplier, Catatan, FotoURL
-              (urutan bebas, tidak semua wajib diisi — cuma "Nama" yang wajib). Kolom FotoURL boleh diisi lebih dari
-              satu link foto, dipisah koma atau titik-koma — foto ditambahkan ke galeri, tidak menggantikan foto yang
-              sudah ada.
+              (urutan bebas, tidak semua wajib diisi — cuma "Nama" yang wajib). Kolom Divisi boleh diisi lebih dari
+              satu divisi dipisah koma atau titik-koma (mis. "magnarent;production") kalau produknya memang dipakai
+              lintas divisi. Kolom FotoURL boleh diisi lebih dari satu link foto, dipisah koma atau titik-koma — foto
+              ditambahkan ke galeri, tidak menggantikan foto yang sudah ada.
             </p>
           </div>
 

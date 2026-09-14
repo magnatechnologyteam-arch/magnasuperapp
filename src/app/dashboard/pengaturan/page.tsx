@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/supabase/server";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ProfileSettingsForm } from "@/components/settings/ProfileSettingsForm";
 import { AppearanceSettingsForm } from "@/components/settings/AppearanceSettingsForm";
+import { t } from "@/lib/i18n/dictionary";
 
 /**
  * Tahap 27 — halaman Pengaturan akun. Terbuka untuk SEMUA divisi (beda dari
@@ -15,6 +16,7 @@ import { AppearanceSettingsForm } from "@/components/settings/AppearanceSettings
 export default async function PengaturanPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
+  const locale = profile.language_preference;
 
   return (
     <div className="p-4 md:p-8">
@@ -30,13 +32,13 @@ export default async function PengaturanPage() {
         </div>
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">
-            Akun
+            {t(locale, "Akun")}
           </p>
           <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
-            Pengaturan
+            {t(locale, "Pengaturan")}
           </h1>
           <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Foto profil, nama, tampilan, dan bahasa — cuma berlaku buat akunmu sendiri.
+            {t(locale, "Foto profil, nama, tampilan, dan bahasa — cuma berlaku buat akunmu sendiri.")}
           </p>
         </div>
       </div>

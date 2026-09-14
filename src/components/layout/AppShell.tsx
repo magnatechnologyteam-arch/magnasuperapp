@@ -4,6 +4,7 @@ import { MobileNav } from "./MobileNav";
 import { Topbar } from "./Topbar";
 import { PwaInstallPrompt } from "./PwaInstallPrompt";
 import { MaintenanceBanner } from "./MaintenanceBanner";
+import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import type { Profile } from "@/lib/supabase/types";
 import type { MaintenanceStatus } from "@/lib/system-status/actions";
 
@@ -26,15 +27,17 @@ export function AppShell({
   maintenance?: MaintenanceStatus;
 }) {
   return (
-    <div className="app-backdrop flex min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <Sidebar division={user?.division} />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar user={user} />
-        <MobileNav division={user?.division} />
-        {maintenance?.active && <MaintenanceBanner message={maintenance.message} />}
-        <main className="flex-1">{children}</main>
+    <LocaleProvider locale={user?.language_preference ?? "id"}>
+      <div className="app-backdrop flex min-h-screen bg-zinc-50 dark:bg-zinc-950">
+        <Sidebar division={user?.division} />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar user={user} />
+          <MobileNav division={user?.division} />
+          {maintenance?.active && <MaintenanceBanner message={maintenance.message} />}
+          <main className="flex-1">{children}</main>
+        </div>
+        <PwaInstallPrompt />
       </div>
-      <PwaInstallPrompt />
-    </div>
+    </LocaleProvider>
   );
 }

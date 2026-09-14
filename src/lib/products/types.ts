@@ -14,7 +14,14 @@ export type ProductPhoto = {
 export type Product = {
   id: string;
   name: string;
+  /** Divisi utama (legacy, dipakai untuk prefix SKU) — lihat `divisions`
+   * untuk daftar SEMUA divisi yang boleh pakai/lihat produk ini. */
   division: ProductDivision;
+  /** Satu produk bisa dipakai lebih dari satu divisi sekaligus (mis. kabel
+   * HDMI dipakai Magnarent DAN Production) — migrasi 0034. Selalu berisi
+   * minimal satu divisi (sama dengan `division` kalau belum pernah
+   * ditandai ke divisi lain). */
+  divisions: ProductDivision[];
   category: string;
   sku?: string;
   price: number;
@@ -42,7 +49,9 @@ export type Product = {
  */
 export type ProductImportRow = {
   name: string;
-  division?: ProductDivision;
+  /** Boleh lebih dari satu divisi — satu sel "Divisi" di file sumber bisa
+   * diisi beberapa kode dipisah koma/titik-koma (mis. "magnarent;production"). */
+  divisions?: ProductDivision[];
   category?: string;
   sku?: string;
   price?: number;

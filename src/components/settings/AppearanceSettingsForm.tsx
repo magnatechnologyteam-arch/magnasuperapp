@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, Laptop2, Moon, Sun } from "lucide-react";
 import { updateLanguagePreference, updateThemePreference } from "@/lib/settings/actions";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
 import type { LanguagePreference, ThemePreference } from "@/lib/supabase/types";
 
@@ -13,9 +14,22 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }
   { value: "system", label: "Ikuti Sistem", icon: Laptop2 },
 ];
 
+/**
+ * Tahap 33 — English, Malay & Chinese SEKARANG BENERAN aktif (sebelumnya
+ * cuma English yang ditampilkan tapi sengaja dikunci `available: false`
+ * karena belum ada satu pun teks yang diterjemahkan — lihat riwayat git).
+ * Infrastruktur terjemahan (`src/lib/i18n/dictionary.ts`) sekarang menutup
+ * seluruh "shell" aplikasi (Sidebar, MobileNav, Topbar, Dashboard Hub,
+ * halaman Pengaturan ini, Pencarian Global) — HALAMAN DETAIL tiap modul
+ * (Magnarent/Magnativ/Production/Admin) masih Bahasa Indonesia, jadi kalau
+ * pilih bahasa lain, bagian dalam modul akan tetap tampil ID sampai
+ * menyusul diterjemahkan di tahap berikutnya.
+ */
 const LANGUAGE_OPTIONS: { value: LanguagePreference; label: string; available: boolean }[] = [
   { value: "id", label: "Bahasa Indonesia", available: true },
-  { value: "en", label: "English", available: false },
+  { value: "en", label: "English", available: true },
+  { value: "ms", label: "Bahasa Melayu", available: true },
+  { value: "zh", label: "中文", available: true },
 ];
 
 /**
@@ -27,11 +41,8 @@ const LANGUAGE_OPTIONS: { value: LanguagePreference; label: string; available: b
  * membalikkannya lagi terasa aneh bagi pengguna — cukup kasih tahu lewat
  * toast supaya dia tahu perlu coba lagi.
  *
- * Bahasa Inggris masih ditampilkan tapi nonaktif ("Segera hadir") — kolom
- * & infrastrukturnya sudah disiapkan di database, tapi seluruh teks
- * aplikasi memang ditulis dalam Bahasa Indonesia dan belum diterjemahkan.
- * Menyalakannya sekarang cuma akan menyimpan pilihan tanpa efek apa pun,
- * yang lebih membingungkan daripada jujur bilang belum tersedia.
+ * Tahap 33: English/Bahasa Melayu/中文 sekarang aktif beneran — lihat
+ * komentar di `LANGUAGE_OPTIONS` di atas untuk cakupan terjemahannya.
  */
 export function AppearanceSettingsForm({
   initialTheme,
@@ -41,6 +52,7 @@ export function AppearanceSettingsForm({
   initialLanguage: LanguagePreference;
 }) {
   const { showToast } = useToast();
+  const t = useT();
   const [theme, setTheme] = useState(initialTheme);
   const [language, setLanguage] = useState(initialLanguage);
   const [savingTheme, setSavingTheme] = useState(false);
@@ -76,9 +88,9 @@ export function AppearanceSettingsForm({
 
   return (
     <div className="h-fit rounded-2xl border border-black/5 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-      <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Tampilan & Bahasa</h2>
+      <h2 className="text-sm font-bold text-zinc-900 dark:text-white">{t("Tampilan & Bahasa")}</h2>
 
-      <p className="mb-2 mt-4 text-xs font-semibold text-zinc-600 dark:text-zinc-300">Tema</p>
+      <p className="mb-2 mt-4 text-xs font-semibold text-zinc-600 dark:text-zinc-300">{t("Tema")}</p>
       <div className="grid grid-cols-3 gap-2">
         {THEME_OPTIONS.map((opt) => {
           const Icon = opt.icon;
@@ -96,13 +108,13 @@ export function AppearanceSettingsForm({
               )}
             >
               <Icon className="h-4 w-4" />
-              {opt.label}
+              {t(opt.label)}
             </button>
           );
         })}
       </div>
 
-      <p className="mb-2 mt-5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">Bahasa</p>
+      <p className="mb-2 mt-5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">{t("Bahasa")}</p>
       <div className="space-y-1.5">
         {LANGUAGE_OPTIONS.map((opt) => {
           const isActive = language === opt.value;
@@ -126,7 +138,7 @@ export function AppearanceSettingsForm({
                 <Check className="h-4 w-4" />
               ) : !opt.available ? (
                 <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-400 dark:bg-white/5 dark:text-zinc-500">
-                  Segera Hadir
+                  {t("Segera Hadir")}
                 </span>
               ) : null}
             </button>

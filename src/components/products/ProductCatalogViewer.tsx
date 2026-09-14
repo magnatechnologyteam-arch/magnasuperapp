@@ -49,7 +49,8 @@ export function ProductCatalogViewer({ products }: { products: Product[] }) {
         p.name.toLowerCase().includes(term) ||
         p.category.toLowerCase().includes(term) ||
         (p.sku ?? "").toLowerCase().includes(term);
-      const matchesDivision = divisionFilter === ALL_DIVISIONS_FILTER || p.division === divisionFilter;
+      const matchesDivision =
+        divisionFilter === ALL_DIVISIONS_FILTER || p.divisions.includes(divisionFilter as ProductDivision);
       return matchesSearch && matchesDivision;
     });
   }, [products, searchTerm, divisionFilter]);
@@ -131,9 +132,13 @@ export function ProductCatalogViewer({ products }: { products: Product[] }) {
               <div className="p-2.5">
                 <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{p.name}</p>
                 <div className="mt-1 flex items-center justify-between gap-1.5">
-                  <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", DIVISION_BADGE[p.division])}>
-                    {DIVISION_LABEL[p.division]}
-                  </span>
+                  <div className="flex flex-wrap gap-1">
+                    {p.divisions.map((d) => (
+                      <span key={d} className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", DIVISION_BADGE[d])}>
+                        {DIVISION_LABEL[d]}
+                      </span>
+                    ))}
+                  </div>
                   <span className="shrink-0 text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                     {formatRupiah(p.price)}
                   </span>

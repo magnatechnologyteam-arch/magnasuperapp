@@ -2,6 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   ArrowLeftRight,
   BarChart3,
+  BellRing,
   Boxes,
   CalendarClock,
   Factory,
@@ -139,6 +140,7 @@ export type QuickLink = {
  */
 export const ADMIN_LINKS: QuickLink[] = [
   { href: "/dashboard/admin/pengguna", label: "Kelola Pengguna", shortLabel: "Pengguna", icon: Users },
+  { href: "/dashboard/admin/notifikasi", label: "Kirim Notifikasi", shortLabel: "Notifikasi", icon: BellRing },
   { href: "/dashboard/admin/laporan", label: "Laporan", shortLabel: "Laporan", icon: BarChart3 },
   { href: "/dashboard/admin/aktivitas", label: "Aktivitas", shortLabel: "Aktivitas", icon: History },
   { href: "/dashboard/admin/klien", label: "Klien Terpadu", shortLabel: "Klien", icon: Users2 },

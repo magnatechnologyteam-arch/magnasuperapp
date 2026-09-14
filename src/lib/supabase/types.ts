@@ -23,7 +23,7 @@ export const DIVISION_BADGE_CLASSES: Record<Division, string> = {
 };
 
 export type ThemePreference = "light" | "dark" | "system";
-export type LanguagePreference = "id" | "en";
+export type LanguagePreference = "id" | "en" | "ms" | "zh";
 
 export type Profile = {
   id: string;

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
 import { ADMIN_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
+import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
 import type { Division } from "@/lib/supabase/types";
 
@@ -23,6 +24,7 @@ import type { Division } from "@/lib/supabase/types";
 
 export function Sidebar({ division }: { division?: Division | null }) {
   const pathname = usePathname();
+  const t = useT();
   const modules = getVisibleModules(division);
   const isFullAccess = division === "all";
   const isInvestor = division === "investor";
@@ -47,13 +49,13 @@ export function Sidebar({ division }: { division?: Division | null }) {
           )}
         >
           <LayoutGrid className="h-[18px] w-[18px]" />
-          Dashboard Hub
+          {t("Dashboard Hub")}
         </Link>
 
         {modules.length > 0 && (
         <div className="pt-5">
           <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-            Modul
+            {t("Modul")}
           </p>
           <ul className="space-y-1">
             {modules.map((mod) => {
@@ -76,7 +78,7 @@ export function Sidebar({ division }: { division?: Division | null }) {
                       className="h-[18px] w-[18px] shrink-0 transition-transform group-hover:scale-110"
                       style={isActive ? { color: mod.solid } : undefined}
                     />
-                    {mod.label}
+                    {t(mod.label)}
                     {isActive && (
                       <span
                         className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full"
@@ -94,7 +96,7 @@ export function Sidebar({ division }: { division?: Division | null }) {
         {isInvestor && (
           <div className="pt-5">
             <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-              Investor
+              {t("Investor")}
             </p>
             <ul className="space-y-1">
               {INVESTOR_LINKS.map((link) => {
@@ -112,7 +114,7 @@ export function Sidebar({ division }: { division?: Division | null }) {
                       )}
                     >
                       <Icon className="h-[18px] w-[18px]" />
-                      {link.label}
+                      {t(link.label)}
                     </Link>
                   </li>
                 );
@@ -124,7 +126,7 @@ export function Sidebar({ division }: { division?: Division | null }) {
         {isFullAccess && (
           <div className="pt-5">
             <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-              Admin
+              {t("Admin")}
             </p>
             <ul className="space-y-1">
               {ADMIN_LINKS.map((link) => {
@@ -142,7 +144,7 @@ export function Sidebar({ division }: { division?: Division | null }) {
                       )}
                     >
                       <Icon className="h-[18px] w-[18px]" />
-                      {link.label}
+                      {t(link.label)}
                     </Link>
                   </li>
                 );

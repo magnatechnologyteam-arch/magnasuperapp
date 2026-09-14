@@ -29,9 +29,14 @@ export function ProductDetailModal({ product, open, onClose }: { product: Produc
         <PhotoCarousel photos={product.photos.map((p) => ({ id: p.id, url: p.url }))} />
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-semibold text-zinc-600 dark:bg-white/10 dark:text-zinc-300">
-            {DIVISION_LABEL[product.division]}
-          </span>
+          {product.divisions.map((d) => (
+            <span
+              key={d}
+              className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-semibold text-zinc-600 dark:bg-white/10 dark:text-zinc-300"
+            >
+              {DIVISION_LABEL[d]}
+            </span>
+          ))}
           {product.category && (
             <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-semibold text-zinc-600 dark:bg-white/10 dark:text-zinc-300">
               {product.category}

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition, type KeyboardEvent } from "
 import { useRouter } from "next/navigation";
 import { Loader2, Search } from "lucide-react";
 import { searchGlobal, type SearchResult } from "@/lib/search/actions";
+import { useT } from "@/lib/i18n/LocaleProvider";
 
 const MODULE_LABEL: Record<string, string> = {
   magnarent: "Magnarent",
@@ -28,6 +29,7 @@ const DEBOUNCE_MS = 300;
  * disamakan supaya perilakunya konsisten di seluruh header.
  */
 export function GlobalSearch() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -98,7 +100,7 @@ export function GlobalSearch() {
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="grid h-9 w-9 place-items-center rounded-full border border-black/5 bg-white text-zinc-500 shadow-sm transition-colors hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5"
-        aria-label="Cari"
+        aria-label={t("Cari")}
       >
         <Search className="h-4 w-4" />
       </button>
@@ -114,7 +116,7 @@ export function GlobalSearch() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Cari booking, klien, invoice, dll…"
+                placeholder={t("Cari booking, klien, invoice, dll…")}
                 className="w-full bg-transparent text-sm text-zinc-800 outline-none placeholder:text-zinc-400 dark:text-zinc-100"
               />
               {isPending && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-zinc-400" />}
@@ -124,17 +126,17 @@ export function GlobalSearch() {
           <div className="max-h-80 overflow-y-auto p-2">
             {query.trim().length < MIN_QUERY_LENGTH ? (
               <p className="px-2 py-4 text-center text-xs text-zinc-400 dark:text-zinc-500">
-                Ketik minimal {MIN_QUERY_LENGTH} huruf untuk mulai cari.
+                {t("Ketik minimal {n} huruf untuk mulai cari.").replace("{n}", String(MIN_QUERY_LENGTH))}
               </p>
             ) : results.length === 0 && !isPending ? (
               <p className="px-2 py-4 text-center text-xs text-zinc-400 dark:text-zinc-500">
-                Tidak ada hasil untuk &quot;{query.trim()}&quot;.
+                {t("Tidak ada hasil untuk")} &quot;{query.trim()}&quot;.
               </p>
             ) : (
               Object.entries(grouped).map(([moduleKey, items]) => (
                 <div key={moduleKey} className="mb-1 last:mb-0">
                   <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
-                    {MODULE_LABEL[moduleKey] ?? moduleKey}
+                    {t(MODULE_LABEL[moduleKey] ?? moduleKey)}
                   </p>
                   {items.map((item) => (
                     <button

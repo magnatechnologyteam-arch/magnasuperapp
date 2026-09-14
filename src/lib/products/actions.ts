@@ -32,10 +32,29 @@ function revalidateProductPaths() {
  * `capital-requests/actions.ts`), bukan satu submit besar yang harus
  * menghitung diff foto lama vs baru.
  */
+/** Divisi boleh lebih dari satu (Tahap 32, migrasi 0034) — dikirim klien
+ * sebagai JSON array string lewat FormData. Baris tidak valid/duplikat
+ * dibuang; kalau hasilnya kosong (field belum terisi/rusak), jatuh ke
+ * "umum" supaya tidak pernah tersimpan tanpa divisi sama sekali (dijaga
+ * juga oleh constraint `products_divisions_not_empty` di database). */
+function parseDivisions(raw: string | null): ProductDivision[] {
+  let parsed: unknown;
+  try {
+    parsed = raw ? JSON.parse(raw) : [];
+  } catch {
+    parsed = [];
+  }
+  const list = Array.isArray(parsed) ? parsed : [];
+  const valid = Array.from(new Set(list.filter((d): d is ProductDivision => VALID_DIVISIONS.includes(d))));
+  return valid.length > 0 ? valid : ["umum"];
+}
+
 function parseProductFields(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
-  const divisionRaw = String(formData.get("division") ?? "umum");
-  const division = (VALID_DIVISIONS.includes(divisionRaw as ProductDivision) ? divisionRaw : "umum") as ProductDivision;
+  const divisions = parseDivisions(String(formData.get("divisions") ?? ""));
+  // Divisi utama (legacy) dipakai apa adanya untuk prefix SKU — elemen
+  // pertama dari daftar yang dipilih pengguna.
+  const division = divisions[0] ?? "umum";
   const category = String(formData.get("category") ?? "").trim();
   const skuRaw = String(formData.get("sku") ?? "").trim();
   const price = Number(formData.get("price") ?? 0);
@@ -47,6 +66,7 @@ function parseProductFields(formData: FormData) {
   return {
     name,
     division,
+    divisions,
     category,
     sku: skuRaw || null,
     price: Number.isFinite(price) ? price : 0,
@@ -125,6 +145,7 @@ export async function addProduct(formData: FormData): Promise<MutationResult> {
   const baseInsert = {
     name: fields.name,
     division: fields.division,
+    divisions: fields.divisions,
     category: fields.category,
     price: fields.price,
     unit: fields.unit,
@@ -198,6 +219,7 @@ export async function updateProduct(id: string, formData: FormData): Promise<Mut
   const baseUpdate = {
     name: fields.name,
     division: fields.division,
+    divisions: fields.divisions,
     category: fields.category,
     price: fields.price,
     unit: fields.unit,
@@ -399,12 +421,14 @@ export async function bulkImportProducts(rows: ProductImportRow[]): Promise<Impo
       continue;
     }
 
-    const division: ProductDivision =
-      row.division && VALID_DIVISIONS.includes(row.division) ? row.division : "umum";
+    const divisionsRaw = (row.divisions ?? []).filter((d) => VALID_DIVISIONS.includes(d));
+    const divisions: ProductDivision[] = divisionsRaw.length > 0 ? Array.from(new Set(divisionsRaw)) : ["umum"];
+    const division: ProductDivision = divisions[0] ?? "umum";
     const sku = row.sku?.trim() || null;
     const payload = {
       name,
       division,
+      divisions,
       category: row.category?.trim() || "",
       sku,
       price,
