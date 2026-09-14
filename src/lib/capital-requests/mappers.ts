@@ -13,6 +13,8 @@ export type CapitalRequestRow = {
   decided_by: string | null;
   decided_at: string | null;
   created_at: string;
+  payment_proof_url: string | null;
+  payment_proof_storage_path: string | null;
 };
 
 export function rowToCapitalRequest(row: CapitalRequestRow): CapitalRequest {
@@ -29,5 +31,7 @@ export function rowToCapitalRequest(row: CapitalRequestRow): CapitalRequest {
     decidedBy: row.decided_by ?? undefined,
     decidedAt: row.decided_at ?? undefined,
     createdAt: row.created_at,
+    paymentProofUrl: row.payment_proof_url ?? undefined,
+    paymentProofStoragePath: row.payment_proof_storage_path ?? undefined,
   };
 }

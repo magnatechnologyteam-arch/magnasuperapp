@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { HandCoins, Plus, Trash2 } from "lucide-react";
+import { File as FileIcon, HandCoins, Plus, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -168,6 +168,17 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
                         <p className="mt-1 max-w-[200px] text-[11px] text-zinc-400 dark:text-zinc-500">
                           &ldquo;{req.investorNote}&rdquo;
                         </p>
+                      )}
+                      {req.status === "Disetujui" && req.paymentProofUrl && (
+                        <a
+                          href={req.paymentProofUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:underline dark:text-emerald-400"
+                        >
+                          <FileIcon className="h-3 w-3" />
+                          Bukti Pembayaran
+                        </a>
                       )}
                     </td>
                     <td className="px-5 py-3">

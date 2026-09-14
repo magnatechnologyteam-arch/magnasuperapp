@@ -11,6 +11,7 @@ import type { CapitalRequestStatus } from "./types";
 const ADMIN_PATH = "/dashboard/admin/pengajuan-modal";
 const INVESTOR_PATH = "/dashboard/investor/pengajuan-modal";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
+const PROOF_BUCKET = "capital-request-proofs";
 
 export type MutationResult = { ok: true } | { ok: false; error: string };
 
@@ -137,10 +138,20 @@ export async function deleteCapitalRequest(id: string): Promise<MutationResult> 
  * notifikasi pengumuman biasa untuk bersiap — mereka TIDAK ikut memutuskan,
  * sesuai rancangan Owner.
  */
+/**
+ * Keputusan investor, dengan opsi langsung melampirkan bukti pembayaran
+ * (Tahap 28d) kalau statusnya "Disetujui" — `proofFormData` opsional karena
+ * Owner kadang baru transfer belakangan, investor tetap harus bisa Approve
+ * dulu tanpa bukti. Kegagalan upload bukti SENGAJA tidak membatalkan
+ * keputusan yang sudah tersimpan (sama seperti `notifyDivision`/`logActivity`
+ * — efek samping, bukan bagian inti aksi ini); investor tinggal coba lagi
+ * lewat `uploadCapitalRequestProof` dari kartu "Riwayat Keputusan".
+ */
 export async function decideCapitalRequest(
   id: string,
   status: CapitalRequestStatus,
-  note: string
+  note: string,
+  proofFormData?: FormData
 ): Promise<MutationResult> {
   const profile = await getCurrentProfile();
   if (!profile || profile.division !== "investor") {
@@ -187,6 +198,149 @@ export async function decideCapitalRequest(
     });
   }
 
+  const proofFile = status === "Disetujui" ? proofFormData?.get("proof") : null;
+  if (proofFile instanceof File && proofFile.size > 0) {
+    if (!proofFile.type.startsWith("image/") && proofFile.type !== "application/pdf") {
+      console.error("[capital-requests] Bukti pembayaran dilewati: tipe file tidak didukung.");
+    } else {
+      const ext = proofFile.name.includes(".") ? proofFile.name.split(".").pop()!.toLowerCase() : "jpg";
+      const storagePath = `${id}/${crypto.randomUUID()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from(PROOF_BUCKET)
+        .upload(storagePath, proofFile, { contentType: proofFile.type || undefined });
+
+      if (uploadError) {
+        console.error("[capital-requests] Upload bukti pembayaran gagal:", uploadError.message);
+      } else {
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from(PROOF_BUCKET).getPublicUrl(storagePath);
+        const { error: attachError } = await supabase.rpc("set_capital_request_payment_proof", {
+          request_id: id,
+          proof_url: publicUrl,
+          proof_path: storagePath,
+        });
+        if (attachError) {
+          console.error("[capital-requests] Menempelkan bukti pembayaran gagal:", attachError.message);
+          await supabase.storage.from(PROOF_BUCKET).remove([storagePath]);
+        } else {
+          revalidatePath(ADMIN_PATH);
+          revalidatePath(INVESTOR_PATH);
+        }
+      }
+    }
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Unggah/ganti bukti pembayaran untuk pengajuan yang SUDAH disetujui —
+ * dipakai dari kartu "Riwayat Keputusan" saat investor belum sempat
+ * melampirkan bukti waktu Approve, atau salah unggah dan mau ganti file.
+ * Bukti lama (kalau ada) dihapus dari Storage setelah yang baru berhasil
+ * ditempelkan, supaya tidak ada file yatim menumpuk di bucket.
+ */
+export async function uploadCapitalRequestProof(id: string, formData: FormData): Promise<MutationResult> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.division !== "investor") {
+    return { ok: false, error: "Hanya akun investor yang bisa mengunggah bukti pembayaran." };
+  }
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("capital_requests")
+    .select("status, event_name, payment_proof_storage_path")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existing) return { ok: false, error: "Pengajuan tidak ditemukan." };
+  if (existing.status !== "Disetujui") {
+    return { ok: false, error: "Bukti pembayaran hanya bisa diunggah untuk pengajuan yang sudah disetujui." };
+  }
+
+  const file = formData.get("proof");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Pilih file terlebih dahulu." };
+  }
+  if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+    return { ok: false, error: "File harus berupa gambar atau PDF." };
+  }
+
+  const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "jpg";
+  const storagePath = `${id}/${crypto.randomUUID()}.${ext}`;
+  const { error: uploadError } = await supabase.storage
+    .from(PROOF_BUCKET)
+    .upload(storagePath, file, { contentType: file.type || undefined });
+
+  if (uploadError) {
+    console.error("[capital-requests] Upload bukti pembayaran gagal:", uploadError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(PROOF_BUCKET).getPublicUrl(storagePath);
+
+  const { error } = await supabase.rpc("set_capital_request_payment_proof", {
+    request_id: id,
+    proof_url: publicUrl,
+    proof_path: storagePath,
+  });
+
+  if (error) {
+    console.error("[capital-requests] uploadCapitalRequestProof gagal:", error.message);
+    await supabase.storage.from(PROOF_BUCKET).remove([storagePath]);
+    return { ok: false, error: error.message || GENERIC_ERROR };
+  }
+
+  if (existing.payment_proof_storage_path) {
+    await supabase.storage.from(PROOF_BUCKET).remove([existing.payment_proof_storage_path]);
+  }
+
+  revalidatePath(ADMIN_PATH);
+  revalidatePath(INVESTOR_PATH);
+  void logActivity({
+    module: "admin",
+    action: "update",
+    entityType: "pengajuan modal",
+    entityLabel: existing.event_name,
+    detail: "bukti pembayaran diunggah",
+  });
+
+  return { ok: true };
+}
+
+/** Hapus bukti pembayaran yang sudah diunggah — investor salah lampir file. */
+export async function removeCapitalRequestProof(id: string): Promise<MutationResult> {
+  const profile = await getCurrentProfile();
+  if (!profile || profile.division !== "investor") {
+    return { ok: false, error: "Hanya akun investor yang bisa menghapus bukti pembayaran." };
+  }
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("capital_requests")
+    .select("payment_proof_storage_path")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existing?.payment_proof_storage_path) return { ok: true };
+
+  const { error } = await supabase.rpc("set_capital_request_payment_proof", {
+    request_id: id,
+    proof_url: null,
+    proof_path: null,
+  });
+
+  if (error) {
+    console.error("[capital-requests] removeCapitalRequestProof gagal:", error.message);
+    return { ok: false, error: error.message || GENERIC_ERROR };
+  }
+
+  await supabase.storage.from(PROOF_BUCKET).remove([existing.payment_proof_storage_path]);
+  revalidatePath(ADMIN_PATH);
+  revalidatePath(INVESTOR_PATH);
   return { ok: true };
 }
 

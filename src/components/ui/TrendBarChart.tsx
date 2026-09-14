@@ -10,20 +10,20 @@ export type TrendDatum = { label: string; value: number };
 export function TrendBarChart({
   data,
   formatValue,
+  emptyMessage = 'Belum ada pendapatan "Lunas" tercatat di rentang bulan ini.',
 }: {
   data: TrendDatum[];
   formatValue: (value: number) => string;
+  /** Pesan saat semua nilai 0 — opsional, dipakai ulang di konteks lain
+   * selain pendapatan (mis. tren modal disetujui investor, Tahap 28d). */
+  emptyMessage?: string;
 }) {
   const max = Math.max(...data.map((d) => d.value), 1);
   const allZero = data.every((d) => d.value === 0);
 
   return (
     <div className="space-y-3">
-      {allZero && (
-        <p className="text-xs text-zinc-400 dark:text-zinc-500">
-          Belum ada pendapatan "Lunas" tercatat di rentang bulan ini.
-        </p>
-      )}
+      {allZero && <p className="text-xs text-zinc-400 dark:text-zinc-500">{emptyMessage}</p>}
       {data.map((d, i) => (
         <div key={i} className="flex items-center gap-3">
           <span className="w-14 shrink-0 text-xs font-medium text-zinc-500 dark:text-zinc-400">{d.label}</span>

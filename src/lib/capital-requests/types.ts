@@ -23,4 +23,8 @@ export type CapitalRequest = {
   decidedBy?: string;
   decidedAt?: string;
   createdAt: string;
+  /** Bukti pembayaran (Tahap 28d) — cuma terisi kalau status "Disetujui" DAN
+   * investor sudah mengunggahnya (opsional, boleh menyusul belakangan). */
+  paymentProofUrl?: string;
+  paymentProofStoragePath?: string;
 };
