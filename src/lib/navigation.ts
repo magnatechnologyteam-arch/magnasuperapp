@@ -152,6 +152,18 @@ export const ADMIN_LINKS: QuickLink[] = [
   { href: "/dashboard/admin/status-sistem", label: "Status Sistem", shortLabel: "Status", icon: Wrench },
 ];
 
+/**
+ * Tahap 35 — Laporan & Aktivitas dibuka ke 3 divisi operasional (Magnarent/
+ * Magnative/Production), TAPI versi read-only & dibatasi cuma data divisi
+ * sendiri (lihat page.tsx masing-masing — cabang selain division "all").
+ * SENGAJA array terpisah dari ADMIN_LINKS (bukan filter dari situ) supaya
+ * urutan/isinya bisa berubah independen tanpa mengubah menu akses penuh.
+ */
+export const DIVISION_REPORT_LINKS: QuickLink[] = [
+  { href: "/dashboard/admin/laporan", label: "Laporan", shortLabel: "Laporan", icon: BarChart3 },
+  { href: "/dashboard/admin/aktivitas", label: "Aktivitas", shortLabel: "Aktivitas", icon: History },
+];
+
 /** Tautan halaman Investor (division "investor" atau "all") — sama alasannya dengan ADMIN_LINKS di atas. */
 export const INVESTOR_LINKS: QuickLink[] = [
   { href: "/dashboard/investor", label: "Ringkasan Investor", shortLabel: "Ringkasan", icon: LayoutGrid },

@@ -58,10 +58,14 @@ function formatWaktu(iso: string): string {
 }
 
 /**
- * Tabel log aktivitas + tombol hapus — HANYA dirender di halaman yang
- * sudah dijaga `division === "all"` (lihat page.tsx), dan tiap aksi hapus
- * dicek ulang di server (requireFullAccess() + RLS migrasi 0009), jadi
- * tombol ini aman dipasang di sini tanpa pengecekan tambahan.
+ * Tabel log aktivitas + tombol hapus. Awalnya HANYA dirender di halaman
+ * yang sudah dijaga `division === "all"` — sejak Tahap 35 halaman ini juga
+ * dibuka read-only ke 3 divisi (lihat page.tsx), jadi tombol hapus di sini
+ * DISEMBUNYIKAN lewat prop `readOnly` untuk pengunjung selain akses penuh.
+ * Ini murni kosmetik (sembunyikan tombol yang percuma) — pertahanan
+ * sebenarnya tetap di server: tiap aksi hapus dicek ulang lewat
+ * `requireFullAccess()` + RLS `activity_log_delete_full_access` (migrasi
+ * 0009), jadi biarpun tombolnya entah bagaimana muncul, aksinya tetap ditolak.
  *
  * Konfirmasi hapus pakai `ConfirmDialog` (bukan `window.confirm` bawaan
  * browser) supaya konsisten dengan pola konfirmasi di seluruh aplikasi.
@@ -69,7 +73,7 @@ function formatWaktu(iso: string): string {
  * redirect dengan pesan sukses/error) — dialog cuma menunda submit-nya
  * lewat `form.requestSubmit()`, pola yang sama dipakai `StaffTable.tsx`.
  */
-export function ActivityLogTable({ rows }: { rows: ActivityRow[] }) {
+export function ActivityLogTable({ rows, readOnly = false }: { rows: ActivityRow[]; readOnly?: boolean }) {
   const deleteAllFormRef = useRef<HTMLFormElement>(null);
   const rowFormRefs = useRef<Map<string, HTMLFormElement>>(new Map());
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
@@ -77,7 +81,7 @@ export function ActivityLogTable({ rows }: { rows: ActivityRow[] }) {
 
   return (
     <div>
-      {rows.length > 0 && (
+      {!readOnly && rows.length > 0 && (
         <div className="mb-3 flex justify-end">
           <form action={deleteAllActivityLogs} ref={deleteAllFormRef}>
             <button
@@ -110,7 +114,7 @@ export function ActivityLogTable({ rows }: { rows: ActivityRow[] }) {
                   <th className="px-5 py-3">Entitas</th>
                   <th className="px-5 py-3">Pelaku</th>
                   <th className="px-5 py-3">Detail</th>
-                  <th className="px-5 py-3 text-right">Hapus</th>
+                  {!readOnly && <th className="px-5 py-3 text-right">Hapus</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-black/5 dark:divide-white/5">
@@ -147,27 +151,29 @@ export function ActivityLogTable({ rows }: { rows: ActivityRow[] }) {
                       {row.actor_name}
                     </td>
                     <td className="px-5 py-3 text-xs text-zinc-500 dark:text-zinc-400">{row.detail ?? "—"}</td>
-                    <td className="px-5 py-3 text-right">
-                      <form
-                        action={deleteActivityLogEntry}
-                        ref={(el) => {
-                          if (el) rowFormRefs.current.set(row.id, el);
-                          else rowFormRefs.current.delete(row.id);
-                        }}
-                        className="inline"
-                      >
-                        <input type="hidden" name="id" value={row.id} />
-                        <button
-                          type="button"
-                          onClick={() => setConfirmRowId(row.id)}
-                          title="Hapus baris ini"
-                          aria-label="Hapus baris ini"
-                          className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
+                    {!readOnly && (
+                      <td className="px-5 py-3 text-right">
+                        <form
+                          action={deleteActivityLogEntry}
+                          ref={(el) => {
+                            if (el) rowFormRefs.current.set(row.id, el);
+                            else rowFormRefs.current.delete(row.id);
+                          }}
+                          className="inline"
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </form>
-                    </td>
+                          <input type="hidden" name="id" value={row.id} />
+                          <button
+                            type="button"
+                            onClick={() => setConfirmRowId(row.id)}
+                            title="Hapus baris ini"
+                            aria-label="Hapus baris ini"
+                            className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </form>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

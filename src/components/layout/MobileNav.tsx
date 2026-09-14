@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, Menu, X } from "lucide-react";
-import { ADMIN_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
+import { ADMIN_LINKS, DIVISION_REPORT_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
@@ -25,6 +25,8 @@ export function MobileNav({ division }: { division?: Division | null }) {
   const modules = getVisibleModules(division);
   const isFullAccess = division === "all";
   const isInvestor = division === "investor";
+  const isOperationalDivision =
+    division === "magnarent" || division === "magnative" || division === "production";
 
   // Laci otomatis tertutup begitu pindah halaman (klik salah satu link di
   // dalamnya) — tidak perlu onClick manual di tiap Link.
@@ -55,10 +57,13 @@ export function MobileNav({ division }: { division?: Division | null }) {
   const activeInvestorLink = isInvestor
     ? INVESTOR_LINKS.find((link) => pathname === link.href || pathname.startsWith(`${link.href}/`))
     : undefined;
+  const activeReportLink = isOperationalDivision
+    ? DIVISION_REPORT_LINKS.find((link) => pathname === link.href || pathname.startsWith(`${link.href}/`))
+    : undefined;
   const currentLabel =
     pathname === HUB_HREF
       ? t("Dashboard Hub")
-      : t(activeModule?.label ?? activeAdminLink?.label ?? activeInvestorLink?.label ?? "Menu");
+      : t(activeModule?.label ?? activeAdminLink?.label ?? activeInvestorLink?.label ?? activeReportLink?.label ?? "Menu");
 
   function linkClass(isActive: boolean, activeClass: string) {
     return cn(
@@ -166,6 +171,28 @@ export function MobileNav({ division }: { division?: Division | null }) {
                               "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
                             )}
                           >
+                            <Icon className="h-[18px] w-[18px]" />
+                            {t(link.label)}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {isOperationalDivision && (
+                <div className="pt-5">
+                  <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    {t("Laporan")}
+                  </p>
+                  <ul className="space-y-1">
+                    {DIVISION_REPORT_LINKS.map((link) => {
+                      const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                      const Icon = link.icon;
+                      return (
+                        <li key={link.href}>
+                          <Link href={link.href} className={linkClass(isActive, "bg-zinc-100 text-zinc-900 dark:bg-white/10 dark:text-white")}>
                             <Icon className="h-[18px] w-[18px]" />
                             {t(link.label)}
                           </Link>

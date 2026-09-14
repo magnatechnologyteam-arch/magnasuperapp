@@ -15,6 +15,14 @@ const MODULE_DIVISION_PREFIXES: Array<{ prefix: string; division: string }> = [
 ];
 
 const ADMIN_PREFIX = "/dashboard/admin";
+// Tahap 35: dua halaman di bawah prefix admin ini SENGAJA dikecualikan dari
+// blokir "division !== all" — dibuka read-only ke 3 divisi operasional
+// (Magnarent/Magnative/Production), sisanya (Kelola Pengguna, Faktur, dst.)
+// tetap tertutup rapat untuk mereka. Pembatasan SEBENARNYA (data cuma
+// divisi sendiri, tidak ada tombol hapus) ditegakkan di page.tsx
+// masing-masing + RLS (migrasi 0037 untuk activity_log) — daftar ini
+// cuma soal boleh/tidaknya rute ini di-render sama sekali.
+const ADMIN_ROUTES_OPEN_TO_DIVISIONS = ["/dashboard/admin/laporan", "/dashboard/admin/aktivitas"];
 // Area khusus akun investor (read only lintas divisi + Approve/Reject
 // Pengajuan Modal, lihat migrasi 0019) — akses penuh ("all") boleh ikut
 // mengintip halaman ini, staf divisi manapun TIDAK.
@@ -112,7 +120,11 @@ export async function middleware(request: NextRequest) {
     const division = (user.app_metadata as { division?: string } | null | undefined)?.division ?? "production";
 
     if (division !== "all") {
-      const isAdminRoute = pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`);
+      const isOpenAdminRouteForDivision =
+        ["magnarent", "magnative", "production"].includes(division) &&
+        ADMIN_ROUTES_OPEN_TO_DIVISIONS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+      const isAdminRoute =
+        !isOpenAdminRouteForDivision && (pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`));
       const isBlockedModule = MODULE_DIVISION_PREFIXES.some(
         (m) => (pathname === m.prefix || pathname.startsWith(`${m.prefix}/`)) && m.division !== division
       );

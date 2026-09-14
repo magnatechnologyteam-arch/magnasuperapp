@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
-import { ADMIN_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
+import { ADMIN_LINKS, DIVISION_REPORT_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
@@ -28,6 +28,8 @@ export function Sidebar({ division }: { division?: Division | null }) {
   const modules = getVisibleModules(division);
   const isFullAccess = division === "all";
   const isInvestor = division === "investor";
+  const isOperationalDivision =
+    division === "magnarent" || division === "magnative" || division === "production";
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-black/5 bg-white dark:border-white/10 dark:bg-zinc-950 md:flex">
@@ -110,6 +112,36 @@ export function Sidebar({ division }: { division?: Division | null }) {
                         "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
                         isActive
                           ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                          : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+                      )}
+                    >
+                      <Icon className="h-[18px] w-[18px]" />
+                      {t(link.label)}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {isOperationalDivision && (
+          <div className="pt-5">
+            <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              {t("Laporan")}
+            </p>
+            <ul className="space-y-1">
+              {DIVISION_REPORT_LINKS.map((link) => {
+                const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                const Icon = link.icon;
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                        isActive
+                          ? "bg-zinc-100 text-zinc-900 dark:bg-white/10 dark:text-white"
                           : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
                       )}
                     >
