@@ -1,20 +1,28 @@
 import { Boxes } from "lucide-react";
-import { getProductsWithPhotos } from "@/lib/products/data";
-import { ProductCatalogViewer } from "@/components/products/ProductCatalogViewer";
+import { getImportSources, getProductsWithPhotos } from "@/lib/products/data";
+import { ImportSourceManager } from "@/components/products/ImportSourceManager";
+import { ProductManager } from "@/components/products/ProductManager";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 /**
- * Katalog Produk READ-ONLY untuk SEMUA staf (Tahap 29) — beda dari
- * `/dashboard/admin/produk` (Owner/Finance, bisa tambah/edit/hapus).
- * Permintaan Owner: "tim bisa lihat detail gambar produk" & cek apakah
- * suatu barang sudah ada di katalog — jadi RLS baca `products`/
- * `product_photos` dilebarkan ke semua staf login (migrasi 0029), dan
- * halaman ini SENGAJA ditaruh di luar prefix
- * `/dashboard/admin|magnative|magnarent|production` supaya middleware
- * (src/middleware.ts) tidak memblokir divisi manapun — cukup login, bisa
- * buka halaman ini.
+ * Katalog Produk untuk SEMUA staf (Tahap 29b) — awalnya (Tahap 29) halaman
+ * ini read-only, tapi permintaan Owner berubah: "katalog produk diubah
+ * jadi semua divisi bisa akses edit". Jadi sekarang komponennya SAMA
+ * PERSIS dengan `/dashboard/admin/produk` (ProductManager + ImportSourceManager,
+ * full CRUD + impor) — bedanya cuma di mana halaman ini didaftarkan:
+ * `/dashboard/admin/produk` tetap ada untuk Owner/Finance lewat menu
+ * Admin, halaman ini SENGAJA di luar prefix
+ * `/dashboard/admin|magnative|magnarent|production` (lihat
+ * src/middleware.ts) supaya staf divisi manapun bisa buka & edit
+ * langsung dari subnav modul masing-masing.
+ *
+ * RLS tabel `products`/`product_photos`/`product_import_sources` sudah
+ * dilebarkan ke SEMUA staf login lewat migrasi 0030 (sebelumnya cuma
+ * division "all") — jadi tidak ada penjagaan divisi tambahan di sini
+ * sama sekali, sengaja disamakan dengan halaman admin.
  */
 export default async function KatalogProdukPage() {
-  const products = await getProductsWithPhotos();
+  const [products, importSources] = await Promise.all([getProductsWithPhotos(), getImportSources()]);
 
   return (
     <div className="p-4 md:p-8">
@@ -36,14 +44,19 @@ export default async function KatalogProdukPage() {
             Katalog Produk
           </h1>
           <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Cari produk yang sudah ada & lihat semua foto sebelum menambahkan yang baru. Untuk menambah/mengubah data
-            produk, hubungi Owner/Finance.
+            Data produk terpusat — Magnarent, Magnativ, dan Production dalam satu tempat. Semua staf yang login bisa
+            tambah/edit/hapus produk & foto di sini, atau impor otomatis dari WhatsApp Catalog/website.
           </p>
         </div>
       </div>
 
       <div className="mt-6">
-        <ProductCatalogViewer products={products} />
+        <ToastProvider>
+          <div className="space-y-5">
+            <ImportSourceManager sources={importSources} />
+            <ProductManager products={products} />
+          </div>
+        </ToastProvider>
       </div>
     </div>
   );

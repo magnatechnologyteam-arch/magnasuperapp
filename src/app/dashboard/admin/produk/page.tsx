@@ -8,14 +8,17 @@ import { ToastProvider } from "@/components/ui/ToastProvider";
 
 /**
  * Katalog Produk terpusat (migrasi 0013, galeri multi-foto & impor
- * eksternal di migrasi 0029/Tahap 29) — TULIS (tambah/edit/hapus/impor)
- * hanya akses penuh, pola sama seperti "Piutang & Pendapatan"/"Klien
- * Terpadu"/"Laporan"/"Aktivitas". BACA sudah dilebarkan ke semua staf
- * lewat halaman terpisah `/dashboard/katalog-produk` (read-only). Data
- * produk dipakai lintas Magnarent/Magnativ/Production, diisi manual,
- * lewat import Excel/CSV di ProductManager, otomatis dari WhatsApp
- * Business Catalog/website Magna lainnya, atau lewat API eksternal
- * (src/app/api/products/route.ts) untuk automation seperti n8n.
+ * eksternal di migrasi 0029/Tahap 29). Sempat TULIS (tambah/edit/hapus/
+ * impor) dibatasi cuma division "all" — tapi permintaan Owner berubah
+ * (Tahap 29b, migrasi 0030): "semua divisi bisa akses edit". Jadi RLS-nya
+ * sudah dilebarkan ke SEMUA staf login, dan halaman EDIT yang sama
+ * (ProductManager + ImportSourceManager) juga didaftarkan di
+ * `/dashboard/katalog-produk` (di luar prefix admin) supaya staf divisi
+ * lain bisa buka dari subnav modul masing-masing tanpa perlu masuk lewat
+ * menu Admin. Halaman DI SINI (`/dashboard/admin/produk`) dipertahankan
+ * apa adanya sebagai entry point Owner/Finance dari menu Admin — gerbang
+ * `division === "all"` di bawah ini cuma soal DI MANA tautannya muncul,
+ * bukan lagi satu-satunya jalan masuk untuk bisa edit.
  */
 export default async function ProdukPage() {
   const profile = await getCurrentProfile();
@@ -47,8 +50,8 @@ export default async function ProdukPage() {
           <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
             Data produk terpusat — Magnarent, Magnativ, dan Production dalam satu tempat, bisa diisi manual, import
             Excel, atau otomatis lewat API/WhatsApp Catalog/website. Setiap produk bisa punya beberapa foto (klik ikon
-            mata untuk lihat slider-nya) — semua staf yang login juga bisa lihat katalog ini (read-only) di menu
-            "Katalog Produk" masing-masing divisi.
+            mata untuk lihat slider-nya) — semua staf yang login juga bisa tambah/edit di sini lewat menu "Katalog
+            Produk" masing-masing divisi.
           </p>
         </div>
       </div>
