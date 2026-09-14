@@ -81,12 +81,29 @@ export type ProductImportSource = {
   lastSyncSummary?: ImportSummary | null;
 };
 
-/** Satu produk hasil fetch dari sumber eksternal, SEBELUM direview admin & disimpan. */
+/** Status ketersediaan dari sumber luar (dibaca dari `availability` Meta
+ * Graph API atau `offers.availability` schema.org JSON-LD) — dipetakan ke
+ * status sederhana ini karena kedua sumber cuma menyatakan ADA/TIDAK ADA
+ * stok, bukan jumlah pasti, jadi tidak dipakai untuk menebak-nebak angka
+ * stok (lihat pemakaian di `commitImportCandidates`). */
+export type ExternalStockStatus = "in_stock" | "out_of_stock" | "unknown";
+
+/**
+ * Satu produk hasil fetch dari sumber eksternal, SEBELUM direview admin &
+ * disimpan. Tahap 29c: ditambah `catatan`/`category`/`stockStatus` supaya
+ * "keterangan keseluruhan" produk (bukan cuma nama/harga/foto) ikut
+ * disesuaikan dengan yang ada di sumbernya saat sinkron — lihat
+ * `commitImportCandidates`. SKU SENGAJA tidak diambil dari sumber luar lagi
+ * (lihat `src/lib/products/sku.ts`) — dibuat sendiri oleh aplikasi supaya
+ * selalu ringkas & konsisten.
+ */
 export type ExternalProductCandidate = {
   externalRef: string;
   name: string;
   price?: number;
-  sku?: string;
+  catatan?: string;
+  category?: string;
+  stockStatus?: ExternalStockStatus;
   photoUrls: string[];
 };
 

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity/log";
+import { generateSku, isSkuConflict } from "./sku";
 import type { ProductPhotoRow } from "./mappers";
 import type { ImportSummary, ProductDivision, ProductImportRow, ProductPhotoSource } from "./types";
 
@@ -121,21 +122,34 @@ export async function addProduct(formData: FormData): Promise<MutationResult> {
     }
   }
 
-  const { data: inserted, error } = await supabase
-    .from("products")
-    .insert({
-      name: fields.name,
-      division: fields.division,
-      category: fields.category,
-      sku: fields.sku,
-      price: fields.price,
-      unit: fields.unit,
-      stock: fields.stock,
-      supplier: fields.supplier,
-      catatan: fields.catatan,
-    })
-    .select("id")
-    .single();
+  const baseInsert = {
+    name: fields.name,
+    division: fields.division,
+    category: fields.category,
+    price: fields.price,
+    unit: fields.unit,
+    stock: fields.stock,
+    supplier: fields.supplier,
+    catatan: fields.catatan,
+  };
+
+  // SKU kosong = dibuatkan kode ringkas otomatis (Tahap 29c, lihat
+  // src/lib/products/sku.ts) — kalau admin memang mengisi sendiri, itu yang
+  // dipakai apa adanya. Dicoba sekali lagi kalau kebetulan bentrok (SKU
+  // otomatis dua proses nyaris bersamaan dapat nomor yang sama).
+  let inserted: { id: string } | null = null;
+  let error: { code?: string; message?: string } | null = null;
+  for (let attempt = 0; attempt < 2 && !inserted; attempt++) {
+    const sku = fields.sku ?? (await generateSku(supabase, fields.division));
+    const result = await supabase.from("products").insert({ ...baseInsert, sku }).select("id").single();
+    if (result.data) {
+      inserted = result.data;
+      error = null;
+    } else {
+      error = result.error;
+      if (fields.sku || !isSkuConflict(result.error)) break;
+    }
+  }
 
   if (error || !inserted) {
     console.error("[products] addProduct gagal:", error?.message);
@@ -181,20 +195,26 @@ export async function updateProduct(id: string, formData: FormData): Promise<Mut
     return { ok: false, error: "Harga dan stok tidak boleh negatif." };
   }
 
-  const { error } = await supabase
-    .from("products")
-    .update({
-      name: fields.name,
-      division: fields.division,
-      category: fields.category,
-      sku: fields.sku,
-      price: fields.price,
-      unit: fields.unit,
-      stock: fields.stock,
-      supplier: fields.supplier,
-      catatan: fields.catatan,
-    })
-    .eq("id", id);
+  const baseUpdate = {
+    name: fields.name,
+    division: fields.division,
+    category: fields.category,
+    price: fields.price,
+    unit: fields.unit,
+    stock: fields.stock,
+    supplier: fields.supplier,
+    catatan: fields.catatan,
+  };
+
+  // Sama seperti `addProduct` — field SKU dikosongkan berarti dibuatkan kode
+  // ringkas otomatis, bukan disimpan kosong (Tahap 29c).
+  let error: { code?: string; message?: string } | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const sku = fields.sku ?? (await generateSku(supabase, fields.division));
+    const result = await supabase.from("products").update({ ...baseUpdate, sku }).eq("id", id);
+    error = result.error;
+    if (!error || fields.sku || !isSkuConflict(result.error)) break;
+  }
 
   if (error) {
     console.error("[products] updateProduct gagal:", error.message);
@@ -412,9 +432,24 @@ export async function bulkImportProducts(rows: ProductImportRow[]): Promise<Impo
     }
 
     if (!productId) {
-      const { data: insertedRow, error } = await supabase.from("products").insert(payload).select("id").single();
-      if (error || !insertedRow) {
-        console.error(`[products] bulkImportProducts insert baris ${index + 2} gagal:`, error?.message);
+      // Kolom SKU kosong di file sumber = dibuatkan kode ringkas otomatis
+      // (Tahap 29c), sama seperti tambah/edit produk manual — dicoba sekali
+      // lagi kalau kebetulan bentrok.
+      let insertedRow: { id: string } | null = null;
+      let insertError: { code?: string; message?: string } | null = null;
+      for (let attempt = 0; attempt < 2 && !insertedRow; attempt++) {
+        const finalSku = sku ?? (await generateSku(supabase, division));
+        const result = await supabase.from("products").insert({ ...payload, sku: finalSku }).select("id").single();
+        if (result.data) {
+          insertedRow = result.data;
+          insertError = null;
+        } else {
+          insertError = result.error;
+          if (sku || !isSkuConflict(result.error)) break;
+        }
+      }
+      if (!insertedRow) {
+        console.error(`[products] bulkImportProducts insert baris ${index + 2} gagal:`, insertError?.message);
         summary.skipped++;
         summary.errors.push(`Baris ${index + 2} (${name}): ${GENERIC_ERROR}`);
         continue;

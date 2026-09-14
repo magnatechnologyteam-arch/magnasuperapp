@@ -327,8 +327,10 @@ export function ImportSourceManager({ sources }: { sources: ProductImportSource[
             candidates.length > 0 && (
               <>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Ditemukan {candidates.length} produk. Centang yang mau disimpan ke Katalog Produk — foto & harga akan
-                  diperbarui otomatis untuk produk yang sudah pernah diimpor dari sumber ini.
+                  Ditemukan {candidates.length} produk. Centang yang mau disimpan ke Katalog Produk — foto, harga,
+                  keterangan & kategori akan disamakan dengan sumbernya untuk produk yang sudah pernah diimpor dari
+                  sumber ini (stok cuma ditandai habis kalau sumbernya jelas bilang habis; SKU dibuatkan otomatis kalau
+                  belum ada).
                 </p>
                 <div className="max-h-80 space-y-1.5 overflow-y-auto pr-1">
                   {candidates.map((c) => (
@@ -347,9 +349,15 @@ export function ImportSourceManager({ sources }: { sources: ProductImportSource[
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">{c.name}</span>
-                        <span className="block text-xs text-zinc-400 dark:text-zinc-500">
+                        <span className="block truncate text-xs text-zinc-400 dark:text-zinc-500">
                           {c.price ? formatRupiah(c.price) : "Harga belum diketahui"} · {c.photoUrls.length} foto
+                          {c.category ? ` · ${c.category}` : ""}
                         </span>
+                        {c.stockStatus === "out_of_stock" && (
+                          <span className="mt-1 inline-block rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
+                            Habis di sumber
+                          </span>
+                        )}
                       </span>
                     </label>
                   ))}

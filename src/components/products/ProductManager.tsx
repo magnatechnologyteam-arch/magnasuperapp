@@ -775,7 +775,7 @@ export function ProductManager({ products }: { products: Product[] }) {
                 id="product-sku"
                 value={form.sku}
                 onChange={(e) => setForm((f) => ({ ...f, sku: e.target.value }))}
-                placeholder="mis. TR-5X10"
+                placeholder="Kosongkan untuk kode otomatis, mis. MR-001"
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-teal-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
               />
             </div>

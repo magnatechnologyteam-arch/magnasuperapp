@@ -3,11 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity/log";
+import { generateSku, isSkuConflict } from "./sku";
 import type {
   ExternalProductCandidate,
+  ExternalStockStatus,
   ImportPreviewResult,
   ImportSourceType,
   ImportSummary,
+  ProductDivision,
   ProductPhotoSource,
 } from "./types";
 
@@ -118,13 +121,30 @@ function parsePriceString(price?: string | number): number | undefined {
   return Number.isFinite(num) ? Math.round(num) : undefined;
 }
 
+/** Meta Graph API (`availability`) & schema.org JSON-LD (`offers.availability`,
+ * biasanya URL seperti "https://schema.org/InStock") sama-sama cuma
+ * menyatakan ADA/TIDAK ADA stok, bukan jumlah — dipetakan ke status
+ * sederhana ini, dipakai `commitImportCandidates` buat tahu kapan aman
+ * menandai stok = 0 (sinyal negatif jelas) tanpa menebak angka pasti kalau
+ * statusnya "tersedia" (lihat komentar di `commitImportCandidates`). */
+function normalizeAvailability(raw?: string | null): ExternalStockStatus {
+  if (!raw) return "unknown";
+  const tail = raw.toLowerCase().split("/").pop() ?? "";
+  if (/out.?of.?stock|discontinued|sold.?out|unavailable/.test(tail)) return "out_of_stock";
+  if (/in.?stock|preorder|pre.?order|backorder|available/.test(tail)) return "in_stock";
+  return "unknown";
+}
+
 type MetaCatalogProduct = {
   id: string;
   retailer_id?: string;
   name?: string;
+  description?: string;
   price?: string;
   image_url?: string;
   additional_image_urls?: string[];
+  availability?: string;
+  category?: string;
 };
 
 async function fetchWhatsappCatalogCandidates(catalogId: string): Promise<ImportPreviewResult> {
@@ -141,7 +161,7 @@ async function fetchWhatsappCatalogCandidates(catalogId: string): Promise<Import
   const warnings: string[] = [];
   let url: string | null =
     `https://graph.facebook.com/${GRAPH_API_VERSION}/${encodeURIComponent(catalogId)}/products` +
-    `?fields=id,retailer_id,name,price,image_url,additional_image_urls&limit=100&access_token=${encodeURIComponent(token)}`;
+    `?fields=id,retailer_id,name,description,price,image_url,additional_image_urls,availability,category&limit=100&access_token=${encodeURIComponent(token)}`;
   let pages = 0;
 
   while (url && pages < MAX_CATALOG_PAGES) {
@@ -165,7 +185,9 @@ async function fetchWhatsappCatalogCandidates(catalogId: string): Promise<Import
         externalRef: item.retailer_id || item.id,
         name: item.name?.trim() || "(tanpa nama)",
         price: parsePriceString(item.price),
-        sku: item.retailer_id || undefined,
+        catatan: item.description?.trim() || undefined,
+        category: item.category?.trim() || undefined,
+        stockStatus: normalizeAvailability(item.availability),
         photoUrls,
       });
     }
@@ -235,12 +257,23 @@ function collectJsonLdProducts(
     const price = parsePriceString(offerObj?.price as string | number | undefined);
     const sku = typeof obj.sku === "string" ? obj.sku : undefined;
     const productUrl = typeof obj.url === "string" ? obj.url : undefined;
+    const catatan = typeof obj.description === "string" ? obj.description.trim() : undefined;
+    const category = typeof obj.category === "string" ? obj.category.trim() : undefined;
+    const availability =
+      typeof offerObj?.availability === "string" ? (offerObj.availability as string) : undefined;
 
     out.push({
+      // `sku` di sini cuma dipakai sebagai bagian dari kunci upsert
+      // (`externalRef`) kalau produk tidak punya URL sendiri — BUKAN
+      // dipasang ke kolom SKU produk (lihat komentar `ExternalProductCandidate`
+      // di types.ts), supaya SKU yang tampil di Katalog Produk selalu format
+      // ringkas buatan aplikasi sendiri.
       externalRef: sku || productUrl || `${pageUrl}#${out.length}`,
       name: obj.name.trim(),
       price,
-      sku,
+      catatan: catatan || undefined,
+      category: category || undefined,
+      stockStatus: normalizeAvailability(availability),
       photoUrls: images.map((i) => absoluteUrl(i, pageUrl)),
     });
   }
@@ -307,11 +340,13 @@ async function fetchWebsiteCandidates(pageUrl: string): Promise<ImportPreviewRes
     const name = matchMeta(html, "og:title") || matchTag(html, "title");
     const image = matchMeta(html, "og:image");
     const price = parsePriceString(matchMeta(html, "product:price:amount"));
+    const description = matchMeta(html, "og:description") || matchMeta(html, "description");
     if (name) {
       candidates.push({
         externalRef: pageUrl,
         name: name.trim(),
         price,
+        catatan: description?.trim() || undefined,
         photoUrls: image ? [absoluteUrl(image, pageUrl)] : [],
       });
       warnings.push(
@@ -375,26 +410,43 @@ export async function commitImportCandidates(
 
   const summary: ImportSummary = { inserted: 0, updated: 0, skipped: 0, errors: [] };
   const photoSource: ProductPhotoSource = type;
+  const NEW_PRODUCT_DIVISION: ProductDivision = "umum";
 
   for (const candidate of toImport) {
     const { data: existing } = await supabase
       .from("products")
-      .select("id")
+      .select("id, sku, division")
       .eq("external_source", type)
       .eq("external_ref", candidate.externalRef)
       .maybeSingle();
 
-    const payload = {
+    // Tahap 29c: "keterangan keseluruhan" produk (bukan cuma nama/harga/foto)
+    // ikut disesuaikan dengan sumbernya tiap sinkron — TAPI hanya field yang
+    // memang berhasil terbaca dari sumber (`candidate.xxx` terisi) yang
+    // ditimpa, supaya sinkron yang kebetulan gagal membaca satu field (mis.
+    // situs sempat ganti struktur) tidak diam-diam mengosongkan data yang
+    // sudah baik di database. Stok TIDAK ditebak jadi angka tertentu (mis.
+    // sumbernya cuma bilang "tersedia", bukan jumlah pasti) — cuma ditimpa
+    // ke 0 kalau sumber jelas-jelas bilang habis/dihentikan, sinyal negatif
+    // yang aman ditindaklanjuti otomatis.
+    const updatePayload: Record<string, unknown> = {
       name: candidate.name,
-      price: candidate.price ?? 0,
-      sku: candidate.sku || null,
       external_source: type,
       external_ref: candidate.externalRef,
     };
+    if (candidate.price !== undefined) updatePayload.price = candidate.price;
+    if (candidate.catatan) updatePayload.catatan = candidate.catatan;
+    if (candidate.category) updatePayload.category = candidate.category;
+    if (candidate.stockStatus === "out_of_stock") updatePayload.stock = 0;
 
     let productId: string;
     if (existing) {
-      const { error } = await supabase.from("products").update(payload).eq("id", existing.id);
+      // Produk lama belum punya SKU ringkas (mis. diimpor sebelum Tahap 29c)
+      // — buatkan sekarang juga, sekalian dibereskan saat disinkron ulang.
+      if (!existing.sku) {
+        updatePayload.sku = await generateSku(supabase, existing.division as ProductDivision);
+      }
+      const { error } = await supabase.from("products").update(updatePayload).eq("id", existing.id);
       if (error) {
         summary.skipped++;
         summary.errors.push(`${candidate.name}: ${GENERIC_ERROR}`);
@@ -403,12 +455,34 @@ export async function commitImportCandidates(
       productId = existing.id;
       summary.updated++;
     } else {
-      const { data: inserted, error } = await supabase
-        .from("products")
-        .insert({ ...payload, division: "umum", category: "", unit: "unit", stock: 0 })
-        .select("id")
-        .single();
-      if (error || !inserted) {
+      const insertPayload = {
+        name: candidate.name,
+        price: candidate.price ?? 0,
+        external_source: type,
+        external_ref: candidate.externalRef,
+        division: NEW_PRODUCT_DIVISION,
+        category: candidate.category || "",
+        unit: "unit",
+        stock: 0,
+        catatan: candidate.catatan || null,
+      };
+
+      let inserted: { id: string } | null = null;
+      let insertError: { code?: string; message?: string } | null = null;
+      for (let attempt = 0; attempt < 2 && !inserted; attempt++) {
+        const sku = await generateSku(supabase, NEW_PRODUCT_DIVISION);
+        const result = await supabase.from("products").insert({ ...insertPayload, sku }).select("id").single();
+        if (result.data) {
+          inserted = result.data;
+          insertError = null;
+        } else {
+          insertError = result.error;
+          if (!isSkuConflict(result.error)) break;
+        }
+      }
+
+      if (!inserted) {
+        console.error("[products] commitImportCandidates insert gagal:", insertError?.message);
         summary.skipped++;
         summary.errors.push(`${candidate.name}: ${GENERIC_ERROR}`);
         continue;
