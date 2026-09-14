@@ -164,6 +164,17 @@ body {
   @apply dark:bg-zinc-950 dark:text-zinc-50;
 }
 
+/* Tahap 34 — jaring pengaman: kalau ada elemen anak yang suatu saat meluber
+   secara horizontal (baru saja ketemu satu kasus di SubNav.tsx, lihat
+   komentar di sana), body TIDAK IKUT bisa discroll ke samping. Elemen yang
+   meluber tetap perlu diperbaiki sendiri (overflow-x:hidden di sini cuma
+   memotong tampilannya, bukan solusi), tapi ini mencegah seluruh halaman
+   ikut kegeser ke kanan cuma gara-gara satu komponen kecil bermasalah. */
+html,
+body {
+  overflow-x: hidden;
+}
+
 /* Latar belakang bertekstur halus (radial glow + dot grid) — dipakai di
    AppShell dan layout auth supaya halaman tidak terasa datar/kosong,
    tanpa perlu gambar/asset tambahan. Sangat subtle, tidak mengganggu

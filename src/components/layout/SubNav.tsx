@@ -18,8 +18,16 @@ export function SubNav({ items, gradient }: { items: SubNavItem[]; gradient: str
   const pathname = usePathname();
 
   return (
-    <nav className="border-b border-black/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-950 md:px-8">
-      <div className="inline-flex gap-1 rounded-full bg-zinc-100 p-1 dark:bg-white/5">
+    // Tahap 34: `overflow-x-auto` di <nav> ini (bukan cuma di div pil-nya)
+    // WAJIB ada — sebelumnya baris pil (7 item di Production/Magnative)
+    // tidak punya kontainer scroll sendiri di layar sempit, jadi malah
+    // meluber ke luar <nav> dan bikin SELURUH HALAMAN bisa discroll ke
+    // samping (banner status & konten lain ikut kegeser/terpotong kalau
+    // pengguna tanpa sengaja scroll horizontal). Sekarang overflow-nya
+    // ditahan DI SINI saja, jadi cuma baris tab ini yang bisa discroll
+    // ke samping, bukan seluruh body.
+    <nav className="overflow-x-auto overscroll-x-contain border-b border-black/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-950 md:px-8">
+      <div className="inline-flex w-max gap-1 rounded-full bg-zinc-100 p-1 dark:bg-white/5">
         {items.map((item) => {
           const isActive = pathname === item.href;
           return (
