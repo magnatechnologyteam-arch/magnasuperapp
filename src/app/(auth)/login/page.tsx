@@ -46,7 +46,7 @@ export default async function LoginPage({
               required
               autoComplete="username"
               placeholder="username Anda"
-              className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pl-10 pr-3.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pl-10 pr-3.5 text-sm text-zinc-900 outline-none ring-[#D4AF37]/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
             />
           </div>
         </div>
@@ -61,7 +61,7 @@ export default async function LoginPage({
         <div className="flex justify-end">
           <Link
             href="/lupa-password"
-            className="text-xs font-semibold text-indigo-600 hover:underline dark:text-indigo-400"
+            className="text-xs font-semibold text-[#B8860B] hover:underline dark:text-[#D4AF37]"
           >
             Lupa password?
           </Link>
@@ -69,7 +69,7 @@ export default async function LoginPage({
 
         <button
           type="submit"
-          className="w-full rounded-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-amber-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99]"
+          className="w-full rounded-full bg-gradient-to-r from-[#D4AF37] via-[#E5484D] to-[#0B7A63] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99]"
         >
           Masuk
         </button>

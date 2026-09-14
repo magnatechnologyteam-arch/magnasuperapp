@@ -29,9 +29,12 @@
 
   /* Aksen brand global (dipakai untuk hal-hal lintas-modul, mis. halaman
      login/register) — modul individual tetap pakai gradient sendiri lewat
-     src/lib/navigation.ts. */
-  --color-brand-500: #6366f1;
-  --color-brand-600: #4f46e5;
+     src/lib/navigation.ts. Tahap 31: diganti dari indigo generik jadi emas
+     resmi Production (senada dengan theme_color PWA & BRAND_GRADIENT di
+     navigation.ts) supaya warna lintas-modul (backdrop, text-shine) ikut
+     senada dengan logo resmi, bukan indigo/pink/cyan yang tidak berkaitan. */
+  --color-brand-500: #d4af37;
+  --color-brand-600: #b8860b;
 
   --animate-fade-up: fade-up 0.5s ease-out both;
   --animate-fade-in: fade-in 0.4s ease-out both;
@@ -113,11 +116,13 @@
    yang memang perlu "titik fokus" (mis. sapaan di Dashboard Hub), bukan
    dipakai berulang di semua judul supaya tetap terasa istimewa. */
 .text-shine {
+  /* Tahap 31: emas -> merah -> teal, tiga warna resmi divisi (bukan lagi
+     indigo/pink/amber generik) — supaya "titik fokus" ini juga senada. */
   background-image: linear-gradient(
     90deg,
     var(--color-brand-500),
-    #ec4899,
-    #f59e0b,
+    #e5484d,
+    #0b7a63,
     var(--color-brand-500)
   );
   background-size: 200% auto;
@@ -173,17 +178,20 @@ body {
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  /* Tahap 31: emas/merah/teal (warna resmi tiga divisi) menggantikan
+     indigo/pink/cyan generik — backdrop ini tampil di HAMPIR SEMUA halaman
+     (AppShell + layout auth), jadi ikut penting untuk kesan warna keseluruhan. */
   background-image:
     radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--color-brand-500) 12%, transparent), transparent 45%),
-    radial-gradient(circle at 100% 0%, color-mix(in srgb, #ec4899 10%, transparent), transparent 40%),
-    radial-gradient(circle at 50% 100%, color-mix(in srgb, #06b6d4 8%, transparent), transparent 45%);
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, #e5484d 10%, transparent), transparent 40%),
+    radial-gradient(circle at 50% 100%, color-mix(in srgb, #0b7a63 8%, transparent), transparent 45%);
 }
 @media (prefers-color-scheme: dark) {
   .app-backdrop::before {
     background-image:
       radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--color-brand-500) 20%, transparent), transparent 45%),
-      radial-gradient(circle at 100% 0%, color-mix(in srgb, #ec4899 16%, transparent), transparent 40%),
-      radial-gradient(circle at 50% 100%, color-mix(in srgb, #06b6d4 14%, transparent), transparent 45%);
+      radial-gradient(circle at 100% 0%, color-mix(in srgb, #e5484d 16%, transparent), transparent 40%),
+      radial-gradient(circle at 50% 100%, color-mix(in srgb, #0b7a63 14%, transparent), transparent 45%);
   }
 }
 

@@ -46,14 +46,14 @@ export default async function ResetPasswordPage({
         </div>
         <button
           type="submit"
-          className="w-full rounded-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-amber-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99]"
+          className="w-full rounded-full bg-gradient-to-r from-[#D4AF37] via-[#E5484D] to-[#0B7A63] px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99]"
         >
           Simpan Password Baru
         </button>
       </form>
 
       <p className="mt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
-        <Link href="/login" className="font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
+        <Link href="/login" className="font-semibold text-[#B8860B] hover:underline dark:text-[#D4AF37]">
           Batal, kembali ke halaman masuk
         </Link>
       </p>

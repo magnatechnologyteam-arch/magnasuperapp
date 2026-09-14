@@ -12,7 +12,7 @@ import {
   UserPlus,
   type LucideIcon,
 } from "lucide-react";
-import { getVisibleModules } from "@/lib/navigation";
+import { getVisibleModules, MODULES } from "@/lib/navigation";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getMagnarentSummary, getMagnativeSummary, getProductionSummary } from "@/lib/dashboard/summary";
 import { QuickStatCard } from "@/components/dashboard/QuickStatCard";
@@ -27,33 +27,34 @@ type StatCard = {
   warn?: boolean;
 };
 
+// Tahap 31: `accent` tidak lagi ditulis manual per aksi (sebelumnya biru/
+// ungu/amber generik, tidak nyambung dengan warna resmi tiap divisi) —
+// sekarang diambil langsung dari `mod.gradient` lewat `moduleId` saat
+// render (lihat pemakaian di bawah), supaya senada dengan logo resmi dan
+// otomatis ikut berubah kalau warna divisi di navigation.ts diubah lagi.
 const QUICK_ACTIONS = [
   {
     label: "Buat Booking Baru",
     href: "/dashboard/magnarent/booking",
     icon: CalendarPlus,
-    accent: "linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)",
     moduleId: "magnarent",
   },
   {
     label: "Tambah Klien",
     href: "/dashboard/magnative/klien",
     icon: UserPlus,
-    accent: "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)",
     moduleId: "magnative",
   },
   {
     label: "Cek Stok Gudang",
     href: "/dashboard/production/material",
     icon: Boxes,
-    accent: "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)",
     moduleId: "production",
   },
   {
     label: "Tracking Proyek Booth",
     href: "/dashboard/production/proyek",
     icon: Hammer,
-    accent: "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)",
     moduleId: "production",
   },
 ];
@@ -90,6 +91,17 @@ export default async function DashboardHubPage() {
     visibleModuleIds.has("production") ? getProductionSummary() : Promise.resolve(null),
   ]);
 
+  // Tahap 31: accent kartu Ringkasan Cepat diambil dari MODULES (warna resmi
+  // tiap divisi), bukan biru/ungu/amber generik seperti sebelumnya — supaya
+  // ikon di sini juga senada dengan logo. Warna kedua per divisi dipetik dari
+  // gradient resmi divisi itu sendiri (bukan warna baru), jadi dua kartu per
+  // divisi tetap terasa beda tapi tetap satu keluarga warna. Untuk "Stok
+  // Menipis", merah tetap dipakai KHUSUS saat stoknya memang menipis (sinyal
+  // peringatan universal) — kalau aman, ikutnya warna emas Production.
+  const magnarentModule = modules.find((m) => m.id === "magnarent");
+  const magnativeModule = modules.find((m) => m.id === "magnative");
+  const productionModule = modules.find((m) => m.id === "production");
+
   const statCards: StatCard[] = [];
   if (magnarentSummary) {
     statCards.push(
@@ -98,7 +110,7 @@ export default async function DashboardHubPage() {
         value: magnarentSummary.bookingAktif,
         hint: "Menunggu & dikonfirmasi",
         icon: CalendarRange,
-        accent: "#3B82F6",
+        accent: magnarentModule?.solid ?? "#E5484D",
         href: "/dashboard/magnarent/booking",
       },
       {
@@ -106,7 +118,8 @@ export default async function DashboardHubPage() {
         value: magnarentSummary.bookingBulanIni,
         hint: "Sejak tanggal 1 bulan ini",
         icon: ClipboardList,
-        accent: "#06B6D4",
+        // Navy dari logo resmi Magnarent (pasangan warna merahnya di gradient)
+        accent: "#262C3A",
         href: "/dashboard/magnarent/booking",
       }
     );
@@ -118,7 +131,7 @@ export default async function DashboardHubPage() {
         value: magnativeSummary.proyekBerjalan,
         hint: "Status: Berjalan",
         icon: Hammer,
-        accent: "#8B5CF6",
+        accent: magnativeModule?.solid ?? "#0B7A63",
         href: "/dashboard/magnative/proyek",
       },
       {
@@ -126,7 +139,8 @@ export default async function DashboardHubPage() {
         value: magnativeSummary.kontenMingguIni,
         hint: "Terjadwal tayang minggu ini",
         icon: CalendarPlus,
-        accent: "#EC4899",
+        // Teal lebih terang, ujung gradient resmi Magnativ
+        accent: "#14B8A6",
         href: "/dashboard/magnative/sosial-media",
       }
     );
@@ -138,7 +152,7 @@ export default async function DashboardHubPage() {
         value: productionSummary.proyekAktif,
         hint: "Desain sampai Instalasi",
         icon: PackageSearch,
-        accent: "#F59E0B",
+        accent: productionModule?.solid ?? "#B8860B",
         href: "/dashboard/production/proyek",
       },
       {
@@ -146,7 +160,7 @@ export default async function DashboardHubPage() {
         value: productionSummary.stokMenipis,
         hint: "Di titik minimum atau di bawahnya",
         icon: AlertTriangle,
-        accent: "#EF4444",
+        accent: productionSummary.stokMenipis > 0 ? "#EF4444" : (productionModule?.solid ?? "#B8860B"),
         href: "/dashboard/production/material",
         warn: productionSummary.stokMenipis > 0,
       }
@@ -156,12 +170,15 @@ export default async function DashboardHubPage() {
   return (
     <div className="p-4 md:p-8">
       <div className="relative mb-8 isolate overflow-hidden rounded-3xl border border-black/5 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900 md:p-8">
+        {/* Tahap 31: blob dekoratif ikut disamakan dengan warna resmi (emas
+            Production & teal Magnativ) — sebelumnya indigo/fuchsia generik
+            yang tidak nyambung sama sekali dengan identitas brand. */}
         <span
-          className="animate-blob pointer-events-none absolute -top-16 left-10 -z-10 h-40 w-40 rounded-full bg-indigo-500/20 blur-3xl"
+          className="animate-blob pointer-events-none absolute -top-16 left-10 -z-10 h-40 w-40 rounded-full bg-[#D4AF37]/20 blur-3xl"
           aria-hidden
         />
         <span
-          className="animate-blob pointer-events-none absolute -right-6 -bottom-16 -z-10 h-40 w-40 rounded-full bg-fuchsia-500/15 blur-3xl"
+          className="animate-blob pointer-events-none absolute -right-6 -bottom-16 -z-10 h-40 w-40 rounded-full bg-[#0B7A63]/15 blur-3xl"
           style={{ animationDelay: "3s" }}
           aria-hidden
         />
@@ -209,6 +226,9 @@ export default async function DashboardHubPage() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {quickActions.map((action) => {
               const Icon = action.icon;
+              const accentGradient =
+                modules.find((m) => m.id === action.moduleId)?.gradient ??
+                MODULES.find((m) => m.id === action.moduleId)?.gradient;
               return (
                 <Link
                   key={action.label}
@@ -217,7 +237,7 @@ export default async function DashboardHubPage() {
                 >
                   <div
                     className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white transition-transform group-hover:scale-110"
-                    style={{ background: action.accent }}
+                    style={{ background: accentGradient }}
                   >
                     <Icon className="h-4.5 w-4.5" />
                   </div>
@@ -248,17 +268,20 @@ export default async function DashboardHubPage() {
                   jadi latar warna resmi divisi + logo resmi-nya sendiri
                   (menggantikan placeholder di public/images/placeholders/) —
                   supaya tiap kartu langsung terasa identitas Magnativ/
-                  Magnarent/Production yang sebenarnya, bukan foto dummy. */}
+                  Magnarent/Production yang sebenarnya, bukan foto dummy.
+                  Logo ditaruh di atas panel putih (bukan langsung di atas
+                  gradient) karena warna logo & warna gradient-nya berasal
+                  dari sumber yang SAMA (Tahap 31) — tanpa panel putih, logo
+                  Magnativ (teal di atas teal) & Production (emas di atas
+                  emas) nyaris tak kelihatan. */}
               <div
                 className="relative flex aspect-[16/9] w-full items-center justify-center overflow-hidden p-8"
                 style={{ background: mod.gradient }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element -- logo lokal statis, aspect ratio beda-beda per divisi */}
-                <img
-                  src={mod.logo}
-                  alt={mod.label}
-                  className="max-h-16 w-auto max-w-[75%] object-contain drop-shadow-sm transition-transform duration-300 group-hover:scale-105"
-                />
+                <div className="flex items-center justify-center rounded-2xl bg-white px-5 py-3.5 shadow-lg transition-transform duration-300 group-hover:scale-105">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- logo lokal statis, aspect ratio beda-beda per divisi */}
+                  <img src={mod.logo} alt={mod.label} className="max-h-12 w-auto max-w-[11rem] object-contain" />
+                </div>
               </div>
               <div className="p-6">
                 <div className="flex items-start justify-between">
