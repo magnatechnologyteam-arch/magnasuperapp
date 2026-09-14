@@ -35,6 +35,36 @@ const INVESTOR_PREFIX = "/dashboard/investor";
  * user_metadata yang bisa diubah lewat `supabase.auth.updateUser()`).
  */
 export async function middleware(request: NextRequest) {
+  // Bug ditemukan lewat auth_logs Supabase: Next.js App Router otomatis
+  // mem-PREFETCH di background untuk tiap <Link> yang masuk viewport —
+  // halaman dgn banyak link (Dashboard Hub, Topbar, sidebar) bisa memicu
+  // PULUHAN request middleware nyaris bersamaan. Tiap request di sini
+  // memanggil supabase.auth.getUser(), yang otomatis me-refresh access
+  // token kalau sudah dekat kedaluwarsa — karena refresh token Supabase
+  // "rotating" (sekali pakai), banyak refresh BERSAMAAN dari request-request
+  // prefetch itu saling tabrakan: satu menang dapat token baru, sisanya
+  // gagal dengan error "Refresh Token Not Found" dan sesi jadi mati/invalid
+  // TANPA aksi eksplisit apa pun dari pengguna. Ini persis yang terlihat di
+  // log produksi (bukan cuma dev lokal) dan cocok dengan laporan "profil/
+  // pencarian/notifikasi tiba-tiba tidak bisa diakses" — sebenarnya BUKAN
+  // fitur itu sendiri yang rusak, tapi seluruh sesi login mati diam-diam
+  // sehingga SEMUA halaman /dashboard/** ikut tidak bisa diakses.
+  //
+  // Perbaikan: request prefetch murni (bukan navigasi sungguhan yang
+  // diklik/diketik pengguna) tidak perlu memicu pengecekan/refresh sesi di
+  // sini sama sekali — biarkan lolos apa adanya. Ini aman karena proteksi
+  // data yang sesungguhnya ada di RLS Postgres (lihat can_access_division
+  // dkk di setiap tabel), bukan di middleware ini — middleware cuma lapisan
+  // redirect UX. Navigasi ASLI (klik link / ketik URL) tetap kena semua
+  // pengecekan session-refresh & divisi di bawah seperti biasa.
+  if (
+    request.headers.get("next-router-prefetch") === "1" ||
+    request.headers.get("purpose") === "prefetch" ||
+    request.headers.get("sec-purpose")?.includes("prefetch")
+  ) {
+    return NextResponse.next();
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
