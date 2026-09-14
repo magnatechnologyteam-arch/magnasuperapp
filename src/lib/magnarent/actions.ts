@@ -86,6 +86,21 @@ export async function addInventoryItem(input: Omit<InventoryItem, "id">): Promis
   }
 
   revalidatePath(MODULE_PATH);
+
+  // Tahap 35: alat/unit baru masuk inventaris ikut memberi tahu tim Magnarent
+  // (+ akses penuh) — sebelumnya cuma booking baru yang memicu notifikasi.
+  const {
+    data: { user: inventoryCreator },
+  } = await supabase.auth.getUser();
+  void notifyDivision(
+    "magnarent",
+    {
+      title: "Alat Baru — Magnarent",
+      body: `${input.name} (${input.category}) ditambahkan ke inventaris, ${input.totalUnit} unit.`,
+      url: "/dashboard/magnarent/inventaris",
+    },
+    inventoryCreator?.id
+  );
   void logActivity({ module: "magnarent", action: "create", entityType: "inventaris", entityLabel: input.name });
   return { ok: true };
 }

@@ -44,8 +44,14 @@ export async function updateProfileInfo(formData: FormData): Promise<ProfileUpda
     if (!file.type.startsWith("image/")) {
       return { ok: false, error: "File foto bukan gambar." };
     }
-    if (file.size > 3 * 1024 * 1024) {
-      return { ok: false, error: "Ukuran foto maksimal 3MB." };
+    // Tahap 35: dinaikkan dari 3MB — sekarang klien SUDAH mengompres foto
+    // sebelum sampai sini (lihat src/lib/shared/image.ts), jadi upload
+    // normal praktis tidak akan pernah mendekati batas ini lagi. Batas 8MB
+    // di sini murni jaring pengaman terakhir (mis. browser sangat lama yang
+    // tidak mendukung kompresi klien), bukan batas yang diharapkan kena
+    // dalam pemakaian sehari-hari.
+    if (file.size > 8 * 1024 * 1024) {
+      return { ok: false, error: "Ukuran foto masih terlalu besar (maksimal 8MB), coba foto lain." };
     }
     const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "jpg";
     // Diawali user.id sebagai "folder" — inilah yang dicek policy storage

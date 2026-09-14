@@ -58,6 +58,23 @@ export async function addMaterial(input: Omit<MaterialItem, "id">): Promise<Muta
   }
   revalidatePath(MODULE_PATH);
   void logActivity({ module: "production", action: "create", entityType: "material", entityLabel: input.name });
+
+  // Tahap 35: material baru ditambahkan (bukan cuma alarm "stok menipis")
+  // juga diberi tahu ke tim Production (+ akses penuh) — item baru masuk
+  // gudang termasuk "input baru" yang ingin diketahui Owner.
+  const {
+    data: { user: materialCreator },
+  } = await supabase.auth.getUser();
+  void notifyDivision(
+    "production",
+    {
+      title: "Material Baru — Production",
+      body: `${input.name} (${input.category}) ditambahkan ke gudang, stok awal ${input.stock}.`,
+      url: "/dashboard/production/material",
+    },
+    materialCreator?.id
+  );
+
   await notifyLowStockIfNeeded(supabase, input.name, input.stock, input.minStock);
   return { ok: true };
 }
@@ -398,6 +415,18 @@ export async function addPurchaseOrder(
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+
+  // Tahap 35: PO baru ikut memberi tahu tim Production (+ akses penuh) —
+  // sebelumnya cuma "stok menipis"/proyek booth baru yang memicu notifikasi.
+  void notifyDivision(
+    "production",
+    {
+      title: "Purchase Order Baru — Production",
+      body: `PO ke ${input.supplierName} — qty ${input.qty}.`,
+      url: "/dashboard/production/pembelian",
+    },
+    user?.id
+  );
   void logActivity({
     module: "production",
     action: "create",

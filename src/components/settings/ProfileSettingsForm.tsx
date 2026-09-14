@@ -5,6 +5,7 @@ import { Camera, Loader2, Trash2, UserRound } from "lucide-react";
 import { updateProfileInfo } from "@/lib/settings/actions";
 import { useToast } from "@/components/ui/ToastProvider";
 import { getAvatarColor, getInitials } from "@/lib/shared/utils";
+import { compressAvatarImage } from "@/lib/shared/image";
 import { cn } from "@/lib/cn";
 import type { Profile } from "@/lib/supabase/types";
 
@@ -20,7 +21,9 @@ export function ProfileSettingsForm({ profile }: { profile: Profile & { email: s
   const [fullName, setFullName] = useState(profile.full_name || "");
   const [avatarUrl, setAvatarUrl] = useState(profile.avatar_url);
   const [preview, setPreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [removeFlag, setRemoveFlag] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,16 +33,38 @@ export function ProfileSettingsForm({ profile }: { profile: Profile & { email: s
     fileInputRef.current?.click();
   }
 
-  function handleFileChange() {
+  /**
+   * Tahap 35: foto langsung DIKOMPRES di sini, sebelum ditampilkan sebagai
+   * preview — bukan cuma saat submit — supaya `selectedFile` yang dipakai
+   * `handleSubmit` sudah pasti versi kecilnya, dan preview yang dilihat
+   * pengguna sama persis dengan yang bakal terupload (lihat komentar di
+   * src/lib/shared/image.ts untuk alasan lengkap perubahan ini). File input
+   * asli (kamera HP dsb.) bisa 5-15MB dan dulu langsung ditolak server
+   * dengan pesan kecil yang gampang tidak kelihatan di HP.
+   */
+  async function handleFileChange() {
     const file = fileInputRef.current?.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("File foto bukan gambar.");
+      return;
+    }
+    setError(null);
     setRemoveFlag(false);
-    setPreview(URL.createObjectURL(file));
+    setIsCompressing(true);
+    try {
+      const compressed = await compressAvatarImage(file);
+      setSelectedFile(compressed);
+      setPreview(URL.createObjectURL(compressed));
+    } finally {
+      setIsCompressing(false);
+    }
   }
 
   function handleRemovePhoto() {
     setRemoveFlag(true);
     setPreview(null);
+    setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -53,8 +78,7 @@ export function ProfileSettingsForm({ profile }: { profile: Profile & { email: s
 
     const formData = new FormData();
     formData.set("fullName", trimmed);
-    const file = fileInputRef.current?.files?.[0];
-    if (file) formData.set("avatar", file);
+    if (selectedFile) formData.set("avatar", selectedFile);
     if (removeFlag) formData.set("removeAvatar", "1");
 
     setError(null);
@@ -63,12 +87,18 @@ export function ProfileSettingsForm({ profile }: { profile: Profile & { email: s
     setIsPending(false);
 
     if (!result.ok) {
+      // Tahap 35: dulu cuma teks kecil di bawah form (gampang tidak
+      // kelihatan/terlewat di layar HP) — sekarang juga muncul sebagai
+      // toast supaya kegagalan simpan (mis. sesi habis, upload gagal)
+      // tidak terasa seperti "diam saja tanpa respons".
       setError(result.error);
+      showToast(result.error, "error");
       return;
     }
 
     setAvatarUrl(result.avatarUrl);
     setPreview(null);
+    setSelectedFile(null);
     setRemoveFlag(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
     showToast("Profil berhasil diperbarui.");
@@ -105,10 +135,11 @@ export function ProfileSettingsForm({ profile }: { profile: Profile & { email: s
           <button
             type="button"
             onClick={handlePickPhoto}
-            className="flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+            disabled={isCompressing}
+            className="flex items-center gap-1.5 rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-70 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
           >
-            <Camera className="h-3.5 w-3.5" />
-            Ganti Foto
+            {isCompressing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+            {isCompressing ? "Memproses foto…" : "Ganti Foto"}
           </button>
           {displayedPhoto && (
             <button
@@ -161,7 +192,7 @@ export function ProfileSettingsForm({ profile }: { profile: Profile & { email: s
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={isPending || isCompressing}
         className="mt-4 flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-fuchsia-500 to-amber-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70"
       >
         {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
