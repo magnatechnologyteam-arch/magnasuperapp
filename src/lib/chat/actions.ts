@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyUsers } from "@/lib/push/notify";
+import { CHAT_ROOM_LABELS, isRoomAllowed, type ChatRoom } from "@/lib/chat/rooms";
 import type { Division } from "@/lib/supabase/types";
 
 /**
@@ -12,16 +13,11 @@ import type { Division } from "@/lib/supabase/types";
  * orang yang di-tag. Struktur ruang (kombinasi "bersama" + per-divisi) dan
  * mekanisme update (polling ringan, bukan Realtime) sudah dikonfirmasi
  * langsung oleh Owner sebelumnya.
+ *
+ * File ini WAJIB hanya berisi Server Action async — lihat komentar panjang
+ * di rooms.ts soal bug build Vercel yang ditemukan gara-gara ini
+ * (konstanta ruang & helper sinkron sudah dipindah ke sana).
  */
-export const CHAT_ROOMS = ["bersama", "magnarent", "magnative", "production"] as const;
-export type ChatRoom = (typeof CHAT_ROOMS)[number];
-
-export const CHAT_ROOM_LABELS: Record<ChatRoom, string> = {
-  bersama: "Bersama",
-  magnarent: "Magnarent",
-  magnative: "Magnativ",
-  production: "Production",
-};
 
 /** Username 3-20 karakter huruf kecil/angka/titik/garis bawah/strip — sama
  * persis dengan USERNAME_PATTERN di admin/actions.ts, dipakai di sini untuk
@@ -66,26 +62,6 @@ function mapRow(row: ChatMessageRow): ChatMessage {
     mentionedUserIds: row.mentioned_user_ids ?? [],
     createdAt: row.created_at,
   };
-}
-
-/**
- * Ruang chat yang boleh dilihat/ditulis satu divisi — "bersama" untuk
- * semua non-investor, ruang per-divisi cuma untuk divisi itu sendiri, dan
- * akses penuh ("all") boleh ikut SEMUA ruang (pola sama seperti
- * can_access_division() di modul lain). Dipakai baik di page.tsx (susun
- * tab ruang) maupun di sini (validasi server sebelum insert/select).
- */
-export function availableChatRooms(division: Division): ChatRoom[] {
-  if (division === "investor") return [];
-  if (division === "all") return [...CHAT_ROOMS];
-  if (division === "magnarent" || division === "magnative" || division === "production") {
-    return ["bersama", division];
-  }
-  return ["bersama"];
-}
-
-function isRoomAllowed(room: string, division: Division): room is ChatRoom {
-  return (CHAT_ROOMS as readonly string[]).includes(room) && availableChatRooms(division).includes(room as ChatRoom);
 }
 
 /**

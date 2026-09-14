@@ -11,14 +11,13 @@ import {
 import { useRouter } from "next/navigation";
 import { Loader2, Send } from "lucide-react";
 import {
-  CHAT_ROOM_LABELS,
   getChatMessages,
   searchTaggableUsers,
   sendChatMessage,
   type ChatMessage,
-  type ChatRoom,
   type TaggableUser,
 } from "@/lib/chat/actions";
+import { CHAT_ROOM_LABELS, type ChatRoom } from "@/lib/chat/rooms";
 import { DIVISION_BADGE_CLASSES, DIVISION_LABELS, type Division } from "@/lib/supabase/types";
 import { cn } from "@/lib/cn";
 import { formatTimeID, getAvatarColor, getInitials } from "@/lib/shared/utils";

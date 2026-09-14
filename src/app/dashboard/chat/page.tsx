@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/server";
-import { availableChatRooms, getChatMessages, type ChatRoom } from "@/lib/chat/actions";
+import { getChatMessages } from "@/lib/chat/actions";
+import { availableChatRooms, type ChatRoom } from "@/lib/chat/rooms";
 import { ChatClient } from "./ChatClient";
 
 /**
