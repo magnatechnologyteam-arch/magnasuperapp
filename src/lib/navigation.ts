@@ -40,8 +40,12 @@ export type ModuleConfig = {
 
 export const HUB_HREF = "/dashboard";
 
+// Tahap 30: disesuaikan dengan logo resmi MagnaSuperApp dari desainer brand
+// (emas -> merah -> teal, diambil dari warna mark & garis di logo itu sendiri)
+// — sebelumnya indigo/pink/amber generik, sekarang senada persis dengan
+// warna yang tampil di ikon aplikasi (lihat `BrandLogo.tsx` & `src/app/icon.png`).
 export const BRAND_GRADIENT =
-  "linear-gradient(135deg, #6366F1 0%, #EC4899 55%, #F59E0B 100%)";
+  "linear-gradient(135deg, #FFC107 0%, #F0173D 50%, #05CBA6 100%)";
 
 export const MODULES: ModuleConfig[] = [
   {

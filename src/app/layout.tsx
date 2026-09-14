@@ -22,8 +22,10 @@ export const metadata: Metadata = {
   // wajib didaftarkan terpisah di sini lewat `apple-touch-icon`.
   manifest: "/manifest.webmanifest",
   icons: {
+    // Tahap 30: `/icon.svg` (mark pinwheel starter) diganti `src/app/icon.png`
+    // (logo resmi, otomatis ke-link Next.js lewat file convention) — baris
+    // "icon" di sini jadi cuma referensi ukuran PWA yang butuh path eksplisit.
     icon: [
-      { url: "/icon.svg", type: "image/svg+xml" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
@@ -37,7 +39,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#6366F1",
+  // Tahap 30: senada dengan logo resmi (lihat BrandLogo.tsx & manifest.ts)
+  themeColor: "#FFC107",
 };
 
 /**
