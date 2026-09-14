@@ -1,15 +1,20 @@
 import { redirect } from "next/navigation";
 import { Boxes } from "lucide-react";
-import { createClient, getCurrentProfile } from "@/lib/supabase/server";
-import { rowToProduct, type ProductRow } from "@/lib/products/mappers";
+import { getCurrentProfile } from "@/lib/supabase/server";
+import { getImportSources, getProductsWithPhotos } from "@/lib/products/data";
+import { ImportSourceManager } from "@/components/products/ImportSourceManager";
 import { ProductManager } from "@/components/products/ProductManager";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 
 /**
- * Katalog Produk terpusat (migrasi 0013) — HANYA akses penuh, pola sama
- * seperti "Piutang & Pendapatan"/"Klien Terpadu"/"Laporan"/"Aktivitas".
- * Data produk dipakai lintas Magnarent/Magnativ/Production, diisi manual,
- * lewat import Excel/CSV di ProductManager, atau lewat API eksternal
+ * Katalog Produk terpusat (migrasi 0013, galeri multi-foto & impor
+ * eksternal di migrasi 0029/Tahap 29) — TULIS (tambah/edit/hapus/impor)
+ * hanya akses penuh, pola sama seperti "Piutang & Pendapatan"/"Klien
+ * Terpadu"/"Laporan"/"Aktivitas". BACA sudah dilebarkan ke semua staf
+ * lewat halaman terpisah `/dashboard/katalog-produk` (read-only). Data
+ * produk dipakai lintas Magnarent/Magnativ/Production, diisi manual,
+ * lewat import Excel/CSV di ProductManager, otomatis dari WhatsApp
+ * Business Catalog/website Magna lainnya, atau lewat API eksternal
  * (src/app/api/products/route.ts) untuk automation seperti n8n.
  */
 export default async function ProdukPage() {
@@ -18,15 +23,7 @@ export default async function ProdukPage() {
     redirect("/dashboard");
   }
 
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .returns<ProductRow[]>();
-
-  if (error) console.error("[products] Gagal memuat katalog produk:", error.message);
-  const products = (data ?? []).map(rowToProduct);
+  const [products, importSources] = await Promise.all([getProductsWithPhotos(), getImportSources()]);
 
   return (
     <div className="p-4 md:p-8">
@@ -49,7 +46,9 @@ export default async function ProdukPage() {
           </h1>
           <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
             Data produk terpusat — Magnarent, Magnativ, dan Production dalam satu tempat, bisa diisi manual, import
-            Excel, atau otomatis lewat API.
+            Excel, atau otomatis lewat API/WhatsApp Catalog/website. Setiap produk bisa punya beberapa foto (klik ikon
+            mata untuk lihat slider-nya) — semua staf yang login juga bisa lihat katalog ini (read-only) di menu
+            "Katalog Produk" masing-masing divisi.
           </p>
         </div>
       </div>
@@ -60,7 +59,10 @@ export default async function ProdukPage() {
             belum butuh toast, jadi provider-nya dipasang di sini saja,
             bukan lewat layout.tsx bersama di /dashboard/admin. */}
         <ToastProvider>
-          <ProductManager products={products} />
+          <div className="space-y-5">
+            <ImportSourceManager sources={importSources} />
+            <ProductManager products={products} />
+          </div>
         </ToastProvider>
       </div>
     </div>

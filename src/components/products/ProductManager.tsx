@@ -3,8 +3,11 @@
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import {
+  ArrowLeft,
+  ArrowRight,
   Boxes,
   Download,
+  Eye,
   FileSpreadsheet,
   ImageIcon,
   Pencil,
@@ -12,6 +15,7 @@ import {
   Search,
   Trash2,
   UploadCloud,
+  X,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -19,7 +23,16 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
-import { addProduct, bulkImportProducts, deleteProduct, updateProduct } from "@/lib/products/actions";
+import { ProductDetailModal } from "./ProductDetailModal";
+import {
+  addProduct,
+  addProductPhotos,
+  bulkImportProducts,
+  deleteProduct,
+  deleteProductPhoto,
+  reorderProductPhotos,
+  updateProduct,
+} from "@/lib/products/actions";
 import type { ImportSummary, Product, ProductDivision, ProductImportRow } from "@/lib/products/types";
 
 const GRADIENT = "linear-gradient(135deg, #14B8A6 0%, #22D3EE 100%)";
@@ -41,7 +54,7 @@ const DIVISION_BADGE: Record<ProductDivision, string> = {
 const ALL_DIVISIONS_FILTER = "Semua Divisi";
 const DIVISION_OPTIONS: ProductDivision[] = ["umum", "magnarent", "magnativ", "production"];
 
-const TEMPLATE_HEADERS = ["Nama", "Divisi", "Kategori", "SKU", "Harga", "Satuan", "Stok", "Supplier", "Catatan"];
+const TEMPLATE_HEADERS = ["Nama", "Divisi", "Kategori", "SKU", "Harga", "Satuan", "Stok", "Supplier", "Catatan", "FotoURL"];
 const TEMPLATE_EXAMPLE = [
   "Tenda Roder 5x10m",
   "magnarent",
@@ -52,6 +65,7 @@ const TEMPLATE_EXAMPLE = [
   "8",
   "CV Mitra Tenda",
   "Contoh baris — boleh dihapus",
+  "https://contoh.com/foto1.jpg;https://contoh.com/foto2.jpg",
 ];
 
 function emptyForm() {
@@ -108,6 +122,10 @@ const HEADER_MAP: Record<string, keyof ProductImportRow> = {
   pemasok: "supplier",
   catatan: "catatan",
   keterangan: "catatan",
+  fotourl: "photoUrls",
+  fotourls: "photoUrls",
+  foto: "photoUrls",
+  gambar: "photoUrls",
 };
 
 function rowsFromParsedSheet(json: Record<string, unknown>[]): ProductImportRow[] {
@@ -128,6 +146,14 @@ function rowsFromParsedSheet(json: Record<string, unknown>[]): ProductImportRow[
       } else if (mapped === "division") {
         const v = String(value).trim().toLowerCase();
         row.division = ["magnarent", "magnativ", "production", "umum"].includes(v) ? v : "umum";
+      } else if (mapped === "photoUrls") {
+        // Satu sel bisa berisi beberapa URL dipisah koma ATAU titik-koma —
+        // dua-duanya diterima supaya tidak mentok kalau URL-nya sendiri
+        // kebetulan mengandung koma di query string.
+        row.photoUrls = String(value)
+          .split(/[,;]+/)
+          .map((u) => u.trim())
+          .filter(Boolean);
       } else {
         row[mapped] = String(value).trim();
       }
@@ -165,14 +191,39 @@ export function ProductManager({ products }: { products: Product[] }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  // Foto produk BARU (belum tersimpan) yang dipilih di modal Tambah — cuma
+  // dikirim saat "Simpan Produk" diklik, karena produknya sendiri belum
+  // punya id sebelum itu. Untuk produk yang SUDAH ada (mode edit), galeri
+  // dikelola langsung lewat `handleAddGalleryFiles`/dst di bawah — tidak
+  // lewat state ini — supaya setiap perubahan foto langsung tersimpan
+  // tanpa menunggu "Simpan Perubahan" (sama seperti pola bukti pembayaran
+  // investor di Tahap 28d).
+  const [newPhotoFiles, setNewPhotoFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [deletePhotoTarget, setDeletePhotoTarget] = useState<{ id: string; productId: string } | null>(null);
+  const [galleryBusy, setGalleryBusy] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const [detailProductId, setDetailProductId] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [divisionFilter, setDivisionFilter] = useState<string>(ALL_DIVISIONS_FILTER);
+
+  // Produk yang sedang diedit/dilihat, diambil ULANG dari prop `products`
+  // (bukan snapshot beku saat modal dibuka) — supaya galeri di modal ikut
+  // ter-refresh begitu `addProductPhotos`/`deleteProductPhoto`/
+  // `reorderProductPhotos` selesai dan Next.js menyegarkan data halaman.
+  const editingProduct = useMemo(
+    () => (editingId ? products.find((p) => p.id === editingId) ?? null : null),
+    [products, editingId]
+  );
+  const detailProduct = useMemo(
+    () => (detailProductId ? products.find((p) => p.id === detailProductId) ?? null : null),
+    [products, detailProductId]
+  );
 
   const [importOpen, setImportOpen] = useState(false);
   const [importRows, setImportRows] = useState<ProductImportRow[] | null>(null);
@@ -199,7 +250,7 @@ export function ProductManager({ products }: { products: Product[] }) {
   function openAddModal() {
     setEditingId(null);
     setForm(emptyForm());
-    setPhotoPreview(null);
+    setNewPhotoFiles([]);
     setError(null);
     setFormOpen(true);
   }
@@ -207,7 +258,7 @@ export function ProductManager({ products }: { products: Product[] }) {
   function openEditModal(p: Product) {
     setEditingId(p.id);
     setForm(productToForm(p));
-    setPhotoPreview(p.photoUrl ?? null);
+    setNewPhotoFiles([]);
     setError(null);
     setFormOpen(true);
   }
@@ -216,14 +267,72 @@ export function ProductManager({ products }: { products: Product[] }) {
     setFormOpen(false);
     setEditingId(null);
     setForm(emptyForm());
-    setPhotoPreview(null);
+    setNewPhotoFiles([]);
     setError(null);
     if (photoInputRef.current) photoInputRef.current.value = "";
+    if (galleryInputRef.current) galleryInputRef.current.value = "";
   }
 
-  function handlePhotoChange() {
-    const file = photoInputRef.current?.files?.[0];
-    setPhotoPreview(file ? URL.createObjectURL(file) : editingId ? photoPreview : null);
+  function handleNewPhotoFilesChange() {
+    const files = Array.from(photoInputRef.current?.files ?? []);
+    setNewPhotoFiles(files);
+  }
+
+  function removeNewPhotoFile(index: number) {
+    setNewPhotoFiles((files) => files.filter((_, i) => i !== index));
+  }
+
+  /** Tambah foto ke galeri produk yang SUDAH ada — langsung tersimpan
+   * begitu file dipilih (bukan menunggu "Simpan Perubahan"), sama seperti
+   * pola bukti pembayaran investor di Tahap 28d. */
+  async function handleAddGalleryFiles() {
+    if (!editingId) return;
+    const files = Array.from(galleryInputRef.current?.files ?? []);
+    if (files.length === 0) return;
+
+    setGalleryBusy(true);
+    const formData = new FormData();
+    files.forEach((f) => formData.append("photos", f));
+    const result = await addProductPhotos(editingId, formData);
+    setGalleryBusy(false);
+    if (galleryInputRef.current) galleryInputRef.current.value = "";
+
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    showToast(files.length > 1 ? `${files.length} foto ditambahkan.` : "Foto ditambahkan.");
+  }
+
+  async function confirmDeleteGalleryPhoto() {
+    if (!deletePhotoTarget) return;
+    setGalleryBusy(true);
+    const result = await deleteProductPhoto(deletePhotoTarget.id);
+    setGalleryBusy(false);
+    setDeletePhotoTarget(null);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    showToast("Foto dihapus.");
+  }
+
+  async function movePhoto(photoIndex: number, direction: -1 | 1) {
+    if (!editingProduct) return;
+    const photos = editingProduct.photos;
+    const targetIndex = photoIndex + direction;
+    if (targetIndex < 0 || targetIndex >= photos.length) return;
+
+    const reordered = [...photos];
+    [reordered[photoIndex], reordered[targetIndex]] = [reordered[targetIndex], reordered[photoIndex]];
+
+    setGalleryBusy(true);
+    const result = await reorderProductPhotos(
+      editingProduct.id,
+      reordered.map((p) => p.id)
+    );
+    setGalleryBusy(false);
+    if (!result.ok) showToast(result.error, "error");
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -244,8 +353,12 @@ export function ProductManager({ products }: { products: Product[] }) {
     formData.set("stock", form.stock);
     formData.set("supplier", form.supplier.trim());
     formData.set("catatan", form.catatan.trim());
-    const file = photoInputRef.current?.files?.[0];
-    if (file) formData.set("photo", file);
+    // Cuma relevan saat TAMBAH produk baru — untuk edit, foto dikelola
+    // langsung lewat galeri (`handleAddGalleryFiles` dst), bukan lewat
+    // submit form ini.
+    if (!editingId) {
+      newPhotoFiles.forEach((f) => formData.append("photos", f));
+    }
 
     setSubmitting(true);
     const result = editingId ? await updateProduct(editingId, formData) : await addProduct(formData);
@@ -441,7 +554,7 @@ export function ProductManager({ products }: { products: Product[] }) {
                     <span className="inline-flex items-center gap-2.5">
                       <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-zinc-100 dark:bg-white/5">
                         {p.photoUrl ? (
-                          <Image src={p.photoUrl} alt={p.name} fill className="object-cover" />
+                          <Image src={p.photoUrl} alt={p.name} fill className="object-cover" unoptimized />
                         ) : (
                           <span className="grid h-full w-full place-items-center text-zinc-300 dark:text-zinc-600">
                             <ImageIcon className="h-4 w-4" />
@@ -466,6 +579,15 @@ export function ProductManager({ products }: { products: Product[] }) {
                   <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">{p.supplier || "—"}</td>
                   <td className="px-5 py-3">
                     <div className="flex justify-end gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setDetailProductId(p.id)}
+                        title="Lihat detail & foto"
+                        aria-label="Lihat detail & foto"
+                        className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => openEditModal(p)}
@@ -501,23 +623,109 @@ export function ProductManager({ products }: { products: Product[] }) {
       {/* Modal tambah/edit produk */}
       <Modal open={formOpen} onClose={closeFormModal} title={editingId ? "Edit Produk" : "Tambah Produk Baru"}>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="product-photo" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Foto (opsional)</label>
-            <input
-              id="product-photo"
-              ref={photoInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handlePhotoChange}
-              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-teal-500/40 file:mr-3 file:rounded-full file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal-700 focus:ring-2 dark:border-white/10 dark:text-white dark:file:bg-teal-500/10 dark:file:text-teal-300"
-            />
-            {photoPreview && (
-              <div className="relative mt-2.5 aspect-video w-full overflow-hidden rounded-xl border border-black/10 dark:border-white/10">
-                {/* eslint-disable-next-line @next/next/no-img-element -- pratinjau lokal dari blob: URL / foto lama, next/image tidak perlu untuk ini */}
-                <img src={photoPreview} alt="Pratinjau foto produk" className="h-full w-full object-cover" />
-              </div>
-            )}
-          </div>
+          {editingId ? (
+            // Mode edit: galeri produk yang SUDAH ada, dikelola langsung
+            // (tambah/hapus/geser urutan tersimpan seketika) — lihat
+            // `handleAddGalleryFiles`/`confirmDeleteGalleryPhoto`/`movePhoto`.
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Galeri Foto {galleryBusy && <span className="font-normal text-zinc-400">(menyimpan…)</span>}
+              </label>
+              {editingProduct && editingProduct.photos.length > 0 && (
+                <div className="mb-2.5 grid grid-cols-4 gap-2 sm:grid-cols-5">
+                  {editingProduct.photos.map((photo, i) => (
+                    <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
+                      <Image src={photo.url} alt="" fill className="object-cover" unoptimized />
+                      {i === 0 && (
+                        <span className="absolute left-1 top-1 rounded bg-teal-600 px-1.5 py-0.5 text-[9px] font-bold text-white">
+                          SAMPUL
+                        </span>
+                      )}
+                      <div className="absolute inset-0 flex items-center justify-center gap-1 bg-black/0 opacity-0 transition-all group-hover:bg-black/50 group-hover:opacity-100">
+                        {i > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => movePhoto(i, -1)}
+                            disabled={galleryBusy}
+                            title="Geser ke kiri"
+                            className="rounded-full bg-white/90 p-1 text-zinc-700 disabled:opacity-50"
+                          >
+                            <ArrowLeft className="h-3 w-3" />
+                          </button>
+                        )}
+                        {i < editingProduct.photos.length - 1 && (
+                          <button
+                            type="button"
+                            onClick={() => movePhoto(i, 1)}
+                            disabled={galleryBusy}
+                            title="Geser ke kanan"
+                            className="rounded-full bg-white/90 p-1 text-zinc-700 disabled:opacity-50"
+                          >
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setDeletePhotoTarget({ id: photo.id, productId: editingProduct.id })}
+                          disabled={galleryBusy}
+                          title="Hapus foto"
+                          className="rounded-full bg-white/90 p-1 text-rose-600 disabled:opacity-50"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <input
+                ref={galleryInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleAddGalleryFiles}
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-teal-500/40 file:mr-3 file:rounded-full file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal-700 focus:ring-2 dark:border-white/10 dark:text-white dark:file:bg-teal-500/10 dark:file:text-teal-300"
+              />
+              <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+                Bisa pilih beberapa file sekaligus — langsung tersimpan begitu dipilih.
+              </p>
+            </div>
+          ) : (
+            // Mode tambah: belum ada id produk, jadi foto BARU ditampung
+            // di state lokal dulu dan baru diunggah bareng saat "Simpan
+            // Produk" diklik (lihat handleSubmit).
+            <div>
+              <label htmlFor="product-photo" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Foto (opsional, bisa lebih dari satu)
+              </label>
+              <input
+                id="product-photo"
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleNewPhotoFilesChange}
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-teal-500/40 file:mr-3 file:rounded-full file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal-700 focus:ring-2 dark:border-white/10 dark:text-white dark:file:bg-teal-500/10 dark:file:text-teal-300"
+              />
+              {newPhotoFiles.length > 0 && (
+                <div className="mt-2.5 grid grid-cols-4 gap-2 sm:grid-cols-5">
+                  {newPhotoFiles.map((file, i) => (
+                    <div key={i} className="group relative aspect-square overflow-hidden rounded-lg border border-black/10 dark:border-white/10">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- pratinjau lokal dari blob: URL, next/image tidak perlu untuk ini */}
+                      <img src={URL.createObjectURL(file)} alt="" className="h-full w-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeNewPhotoFile(i)}
+                        className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <label htmlFor="product-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nama Produk</label>
@@ -688,8 +896,10 @@ export function ProductManager({ products }: { products: Product[] }) {
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-teal-500/40 file:mr-3 file:rounded-full file:border-0 file:bg-teal-50 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-teal-700 focus:ring-2 dark:border-white/10 dark:text-white dark:file:bg-teal-500/10 dark:file:text-teal-300"
             />
             <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
-              Kolom yang dikenali: Nama, Divisi, Kategori, SKU, Harga, Satuan, Stok, Supplier, Catatan (urutan bebas,
-              tidak semua wajib diisi — cuma "Nama" yang wajib).
+              Kolom yang dikenali: Nama, Divisi, Kategori, SKU, Harga, Satuan, Stok, Supplier, Catatan, FotoURL
+              (urutan bebas, tidak semua wajib diisi — cuma "Nama" yang wajib). Kolom FotoURL boleh diisi lebih dari
+              satu link foto, dipisah koma atau titik-koma — foto ditambahkan ke galeri, tidak menggantikan foto yang
+              sudah ada.
             </p>
           </div>
 
@@ -767,6 +977,16 @@ export function ProductManager({ products }: { products: Product[] }) {
           )
         }
       />
+
+      <ConfirmDialog
+        open={deletePhotoTarget !== null}
+        onClose={() => setDeletePhotoTarget(null)}
+        onConfirm={confirmDeleteGalleryPhoto}
+        title="Hapus Foto"
+        description="Yakin hapus foto ini dari galeri produk? Tindakan ini tidak bisa dibatalkan."
+      />
+
+      <ProductDetailModal product={detailProduct} open={detailProduct !== null} onClose={() => setDetailProductId(null)} />
     </div>
   );
 }

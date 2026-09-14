@@ -16,6 +16,11 @@ import {
   Wrench,
 } from "lucide-react";
 
+/** Katalog Produk read-only untuk semua tim (Tahap 29) — satu halaman
+ * bersama di luar prefix modul divisi manapun (lihat src/middleware.ts),
+ * ditautkan dari subnav ketiga modul supaya gampang ditemukan staf. */
+const KATALOG_PRODUK_SUBNAV: SubNavItem = { label: "Katalog Produk", href: "/dashboard/katalog-produk" };
+
 export type SubNavItem = {
   label: string;
   href: string;
@@ -55,6 +60,7 @@ export const MODULES: ModuleConfig[] = [
       { label: "Aset Kreatif", href: "/dashboard/magnative/aset" },
       { label: "Klien", href: "/dashboard/magnative/klien" },
       { label: "Proyek", href: "/dashboard/magnative/proyek" },
+      KATALOG_PRODUK_SUBNAV,
     ],
   },
   {
@@ -72,6 +78,7 @@ export const MODULES: ModuleConfig[] = [
       { label: "Kalender", href: "/dashboard/magnarent/kalender" },
       { label: "Booking", href: "/dashboard/magnarent/booking" },
       { label: "Perputaran", href: "/dashboard/magnarent/utilisasi" },
+      KATALOG_PRODUK_SUBNAV,
     ],
   },
   {
@@ -92,6 +99,7 @@ export const MODULES: ModuleConfig[] = [
       { label: "Jadwal", href: "/dashboard/production/jadwal" },
       { label: "Pemakaian", href: "/dashboard/production/pemakaian" },
       { label: "Pembelian", href: "/dashboard/production/pembelian" },
+      KATALOG_PRODUK_SUBNAV,
     ],
   },
 ];
