@@ -483,12 +483,20 @@ export async function deleteChatMessage(id: string): Promise<{ ok: true } | { ok
 
   if (!existing) return { ok: false, error: "Pesan tidak ditemukan." };
 
+  // Body TIDAK dikosongkan jadi "" — tabel punya CHECK constraint
+  // `chat_messages_body_check` (migrasi 0038): body kosong HANYA boleh kalau
+  // attachment_url masih terisi. Karena baris ini SEKALIGUS mengosongkan
+  // attachment_url (lampiran memang mau dihapus total), body harus tetap
+  // berisi sesuatu supaya constraint itu tidak dilanggar — isi placeholder
+  // ini tidak pernah tampil ke pengguna karena UI (ChatClient.tsx) mengecek
+  // `deletedAt` dulu dan selalu menampilkan "Pesan telah dihapus", bukan
+  // body aslinya.
   const { data, error } = await supabase
     .from("chat_messages")
     .update({
       deleted_at: new Date().toISOString(),
       deleted_by: profile.id,
-      body: "",
+      body: "[dihapus]",
       attachment_url: null,
       attachment_path: null,
       attachment_name: null,
