@@ -59,6 +59,18 @@ export async function notifyDivision(
   after(() => sendPushToDivisions(divisions, payload, excludeUserId));
 }
 
+/**
+ * Sama seperti `notifyDivision`, tapi targetnya daftar USER ID SPESIFIK,
+ * bukan seluruh divisi — dipakai fitur Chat (Tahap 37) untuk notifikasi
+ * @tag: cuma orang yang benar-benar di-tag di pesan yang dikirimi push,
+ * BUKAN seluruh anggota ruang chat. Sengaja TIDAK auto-include divisi
+ * "all" seperti `notifyDivision` — tag itu personal, akses penuh cuma
+ * kebagian kalau memang ikut di-tag.
+ */
+export async function notifyUsers(userIds: string[], payload: NotifyPayload, excludeUserId?: string): Promise<void> {
+  after(() => sendPushToUserIds(userIds, payload, excludeUserId));
+}
+
 async function sendPushToDivisions(
   divisions: Division | Division[],
   payload: NotifyPayload,
@@ -81,6 +93,34 @@ async function sendPushToDivisions(
   }
 
   const userIds = (profiles ?? []).map((p) => p.id as string).filter((id) => id !== excludeUserId);
+  await sendPushToSubscriptionOwners(admin, userIds, payload);
+}
+
+async function sendPushToUserIds(userIds: string[], payload: NotifyPayload, excludeUserId?: string): Promise<void> {
+  try {
+    configureWebPush();
+  } catch (err) {
+    console.error("[push] Konfigurasi VAPID gagal, notifikasi dilewati:", err instanceof Error ? err.message : err);
+    return;
+  }
+
+  const ids = Array.from(new Set(userIds)).filter((id) => id !== excludeUserId);
+  const admin = createAdminClient();
+  await sendPushToSubscriptionOwners(admin, ids, payload);
+}
+
+/**
+ * Inti pengiriman yang dipakai bersama `sendPushToDivisions` &
+ * `sendPushToUserIds` — sebelumnya (sebelum Tahap 37) logika ini cuma ada
+ * sekali tertanam di dalam `sendPushToDivisions`; dipisah supaya kedua jalur
+ * (per-divisi & per-user spesifik) tidak punya dua salinan logika kirim +
+ * bersih-bersih subscription kedaluwarsa yang bisa saling berbeda.
+ */
+async function sendPushToSubscriptionOwners(
+  admin: ReturnType<typeof createAdminClient>,
+  userIds: string[],
+  payload: NotifyPayload
+): Promise<void> {
   if (userIds.length === 0) return;
 
   const { data: subscriptions, error: subsError } = await admin

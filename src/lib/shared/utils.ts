@@ -44,6 +44,26 @@ export function formatDateID(iso: string): string {
   });
 }
 
+/**
+ * Format sebuah momen waktu (timestamp lengkap, mis. `created_at` pesan
+ * chat) jadi jam:menit menurut WIB — dipakai fitur Chat (Tahap 37). Sama
+ * seperti `formatISODateJakarta` di atas, sengaja pakai `timeZone:
+ * "Asia/Jakarta"` eksplisit (bukan `toLocaleTimeString()` polos yang ikut
+ * zona waktu perangkat) supaya hasilnya IDENTIK dijalankan di server
+ * (Vercel, UTC) maupun di browser klien — server component (page.tsx) chat
+ * merender pesan awal, lalu client component (ChatClient.tsx) meng-hydrate
+ * & merender pesan susulan hasil polling; kalau formatnya beda antara
+ * render server & client, React akan melempar peringatan hydration
+ * mismatch.
+ */
+export function formatTimeID(iso: string): string {
+  return new Intl.DateTimeFormat("id-ID", {
+    timeZone: "Asia/Jakarta",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
 export function formatRupiah(amount: number): string {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",

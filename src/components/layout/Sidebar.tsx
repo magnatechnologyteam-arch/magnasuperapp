@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
-import { ADMIN_LINKS, DIVISION_REPORT_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
+import { ADMIN_LINKS, CHAT_LINK, DIVISION_REPORT_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
@@ -30,6 +30,10 @@ export function Sidebar({ division }: { division?: Division | null }) {
   const isInvestor = division === "investor";
   const isOperationalDivision =
     division === "magnarent" || division === "magnative" || division === "production";
+  // Chat (Tahap 37) — terbuka untuk semua divisi KECUALI investor.
+  const showChat = division !== "investor";
+  const isChatActive = pathname === CHAT_LINK.href || pathname.startsWith(`${CHAT_LINK.href}/`);
+  const ChatIcon = CHAT_LINK.icon;
 
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r border-black/5 bg-white dark:border-white/10 dark:bg-zinc-950 md:flex">
@@ -93,6 +97,27 @@ export function Sidebar({ division }: { division?: Division | null }) {
             })}
           </ul>
         </div>
+        )}
+
+        {showChat && (
+          <div className="pt-5">
+            <ul className="space-y-1">
+              <li>
+                <Link
+                  href={CHAT_LINK.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                    isChatActive
+                      ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                      : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+                  )}
+                >
+                  <ChatIcon className="h-[18px] w-[18px]" />
+                  {t(CHAT_LINK.label)}
+                </Link>
+              </li>
+            </ul>
+          </div>
         )}
 
         {isInvestor && (

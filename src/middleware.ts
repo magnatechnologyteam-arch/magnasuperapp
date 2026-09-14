@@ -27,6 +27,11 @@ const ADMIN_ROUTES_OPEN_TO_DIVISIONS = ["/dashboard/admin/laporan", "/dashboard/
 // Pengajuan Modal, lihat migrasi 0019) — akses penuh ("all") boleh ikut
 // mengintip halaman ini, staf divisi manapun TIDAK.
 const INVESTOR_PREFIX = "/dashboard/investor";
+// Tahap 37: fitur Chat — terbuka untuk SEMUA divisi KECUALI investor (tidak
+// ada prefix modul yang otomatis menutupinya, jadi perlu dicek eksplisit di
+// sini seperti INVESTOR_PREFIX di atas). Lapis kedua/ketiga ada di
+// page.tsx (redirect) & RLS chat_messages (migrasi 0038).
+const CHAT_PREFIX = "/dashboard/chat";
 
 /**
  * Middleware ini punya tiga tugas dalam satu jalan:
@@ -130,8 +135,10 @@ export async function middleware(request: NextRequest) {
       );
       const isInvestorRoute = pathname === INVESTOR_PREFIX || pathname.startsWith(`${INVESTOR_PREFIX}/`);
       const isBlockedInvestorRoute = isInvestorRoute && division !== "investor";
+      const isChatRoute = pathname === CHAT_PREFIX || pathname.startsWith(`${CHAT_PREFIX}/`);
+      const isBlockedChatRoute = isChatRoute && division === "investor";
 
-      if (isAdminRoute || isBlockedModule || isBlockedInvestorRoute) {
+      if (isAdminRoute || isBlockedModule || isBlockedInvestorRoute || isBlockedChatRoute) {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
         url.search = "";

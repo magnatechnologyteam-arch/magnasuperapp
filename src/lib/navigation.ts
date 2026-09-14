@@ -10,6 +10,7 @@ import {
   History,
   LayoutGrid,
   Megaphone,
+  MessageSquare,
   Receipt,
   Users,
   Users2,
@@ -163,6 +164,22 @@ export const DIVISION_REPORT_LINKS: QuickLink[] = [
   { href: "/dashboard/admin/laporan", label: "Laporan", shortLabel: "Laporan", icon: BarChart3 },
   { href: "/dashboard/admin/aktivitas", label: "Aktivitas", shortLabel: "Aktivitas", icon: History },
 ];
+
+/**
+ * Tautan Chat (Tahap 37) — SATU-SATUNYA halaman ini, tapi tetap dibungkus
+ * `QuickLink` (bukan string href polos) supaya Sidebar/MobileNav bisa
+ * render dengan komponen tombol yang sama seperti tautan admin/laporan
+ * lainnya. Terbuka untuk SEMUA divisi KECUALI investor (lihat isInvestor
+ * di Sidebar.tsx/MobileNav.tsx) — investor juga diblokir middleware.ts &
+ * RLS chat_messages (migrasi 0038), ini cuma soal tautannya ditampilkan
+ * atau tidak.
+ */
+export const CHAT_LINK: QuickLink = {
+  href: "/dashboard/chat",
+  label: "Chat",
+  shortLabel: "Chat",
+  icon: MessageSquare,
+};
 
 /** Tautan halaman Investor (division "investor" atau "all") — sama alasannya dengan ADMIN_LINKS di atas. */
 export const INVESTOR_LINKS: QuickLink[] = [

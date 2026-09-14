@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGrid, Menu, X } from "lucide-react";
-import { ADMIN_LINKS, DIVISION_REPORT_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
+import { ADMIN_LINKS, CHAT_LINK, DIVISION_REPORT_LINKS, HUB_HREF, INVESTOR_LINKS, getVisibleModules } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
@@ -27,6 +27,8 @@ export function MobileNav({ division }: { division?: Division | null }) {
   const isInvestor = division === "investor";
   const isOperationalDivision =
     division === "magnarent" || division === "magnative" || division === "production";
+  // Chat (Tahap 37) — terbuka untuk semua divisi KECUALI investor.
+  const showChat = division !== "investor";
 
   // Laci otomatis tertutup begitu pindah halaman (klik salah satu link di
   // dalamnya) — tidak perlu onClick manual di tiap Link.
@@ -60,10 +62,19 @@ export function MobileNav({ division }: { division?: Division | null }) {
   const activeReportLink = isOperationalDivision
     ? DIVISION_REPORT_LINKS.find((link) => pathname === link.href || pathname.startsWith(`${link.href}/`))
     : undefined;
+  const isChatActive = showChat && (pathname === CHAT_LINK.href || pathname.startsWith(`${CHAT_LINK.href}/`));
+  const ChatIcon = CHAT_LINK.icon;
   const currentLabel =
     pathname === HUB_HREF
       ? t("Dashboard Hub")
-      : t(activeModule?.label ?? activeAdminLink?.label ?? activeInvestorLink?.label ?? activeReportLink?.label ?? "Menu");
+      : t(
+          activeModule?.label ??
+            activeAdminLink?.label ??
+            activeInvestorLink?.label ??
+            activeReportLink?.label ??
+            (isChatActive ? CHAT_LINK.label : undefined) ??
+            "Menu"
+        );
 
   function linkClass(isActive: boolean, activeClass: string) {
     return cn(
@@ -149,6 +160,25 @@ export function MobileNav({ division }: { division?: Division | null }) {
                         </li>
                       );
                     })}
+                  </ul>
+                </div>
+              )}
+
+              {showChat && (
+                <div className="pt-5">
+                  <ul className="space-y-1">
+                    <li>
+                      <Link
+                        href={CHAT_LINK.href}
+                        className={linkClass(
+                          isChatActive,
+                          "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                        )}
+                      >
+                        <ChatIcon className="h-[18px] w-[18px]" />
+                        {t(CHAT_LINK.label)}
+                      </Link>
+                    </li>
                   </ul>
                 </div>
               )}
