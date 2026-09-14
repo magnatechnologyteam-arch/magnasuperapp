@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { getCurrentProfile } from "@/lib/supabase/server";
+import { PwaInstallPrompt } from "@/components/layout/PwaInstallPrompt";
 import { cn } from "@/lib/cn";
 import "./globals.css";
 
@@ -86,7 +87,19 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           />
         )}
       </head>
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        {children}
+        {/*
+          Tahap 36: dipasang di sini (root layout, BUKAN di AppShell) supaya
+          aktif di SEMUA halaman termasuk /login & /register — sebelumnya
+          cuma ada di dalam AppShell (setelah login), jadi orang yang buka
+          link tapi belum/tidak login (mis. dites teman) tidak pernah bisa
+          diinstal sama sekali karena Service Worker (syarat wajib prompt
+          Chrome) juga belum sempat terdaftar. Lihat komentar panjang di
+          PwaInstallPrompt.tsx.
+        */}
+        <PwaInstallPrompt />
+      </body>
     </html>
   );
 }

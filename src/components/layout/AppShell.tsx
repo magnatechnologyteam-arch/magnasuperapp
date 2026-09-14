@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
 import { Topbar } from "./Topbar";
-import { PwaInstallPrompt } from "./PwaInstallPrompt";
 import { MaintenanceBanner } from "./MaintenanceBanner";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
 import type { Profile } from "@/lib/supabase/types";
@@ -13,6 +12,12 @@ import type { MaintenanceStatus } from "@/lib/system-status/actions";
  * Sidebar + Topbar + MobileNav ada di luar {children}, sehingga tetap
  * persist di seluruh pohon rute — pindah modul atau pindah sub-halaman
  * apa pun tidak pernah membongkar ulang shell ini.
+ *
+ * Tahap 36: `<PwaInstallPrompt />` SUDAH TIDAK dipasang di sini lagi — pindah
+ * ke root layout (src/app/layout.tsx) supaya banner install (dan pendaftaran
+ * Service Worker yang jadi syaratnya) aktif juga di halaman publik
+ * (/login, /register), bukan cuma setelah pengguna berhasil login. Lihat
+ * komentar panjang di PwaInstallPrompt.tsx untuk kronologi bug-nya.
  *
  * `user` diambil server-side (Supabase session + profiles table) di
  * dashboard/layout.tsx dan diteruskan turun ke Topbar untuk ditampilkan.
@@ -36,7 +41,6 @@ export function AppShell({
           {maintenance?.active && <MaintenanceBanner message={maintenance.message} />}
           <main className="flex-1">{children}</main>
         </div>
-        <PwaInstallPrompt />
       </div>
     </LocaleProvider>
   );

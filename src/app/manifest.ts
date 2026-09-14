@@ -11,11 +11,15 @@ import type { MetadataRoute } from "next";
  * tampil seperti aplikasi asli (tanpa address bar) begitu dibuka dari
  * ikon di layar utama — bukan cuma tab browser biasa.
  *
- * Service Worker (`/sw.js`) sendiri SUDAH terdaftar otomatis di setiap
- * halaman dashboard lewat `PushNotificationBell` (lihat
- * src/components/push/PushNotificationBell.tsx, efek "check" di baris
- * ~46) — jadi syarat instalabilitas (manifest + service worker) sudah
- * terpenuhi tanpa perubahan tambahan di sana.
+ * Service Worker (`/sw.js`) sendiri didaftarkan otomatis di SEMUA halaman
+ * (termasuk /login, sebelum orang sempat login) lewat `PwaInstallPrompt`
+ * yang dipasang di root layout (src/app/layout.tsx) — Tahap 36: sebelumnya
+ * cuma terdaftar lewat `PushNotificationBell` di dalam dashboard (setelah
+ * login), sehingga orang yang belum login tidak pernah memenuhi syarat
+ * instalabilitas sama sekali. `PushNotificationBell` (lihat
+ * src/components/push/usePushSubscription.ts) tetap ikut memanggil
+ * `.register()` juga saat dashboard dibuka — aman, dipanggil berkali-kali
+ * dengan script/scope sama cuma mengembalikan registrasi yang sudah ada.
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
