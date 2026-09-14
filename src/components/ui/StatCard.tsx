@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 export type StatCardRatio = {
   value: number;
@@ -92,7 +93,11 @@ export function StatCard({
 
   return (
     <div
-      className="animate-fade-up group relative overflow-hidden rounded-2xl border border-black/5 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10 dark:bg-zinc-900"
+      className={cn(
+        "animate-fade-up group relative overflow-hidden rounded-2xl border p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg",
+        GLASS_SURFACE,
+        GLASS_BORDER
+      )}
       style={{ animationDelay: `${delayMs}ms` }}
     >
       <span className="absolute inset-x-0 top-0 h-1" style={{ background: accent }} aria-hidden />

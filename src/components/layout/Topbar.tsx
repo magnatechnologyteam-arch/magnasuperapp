@@ -6,6 +6,7 @@ import { ChevronDown, User as UserIcon } from "lucide-react";
 import { signOut } from "@/lib/supabase/actions";
 import { formatDisplayName } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_PILL, GLASS_SURFACE_STRONG } from "@/lib/glass";
 import { DIVISION_LABELS, type Profile } from "@/lib/supabase/types";
 import { PushNotificationBell } from "@/components/push/PushNotificationBell";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
@@ -51,7 +52,13 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
   const email = user?.email ?? "";
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-black/5 bg-white/80 px-4 backdrop-blur-md dark:border-white/10 dark:bg-zinc-950/80 md:px-8">
+    <header
+      className={cn(
+        "sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b px-4 md:px-8",
+        GLASS_SURFACE_STRONG,
+        GLASS_BORDER
+      )}
+    >
       <p className="text-sm font-semibold text-zinc-900 dark:text-white">
         {t(greeting)}, {displayName.split(" ")[0]}
       </p>
@@ -63,7 +70,10 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-2.5 rounded-full border border-black/5 bg-white py-1.5 pl-1.5 pr-3 shadow-sm transition-colors hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-900 dark:hover:bg-white/5"
+          className={cn(
+            "flex items-center gap-2.5 rounded-full border py-1.5 pl-1.5 pr-3 shadow-sm transition-colors hover:bg-white/70 dark:hover:bg-white/10",
+            GLASS_PILL
+          )}
         >
           <span className="relative shrink-0">
             {user?.avatar_url ? (
@@ -90,8 +100,14 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
         </button>
 
         {open && (
-          <div className="animate-fade-in absolute right-0 top-full mt-2 w-60 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-xl shadow-black/10 dark:border-white/10 dark:bg-zinc-900">
-            <div className="border-b border-black/5 px-4 py-3 dark:border-white/10">
+          <div
+            className={cn(
+              "animate-fade-in absolute right-0 top-full mt-2 w-60 overflow-hidden rounded-2xl border",
+              GLASS_SURFACE_STRONG,
+              GLASS_BORDER
+            )}
+          >
+            <div className={cn("border-b px-4 py-3", GLASS_BORDER)}>
               <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{displayName}</p>
               <p className="truncate text-xs text-zinc-400 dark:text-zinc-500">
                 {user?.username ? `@${user.username}` : email}
@@ -110,7 +126,10 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
             <form action={signOut}>
               <button
                 type="submit"
-                className="flex w-full items-center border-t border-black/5 px-4 py-3 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 dark:border-white/10 dark:text-rose-400 dark:hover:bg-rose-500/10"
+                className={cn(
+                  "flex w-full items-center border-t px-4 py-3 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-500/10",
+                  GLASS_BORDER
+                )}
               >
                 {t("Keluar")}
               </button>

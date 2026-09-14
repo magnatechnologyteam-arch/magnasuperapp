@@ -64,6 +64,14 @@ export function formatTimeID(iso: string): string {
   }).format(new Date(iso));
 }
 
+/** Format ukuran file (byte) jadi "KB"/"MB" yang gampang dibaca — dipakai
+ * lampiran chat (Tahap 38) untuk menampilkan ukuran file di chip lampiran. */
+export function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function formatRupiah(amount: number): string {
   return new Intl.NumberFormat("id-ID", {
     style: "currency",

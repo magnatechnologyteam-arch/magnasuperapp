@@ -7,6 +7,7 @@ import { ADMIN_LINKS, CHAT_LINK, DIVISION_REPORT_LINKS, HUB_HREF, INVESTOR_LINKS
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE_STRONG } from "@/lib/glass";
 import type { Division } from "@/lib/supabase/types";
 
 /**
@@ -36,8 +37,14 @@ export function Sidebar({ division }: { division?: Division | null }) {
   const ChatIcon = CHAT_LINK.icon;
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-black/5 bg-white dark:border-white/10 dark:bg-zinc-950 md:flex">
-      <div className="flex h-16 items-center gap-3 border-b border-black/5 px-5 dark:border-white/10">
+    <aside
+      className={cn(
+        "relative z-20 hidden w-64 shrink-0 flex-col border-r md:flex",
+        GLASS_SURFACE_STRONG,
+        GLASS_BORDER
+      )}
+    >
+      <div className={cn("flex h-16 items-center gap-3 border-b px-5", GLASS_BORDER)}>
         <BrandLogo size={36} />
         <span className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">
           MagnaSuperApp

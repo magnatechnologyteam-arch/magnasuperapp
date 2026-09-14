@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 import { formatRupiah } from "@/lib/shared/utils";
 
 /** Hitung naik dari 0 ke `target` setiap kartu ini muncul — kartu Ringkasan
@@ -65,7 +66,11 @@ export function QuickStatCard({
   return (
     <Link
       href={href}
-      className="animate-fade-up group relative flex items-center gap-3 overflow-hidden rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-zinc-900"
+      className={cn(
+        "animate-fade-up group relative flex items-center gap-3 overflow-hidden rounded-2xl border p-4 transition-all hover:-translate-y-0.5 hover:shadow-md",
+        GLASS_SURFACE,
+        GLASS_BORDER
+      )}
       style={{ animationDelay: `${delayMs}ms` }}
     >
       {warn && <span className="absolute inset-0 animate-pulse bg-rose-500/5" aria-hidden />}

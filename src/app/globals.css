@@ -191,18 +191,24 @@ body {
   pointer-events: none;
   /* Tahap 31: emas/merah/teal (warna resmi tiga divisi) menggantikan
      indigo/pink/cyan generik — backdrop ini tampil di HAMPIR SEMUA halaman
-     (AppShell + layout auth), jadi ikut penting untuk kesan warna keseluruhan. */
+     (AppShell + layout auth), jadi ikut penting untuk kesan warna keseluruhan.
+     Tahap 38: opacity dinaikkan (12/10/8% -> 22/18/16%) dan ditambah satu
+     radial di tengah-kiri — chrome kaca baru (Sidebar/Topbar/dsb, lihat
+     src/lib/glass.ts) butuh warna yang cukup HIDUP di baliknya supaya efek
+     blur/vibrancy-nya kelihatan; backdrop lama terlalu pudar untuk itu. */
   background-image:
-    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--color-brand-500) 12%, transparent), transparent 45%),
-    radial-gradient(circle at 100% 0%, color-mix(in srgb, #e5484d 10%, transparent), transparent 40%),
-    radial-gradient(circle at 50% 100%, color-mix(in srgb, #0b7a63 8%, transparent), transparent 45%);
+    radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--color-brand-500) 22%, transparent), transparent 45%),
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, #e5484d 18%, transparent), transparent 40%),
+    radial-gradient(circle at 0% 55%, color-mix(in srgb, #0b7a63 14%, transparent), transparent 40%),
+    radial-gradient(circle at 50% 100%, color-mix(in srgb, #0b7a63 16%, transparent), transparent 45%);
 }
 @media (prefers-color-scheme: dark) {
   .app-backdrop::before {
     background-image:
-      radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--color-brand-500) 20%, transparent), transparent 45%),
-      radial-gradient(circle at 100% 0%, color-mix(in srgb, #e5484d 16%, transparent), transparent 40%),
-      radial-gradient(circle at 50% 100%, color-mix(in srgb, #0b7a63 14%, transparent), transparent 45%);
+      radial-gradient(circle at 12% -10%, color-mix(in srgb, var(--color-brand-500) 30%, transparent), transparent 45%),
+      radial-gradient(circle at 100% 0%, color-mix(in srgb, #e5484d 24%, transparent), transparent 40%),
+      radial-gradient(circle at 0% 55%, color-mix(in srgb, #0b7a63 20%, transparent), transparent 40%),
+      radial-gradient(circle at 50% 100%, color-mix(in srgb, #0b7a63 22%, transparent), transparent 45%);
   }
 }
 

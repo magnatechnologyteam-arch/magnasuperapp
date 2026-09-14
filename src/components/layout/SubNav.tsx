@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { SubNavItem } from "@/lib/navigation";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_PILL, GLASS_SURFACE } from "@/lib/glass";
 
 /**
  * Sub-navigation bar generik yang dipakai ulang oleh setiap layout modul
@@ -26,8 +27,14 @@ export function SubNav({ items, gradient }: { items: SubNavItem[]; gradient: str
     // pengguna tanpa sengaja scroll horizontal). Sekarang overflow-nya
     // ditahan DI SINI saja, jadi cuma baris tab ini yang bisa discroll
     // ke samping, bukan seluruh body.
-    <nav className="overflow-x-auto overscroll-x-contain border-b border-black/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-950 md:px-8">
-      <div className="inline-flex w-max gap-1 rounded-full bg-zinc-100 p-1 dark:bg-white/5">
+    <nav
+      className={cn(
+        "overflow-x-auto overscroll-x-contain border-b px-4 py-3 md:px-8",
+        GLASS_SURFACE,
+        GLASS_BORDER
+      )}
+    >
+      <div className={cn("inline-flex w-max gap-1 rounded-full border p-1", GLASS_PILL)}>
         {items.map((item) => {
           const isActive = pathname === item.href;
           return (

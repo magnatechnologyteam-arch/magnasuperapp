@@ -8,6 +8,7 @@ import { ADMIN_LINKS, CHAT_LINK, DIVISION_REPORT_LINKS, HUB_HREF, INVESTOR_LINKS
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE_STRONG } from "@/lib/glass";
 import type { Division } from "@/lib/supabase/types";
 
 /**
@@ -87,7 +88,13 @@ export function MobileNav({ division }: { division?: Division | null }) {
 
   return (
     <>
-      <div className="flex items-center gap-3 border-b border-black/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-950 md:hidden">
+      <div
+        className={cn(
+          "relative z-20 flex items-center gap-3 border-b px-4 py-3 md:hidden",
+          GLASS_SURFACE_STRONG,
+          GLASS_BORDER
+        )}
+      >
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -106,8 +113,13 @@ export function MobileNav({ division }: { division?: Division | null }) {
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
-          <aside className="animate-slide-in-left absolute inset-y-0 left-0 flex w-72 max-w-[80vw] flex-col bg-white shadow-xl dark:bg-zinc-950">
-            <div className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-black/5 px-5 dark:border-white/10">
+          <aside
+            className={cn(
+              "animate-slide-in-left absolute inset-y-0 left-0 flex w-72 max-w-[80vw] flex-col",
+              GLASS_SURFACE_STRONG
+            )}
+          >
+            <div className={cn("flex h-16 shrink-0 items-center justify-between gap-3 border-b px-5", GLASS_BORDER)}>
               <div className="flex items-center gap-3">
                 <BrandLogo size={32} />
                 <span className="text-[15px] font-bold tracking-tight text-zinc-900 dark:text-white">

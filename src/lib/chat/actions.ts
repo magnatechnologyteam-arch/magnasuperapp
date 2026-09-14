@@ -26,6 +26,30 @@ import type { Division } from "@/lib/supabase/types";
 const MENTION_PATTERN = /@([a-z0-9._-]{3,20})/gi;
 const MAX_BODY_LENGTH = 2000;
 
+// Lampiran chat (Tahap 38) — scope tipe file sudah dikonfirmasi Owner: "Foto
+// + dokumen umum". Batas 10MB/file dipilih sendiri (belum ada permintaan
+// spesifik Owner soal ukuran) — cukup longgar untuk foto kamera HP modern
+// tanpa bikin bucket Storage membengkak cepat.
+const ATTACHMENT_BUCKET = "chat-attachments";
+const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const ALLOWED_ATTACHMENT_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+]);
+
+export type ChatAttachment = {
+  url: string;
+  name: string;
+  type: string;
+  size: number;
+};
+
 export type ChatMessage = {
   id: string;
   room: ChatRoom;
@@ -35,6 +59,7 @@ export type ChatMessage = {
   senderDivision: Division;
   body: string;
   mentionedUserIds: string[];
+  attachment: ChatAttachment | null;
   createdAt: string;
 };
 
@@ -47,6 +72,10 @@ type ChatMessageRow = {
   sender_division: string;
   body: string;
   mentioned_user_ids: string[] | null;
+  attachment_url: string | null;
+  attachment_name: string | null;
+  attachment_type: string | null;
+  attachment_size: number | null;
   created_at: string;
 };
 
@@ -60,6 +89,10 @@ function mapRow(row: ChatMessageRow): ChatMessage {
     senderDivision: row.sender_division as Division,
     body: row.body,
     mentionedUserIds: row.mentioned_user_ids ?? [],
+    attachment:
+      row.attachment_url && row.attachment_name && row.attachment_type && row.attachment_size != null
+        ? { url: row.attachment_url, name: row.attachment_name, type: row.attachment_type, size: row.attachment_size }
+        : null,
     createdAt: row.created_at,
   };
 }
@@ -89,7 +122,11 @@ function extractMentionedUsernames(body: string): string[] {
 
 export type SendChatMessageResult = { ok: true; message: ChatMessage } | { ok: false; error: string };
 
-export async function sendChatMessage(room: ChatRoom, rawBody: string): Promise<SendChatMessageResult> {
+export async function sendChatMessage(
+  room: ChatRoom,
+  rawBody: string,
+  fileFormData?: FormData
+): Promise<SendChatMessageResult> {
   const profile = await requireChatAccess();
 
   if (!isRoomAllowed(room, profile.division)) {
@@ -97,11 +134,24 @@ export async function sendChatMessage(room: ChatRoom, rawBody: string): Promise<
   }
 
   const body = rawBody.trim();
-  if (!body) {
+  const file = fileFormData?.get("file");
+  const hasFile = file instanceof File && file.size > 0;
+
+  // Body boleh kosong HANYA kalau ada lampiran (mis. kirim foto tanpa
+  // keterangan) — sama seperti constraint chat_messages_body_check di
+  // migrasi 0039.
+  if (!body && !hasFile) {
     return { ok: false, error: "Pesan tidak boleh kosong." };
   }
   if (body.length > MAX_BODY_LENGTH) {
     return { ok: false, error: `Pesan maksimal ${MAX_BODY_LENGTH} karakter.` };
+  }
+
+  if (hasFile && file.size > MAX_ATTACHMENT_BYTES) {
+    return { ok: false, error: "Ukuran file maksimal 10MB." };
+  }
+  if (hasFile && !ALLOWED_ATTACHMENT_TYPES.has(file.type)) {
+    return { ok: false, error: "Tipe file tidak didukung. Gunakan foto (JPG/PNG/WebP) atau dokumen (PDF/Word/Excel)." };
   }
 
   // Cari @username yang disebut di pesan lalu cocokkan ke tabel profiles —
@@ -131,6 +181,41 @@ export async function sendChatMessage(room: ChatRoom, rawBody: string): Promise<
   }
 
   const supabase = await createClient();
+
+  // Upload dulu (kalau ada lampiran), baru insert baris pesan — sama seperti
+  // pola bukti pembayaran di src/lib/capital-requests/actions.ts. Kalau
+  // insert-nya gagal setelah upload berhasil, file yang sudah terlanjur
+  // ter-upload dibersihkan lagi (lihat blok cleanup di bawah) supaya tidak
+  // jadi file yatim menumpuk di bucket.
+  let attachmentUrl: string | null = null;
+  let attachmentPath: string | null = null;
+  let attachmentName: string | null = null;
+  let attachmentType: string | null = null;
+  let attachmentSize: number | null = null;
+
+  if (hasFile) {
+    const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "bin";
+    const storagePath = `${room}/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(ATTACHMENT_BUCKET)
+      .upload(storagePath, file, { contentType: file.type || undefined });
+
+    if (uploadError) {
+      console.error("[chat] Upload lampiran gagal:", uploadError.message);
+      return { ok: false, error: "Gagal mengunggah lampiran, coba lagi." };
+    }
+
+    const {
+      data: { publicUrl },
+    } = supabase.storage.from(ATTACHMENT_BUCKET).getPublicUrl(storagePath);
+
+    attachmentUrl = publicUrl;
+    attachmentPath = storagePath;
+    attachmentName = file.name;
+    attachmentType = file.type;
+    attachmentSize = file.size;
+  }
+
   const { data, error } = await supabase
     .from("chat_messages")
     .insert({
@@ -141,22 +226,38 @@ export async function sendChatMessage(room: ChatRoom, rawBody: string): Promise<
       sender_division: profile.division,
       body,
       mentioned_user_ids: mentionedUserIds,
+      attachment_url: attachmentUrl,
+      attachment_path: attachmentPath,
+      attachment_name: attachmentName,
+      attachment_type: attachmentType,
+      attachment_size: attachmentSize,
     })
     .select("*")
     .single();
 
   if (error || !data) {
     console.error("[chat] sendChatMessage gagal:", error?.message);
+    if (attachmentPath) {
+      await supabase.storage.from(ATTACHMENT_BUCKET).remove([attachmentPath]);
+    }
     return { ok: false, error: "Gagal mengirim pesan, coba lagi." };
   }
 
   if (mentionedUserIds.length > 0) {
     const roomLabel = CHAT_ROOM_LABELS[room];
+    // Pesan lampiran-saja (body kosong) tidak punya teks untuk dicuplik di
+    // notifikasi — tampilkan keterangan generik supaya notifikasinya tetap
+    // masuk akal alih-alih kosong melompong.
+    const notifyBody = body
+      ? body.length > 120
+        ? `${body.slice(0, 117)}...`
+        : body
+      : `📎 Mengirim lampiran: ${attachmentName}`;
     void notifyUsers(
       mentionedUserIds,
       {
         title: `${profile.full_name} menyebut Anda di chat ${roomLabel}`,
-        body: body.length > 120 ? `${body.slice(0, 117)}...` : body,
+        body: notifyBody,
         url: `/dashboard/chat?room=${room}`,
       },
       profile.id

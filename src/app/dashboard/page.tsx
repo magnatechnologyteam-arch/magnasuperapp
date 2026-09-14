@@ -16,6 +16,8 @@ import { getVisibleModules, MODULES } from "@/lib/navigation";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getMagnarentSummary, getMagnativeSummary, getProductionSummary } from "@/lib/dashboard/summary";
 import { QuickStatCard } from "@/components/dashboard/QuickStatCard";
+import { GLASS_BORDER, GLASS_SURFACE, GLASS_SURFACE_STRONG } from "@/lib/glass";
+import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n/dictionary";
 
 type StatCard = {
@@ -171,7 +173,13 @@ export default async function DashboardHubPage() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="relative mb-8 isolate overflow-hidden rounded-3xl border border-black/5 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900 md:p-8">
+      <div
+        className={cn(
+          "relative mb-8 isolate overflow-hidden rounded-3xl border p-6 md:p-8",
+          GLASS_SURFACE_STRONG,
+          GLASS_BORDER
+        )}
+      >
         {/* Tahap 31: blob dekoratif ikut disamakan dengan warna resmi (emas
             Production & teal Magnativ) — sebelumnya indigo/fuchsia generik
             yang tidak nyambung sama sekali dengan identitas brand. */}
@@ -235,7 +243,11 @@ export default async function DashboardHubPage() {
                 <Link
                   key={action.label}
                   href={action.href}
-                  className="group flex items-center gap-3 rounded-2xl border border-black/5 bg-white p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-white/10 dark:bg-zinc-900"
+                  className={cn(
+                    "group flex items-center gap-3 rounded-2xl border p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-md",
+                    GLASS_SURFACE,
+                    GLASS_BORDER
+                  )}
                 >
                   <div
                     className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white transition-transform group-hover:scale-110"
@@ -263,7 +275,10 @@ export default async function DashboardHubPage() {
             <Link
               key={mod.id}
               href={mod.href}
-              className="group animate-fade-up relative overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-zinc-900"
+              className={cn(
+                "group animate-fade-up relative overflow-hidden rounded-2xl border transition-all hover:-translate-y-1 hover:shadow-xl",
+                GLASS_BORDER
+              )}
               style={{ animationDelay: `${120 + i * 60}ms` }}
             >
               {/* Tahap 31: sampul kartu modul diganti dari foto stok generik
@@ -295,7 +310,7 @@ export default async function DashboardHubPage() {
                   />
                 </div>
               </div>
-              <div className="p-6">
+              <div className={cn("border-t p-6", GLASS_SURFACE, GLASS_BORDER)}>
                 <div className="flex items-start justify-between">
                   <div>
                     <h2 className="text-base font-bold text-zinc-900 dark:text-white">{t(locale, mod.label)}</h2>
