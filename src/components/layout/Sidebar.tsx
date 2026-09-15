@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import { LayoutGrid } from "lucide-react";
 import {
   ADMIN_LINKS,
-  AI_ASSISTANT_LINK,
   CHAT_LINK,
   DIVISION_REPORT_LINKS,
   HUB_HREF,
@@ -43,12 +42,6 @@ export function Sidebar({ division }: { division?: Division | null }) {
   const showChat = division !== "investor";
   const isChatActive = pathname === CHAT_LINK.href || pathname.startsWith(`${CHAT_LINK.href}/`);
   const ChatIcon = CHAT_LINK.icon;
-  // Asisten AI (Tahap 42) — SENGAJA TANPA kondisi divisi apa pun (tidak
-  // seperti showChat di atas) karena harus tampil untuk SEMUA divisi
-  // termasuk investor.
-  const isAiAssistantActive =
-    pathname === AI_ASSISTANT_LINK.href || pathname.startsWith(`${AI_ASSISTANT_LINK.href}/`);
-  const AiAssistantIcon = AI_ASSISTANT_LINK.icon;
 
   return (
     <aside
@@ -140,25 +133,6 @@ export function Sidebar({ division }: { division?: Division | null }) {
             </ul>
           </div>
         )}
-
-        <div className="pt-5">
-          <ul className="space-y-1">
-            <li>
-              <Link
-                href={AI_ASSISTANT_LINK.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
-                  isAiAssistantActive
-                    ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-                    : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
-                )}
-              >
-                <AiAssistantIcon className="h-[18px] w-[18px]" />
-                {t(AI_ASSISTANT_LINK.label)}
-              </Link>
-            </li>
-          </ul>
-        </div>
 
         {isInvestor && (
           <div className="pt-5">
