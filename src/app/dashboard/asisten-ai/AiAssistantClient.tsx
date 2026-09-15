@@ -65,26 +65,45 @@ export function AiAssistantClient({
     ]);
     setComposerText("");
 
-    const result = await sendAiMessage(text);
-    setSending(false);
+    // PENTING: dibungkus try/catch — kalau tidak, pemanggilan Server Action
+    // yang gagal di level TRANSPORT (bukan error terkendali yang dikembalikan
+    // actions.ts sebagai {ok:false}), misalnya function di Vercel kena
+    // batas waktu eksekusi lalu dimatikan paksa sebelum sempat membalas,
+    // akan membuat `await` di bawah ini melempar exception. Tanpa try/catch,
+    // `setSending(false)` di baris berikutnya tidak akan pernah kejalan —
+    // tombol kirim & indikator "sedang mengetik" akan macet SELAMANYA,
+    // persis gejala yang dilaporkan Owner (mengetik terus, pesan tidak
+    // pernah muncul, tidak ada error apa pun ditampilkan).
+    try {
+      const result = await sendAiMessage(text);
 
-    if (!result.ok) {
-      setError(result.error);
-      // Pesan user TETAP tersimpan di server oleh sendAiMessage (lihat
-      // komentar di actions.ts) walau balasan AI gagal — cukup ganti versi
-      // optimistis di sini dengan penanda "gagal", jangan copot & kembalikan
-      // ke komposer (itu akan membuatnya seolah belum terkirim & memicu
-      // pengiriman dobel kalau user kirim ulang).
+      if (!result.ok) {
+        setError(result.error);
+        // Pesan user TETAP tersimpan di server oleh sendAiMessage (lihat
+        // komentar di actions.ts) walau balasan AI gagal — cukup ganti versi
+        // optimistis di sini dengan penanda "gagal", jangan copot & kembalikan
+        // ke komposer (itu akan membuatnya seolah belum terkirim & memicu
+        // pengiriman dobel kalau user kirim ulang).
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+        setComposerText(text);
+        return;
+      }
+
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== optimisticId),
+        result.userMessage,
+        result.assistantMessage,
+      ]);
+    } catch (err) {
+      console.error("[ai-assistant] Pemanggilan Server Action gagal total:", err);
+      setError(
+        "Asisten AI tidak merespons (kemungkinan server terlalu lama membalas). Pesan Anda mungkin sudah tersimpan — coba refresh halaman, lalu kirim ulang kalau belum muncul."
+      );
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
       setComposerText(text);
-      return;
+    } finally {
+      setSending(false);
     }
-
-    setMessages((prev) => [
-      ...prev.filter((m) => m.id !== optimisticId),
-      result.userMessage,
-      result.assistantMessage,
-    ]);
   }
 
   async function handleClear() {

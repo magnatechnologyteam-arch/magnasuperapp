@@ -4,6 +4,16 @@ import { getCurrentProfile } from "@/lib/supabase/server";
 import { getAiMessages } from "@/lib/ai-assistant/actions";
 import { AiAssistantClient } from "./AiAssistantClient";
 
+// Panggilan ke 9Router (lihat sendAiMessage, src/lib/ai-assistant/actions.ts)
+// diberi timeout 45 detik di level kode kita — tapi tanpa baris ini, fungsi
+// Vercel yang menjalankan Server Action dari rute ini bisa saja dimatikan
+// paksa oleh Vercel SENDIRI lebih cepat dari itu (default Vercel jauh lebih
+// pendek dari 45 detik), sebelum sempat membalas dengan pesan error yang
+// jelas. Digenapkan ke 60 detik (sedikit di atas timeout kita sendiri)
+// supaya kode kita yang sempat "mengendalikan" kegagalan lebih dulu, bukan
+// Vercel yang mematikannya secara tiba-tiba.
+export const maxDuration = 60;
+
 /**
  * Halaman Asisten AI (Tahap 42) — permintaan Owner: chatbot AI pribadi di
  * dalam aplikasi, dijalankan lewat 9Router (gateway AI self-hosted milik
