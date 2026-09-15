@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { LayoutGrid, Menu, X } from "lucide-react";
 import {
   ADMIN_LINKS,
-  AI_ASSISTANT_LINK,
   CHAT_LINK,
   DIVISION_REPORT_LINKS,
   HUB_HREF,
@@ -73,12 +72,6 @@ export function MobileNav({ division }: { division?: Division | null }) {
     : undefined;
   const isChatActive = showChat && (pathname === CHAT_LINK.href || pathname.startsWith(`${CHAT_LINK.href}/`));
   const ChatIcon = CHAT_LINK.icon;
-  // Asisten AI (Tahap 42) — SENGAJA TANPA kondisi divisi apa pun (tidak
-  // seperti showChat di atas) karena harus tampil untuk SEMUA divisi
-  // termasuk investor.
-  const isAiAssistantActive =
-    pathname === AI_ASSISTANT_LINK.href || pathname.startsWith(`${AI_ASSISTANT_LINK.href}/`);
-  const AiAssistantIcon = AI_ASSISTANT_LINK.icon;
   const currentLabel =
     pathname === HUB_HREF
       ? t("Dashboard Hub")
@@ -88,7 +81,6 @@ export function MobileNav({ division }: { division?: Division | null }) {
             activeInvestorLink?.label ??
             activeReportLink?.label ??
             (isChatActive ? CHAT_LINK.label : undefined) ??
-            (isAiAssistantActive ? AI_ASSISTANT_LINK.label : undefined) ??
             "Menu"
         );
 
@@ -209,23 +201,6 @@ export function MobileNav({ division }: { division?: Division | null }) {
                   </ul>
                 </div>
               )}
-
-              <div className="pt-5">
-                <ul className="space-y-1">
-                  <li>
-                    <Link
-                      href={AI_ASSISTANT_LINK.href}
-                      className={linkClass(
-                        isAiAssistantActive,
-                        "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-                      )}
-                    >
-                      <AiAssistantIcon className="h-[18px] w-[18px]" />
-                      {t(AI_ASSISTANT_LINK.label)}
-                    </Link>
-                  </li>
-                </ul>
-              </div>
 
               {isInvestor && (
                 <div className="pt-5">
