@@ -3,6 +3,7 @@ import {
   ArrowLeftRight,
   BarChart3,
   BellRing,
+  Bot,
   Boxes,
   CalendarClock,
   Factory,
@@ -179,6 +180,20 @@ export const CHAT_LINK: QuickLink = {
   label: "Chat",
   shortLabel: "Chat",
   icon: MessageSquare,
+};
+
+/**
+ * Tautan Asisten AI (Tahap 42) — permintaan Owner: chatbot AI pribadi
+ * (dijalankan lewat 9Router), SENGAJA terbuka untuk SEMUA divisi TERMASUK
+ * INVESTOR (beda dari CHAT_LINK di atas yang mengecualikan investor) —
+ * makanya dirender TANPA kondisi divisi apa pun di Sidebar.tsx/MobileNav.tsx,
+ * tidak seperti CHAT_LINK yang dibungkus `showChat`.
+ */
+export const AI_ASSISTANT_LINK: QuickLink = {
+  href: "/dashboard/asisten-ai",
+  label: "Asisten AI",
+  shortLabel: "Asisten AI",
+  icon: Bot,
 };
 
 /** Tautan halaman Investor (division "investor" atau "all") — sama alasannya dengan ADMIN_LINKS di atas. */
