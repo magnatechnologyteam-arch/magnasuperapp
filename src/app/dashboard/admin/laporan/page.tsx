@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { BarChart3 } from "lucide-react";
 import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import { DonutChart } from "@/components/ui/DonutChart";
+import { ExportButton, type ExportSheet } from "@/components/ui/ExportButton";
 import { LaporanStatGrid } from "./LaporanStatGrid";
 import { rowToBooking, rowToInventory, type BookingRow, type InventoryRow } from "@/lib/magnarent/mappers";
 import { calculateBookingTotal } from "@/lib/magnarent/pricing";
@@ -110,25 +111,94 @@ export default async function LaporanPage() {
       ? "Gambaran Magnarent, Magnativ & Production dalam satu halaman."
       : `Gambaran performa ${DIVISION_LABEL[scope]} — cuma bisa dilihat, bukan diedit.`;
 
+  // Data buat tombol Ekspor Excel (Tahap 43) — satu sheet Ringkasan + satu
+  // sheet detail per modul yang sedang ditampilkan (ikut `scope`, jadi staf
+  // divisi cuma bisa ekspor data divisinya sendiri, konsisten dengan yang
+  // mereka lihat di layar / dibatasi RLS).
+  const exportSheets: ExportSheet[] = [
+    {
+      name: "Ringkasan",
+      rows: [
+        {
+          Cakupan: title,
+          ...(wantMagnarent ? { "Nilai Booking Dikonfirmasi (Rp)": nilaiTerkonfirmasi } : {}),
+          ...(wantMagnarent ? { "Nilai Booking Menunggu (Rp)": nilaiMenunggu } : {}),
+          ...(wantMagnative ? { "Budget Proyek Aktif Magnativ (Rp)": budgetProyekAktif } : {}),
+          ...(wantProduction ? { "Budget Booth Aktif (Rp)": budgetBoothAktif } : {}),
+          ...(wantProduction ? { "Nilai Stok Gudang (Rp)": nilaiStokGudang } : {}),
+          ...(scope === "all" ? { "Total Potensi (Rp)": totalPotensi } : {}),
+        },
+      ],
+    },
+    ...(wantMagnarent
+      ? [
+          {
+            name: "Booking Magnarent",
+            rows: bookings.map((b) => ({
+              Klien: b.namaKlien,
+              Barang: inventory.find((i) => i.id === b.itemId)?.name ?? "—",
+              "Tanggal Mulai": b.tanggalMulai,
+              "Tanggal Selesai": b.tanggalSelesai,
+              Status: b.status,
+              "Status Pembayaran": b.statusPembayaran,
+              "Nilai (Rp)": calculateBookingTotal(b, inventory.find((i) => i.id === b.itemId)),
+            })),
+          },
+        ]
+      : []),
+    ...(wantMagnative
+      ? [
+          {
+            name: "Proyek Magnativ",
+            rows: projects.map((p) => ({
+              Proyek: p.name,
+              Status: p.status,
+              "Tanggal Mulai": p.tanggalMulai,
+              "Budget (Rp)": p.budget,
+              "Status Pembayaran": p.statusPembayaran,
+            })),
+          },
+        ]
+      : []),
+    ...(wantProduction
+      ? [
+          {
+            name: "Proyek Booth Production",
+            rows: boothProjects.map((p) => ({
+              Klien: p.namaKlien,
+              Proyek: p.name,
+              Tahap: p.status,
+              "Tanggal Mulai": p.tanggalMulai,
+              "Budget (Rp)": p.budget,
+              "Status Pembayaran": p.statusPembayaran,
+            })),
+          },
+        ]
+      : []),
+  ];
+
   return (
     <div className="p-4 md:p-8">
-      <div className="animate-fade-up flex items-start gap-4">
-        <div className="relative shrink-0">
-          <span
-            className="absolute -inset-1.5 animate-pulse rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 opacity-30 blur-lg"
-            aria-hidden
-          />
-          <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-sm">
-            <BarChart3 className="h-6 w-6" />
+      <div className="animate-fade-up flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="relative shrink-0">
+            <span
+              className="absolute -inset-1.5 animate-pulse rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 opacity-30 blur-lg"
+              aria-hidden
+            />
+            <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-indigo-500 to-fuchsia-500 text-white shadow-sm">
+              <BarChart3 className="h-6 w-6" />
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-400">
+              {scope === "all" ? "Admin" : DIVISION_LABEL[scope]}
+            </p>
+            <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white">{title}</h1>
+            <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{description}</p>
           </div>
         </div>
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-500 dark:text-indigo-400">
-            {scope === "all" ? "Admin" : DIVISION_LABEL[scope]}
-          </p>
-          <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white">{title}</h1>
-          <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">{description}</p>
-        </div>
+        <ExportButton sheets={exportSheets} fileName={`laporan-${scope}`} label="Ekspor Excel" />
       </div>
 
       <div className="mt-6">

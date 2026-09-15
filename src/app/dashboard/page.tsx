@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   AlertTriangle,
   ArrowUpRight,
+  Bell,
   Boxes,
   CalendarPlus,
   CalendarRange,
@@ -14,7 +15,7 @@ import {
 } from "lucide-react";
 import { getVisibleModules, MODULES } from "@/lib/navigation";
 import { getCurrentProfile } from "@/lib/supabase/server";
-import { getMagnarentSummary, getMagnativeSummary, getProductionSummary } from "@/lib/dashboard/summary";
+import { getMagnarentSummary, getMagnativeSummary, getProductionSummary, getReminders } from "@/lib/dashboard/summary";
 import { QuickStatCard } from "@/components/dashboard/QuickStatCard";
 import { GLASS_BORDER, GLASS_SURFACE, GLASS_SURFACE_STRONG } from "@/lib/glass";
 import { cn } from "@/lib/cn";
@@ -89,10 +90,11 @@ export default async function DashboardHubPage() {
   const visibleModuleIds = new Set(modules.map((mod) => mod.id));
   const quickActions = QUICK_ACTIONS.filter((action) => visibleModuleIds.has(action.moduleId));
 
-  const [magnarentSummary, magnativeSummary, productionSummary] = await Promise.all([
+  const [magnarentSummary, magnativeSummary, productionSummary, reminders] = await Promise.all([
     visibleModuleIds.has("magnarent") ? getMagnarentSummary() : Promise.resolve(null),
     visibleModuleIds.has("magnative") ? getMagnativeSummary() : Promise.resolve(null),
     visibleModuleIds.has("production") ? getProductionSummary() : Promise.resolve(null),
+    getReminders(visibleModuleIds),
   ]);
 
   // Tahap 31: accent kartu Ringkasan Cepat diambil dari MODULES (warna resmi
@@ -201,6 +203,40 @@ export default async function DashboardHubPage() {
           </p>
         </div>
       </div>
+
+      {reminders.length > 0 && (
+        <div className="mb-8 animate-fade-up">
+          <p className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+            <Bell className="h-3.5 w-3.5" />
+            {t(locale, "Pengingat")} ({reminders.length})
+          </p>
+          <div className={cn("divide-y overflow-hidden rounded-2xl border", GLASS_SURFACE, GLASS_BORDER)}>
+            {reminders.map((r) => (
+              <Link
+                key={r.id}
+                href={r.href}
+                className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-black/[0.02] dark:hover:bg-white/[0.03] sm:px-5"
+              >
+                <span
+                  className={cn(
+                    "grid h-8 w-8 shrink-0 place-items-center rounded-full",
+                    r.severity === "danger"
+                      ? "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                      : "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  )}
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-semibold text-zinc-800 dark:text-zinc-100">{t(locale, r.title)}</p>
+                  <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{r.detail}</p>
+                </div>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-zinc-300 dark:text-zinc-600" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {statCards.length > 0 && (
         <div className="mb-8" style={{ animationDelay: "30ms" }}>

@@ -7,12 +7,65 @@ import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportButton, type ExportSheet } from "@/components/ui/ExportButton";
 import { formatDateID, formatRupiah, todayISO } from "@/lib/shared/utils";
 import type { MaterialConflict } from "@/lib/production/availability";
 import { cn } from "@/lib/cn";
-import type { BoothProject, BoothStatus, PaymentStatus } from "@/lib/production/types";
+import type { BoothProject, BoothStatus, MaterialItem, PaymentStatus } from "@/lib/production/types";
 import { BOOTH_STATUS_STYLES as STATUS_STYLES, PAYMENT_STYLES } from "@/lib/status-styles";
 import { ProjectDetailModal } from "./ProjectDetailModal";
+
+/**
+ * Template Proposal/BOQ (Tahap 43 — permintaan Owner) — TIDAK dibuat sebagai
+ * form isian terpisah yang datanya dobel: BOQ (Bill of Quantities) di sini
+ * disusun OTOMATIS dari data yang sudah dicatat tim untuk proyek itu
+ * (daftar `materials` yang sudah diisi lewat form Tambah/Edit Proyek +
+ * harga satuan dari master Material). Owner tinggal klik "Ekspor
+ * Proposal/BOQ" — tidak perlu isi ulang apa-apa, langsung dapat spreadsheet
+ * siap kirim ke klien.
+ */
+function buildBoqSheets(project: BoothProject, materials: MaterialItem[]): ExportSheet[] {
+  const materialLines = project.materials.map((usage, i) => {
+    const material = materials.find((m) => m.id === usage.materialId);
+    const unitPrice = material?.pricePerUnit ?? 0;
+    return {
+      No: i + 1,
+      Material: material?.name ?? "(alat sudah dihapus)",
+      Kategori: material?.category ?? "—",
+      Qty: usage.qty,
+      Satuan: material?.unit ?? "—",
+      "Harga Satuan (Rp)": unitPrice,
+      "Subtotal (Rp)": unitPrice * usage.qty,
+    };
+  });
+  const totalMaterial = materialLines.reduce((sum, l) => sum + l["Subtotal (Rp)"], 0);
+  const sisaJasaLain = Math.max(project.budget - totalMaterial, 0);
+
+  return [
+    {
+      name: "Proposal",
+      rows: [
+        {
+          "Nama Proyek": project.name,
+          Klien: project.namaKlien,
+          "Lokasi Acara": project.lokasiAcara,
+          "Tanggal Instalasi": project.tanggalInstalasi,
+          Tahap: project.status,
+          "Total Penawaran (Rp)": project.budget,
+        },
+      ],
+    },
+    {
+      name: "BOQ Material",
+      rows: [
+        ...materialLines,
+        { No: "", Material: "TOTAL MATERIAL", Kategori: "", Qty: "", Satuan: "", "Harga Satuan (Rp)": "", "Subtotal (Rp)": totalMaterial },
+        { No: "", Material: "Jasa, Tenaga Kerja & Lainnya (estimasi)", Kategori: "", Qty: "", Satuan: "", "Harga Satuan (Rp)": "", "Subtotal (Rp)": sisaJasaLain },
+        { No: "", Material: "TOTAL PENAWARAN", Kategori: "", Qty: "", Satuan: "", "Harga Satuan (Rp)": "", "Subtotal (Rp)": project.budget },
+      ],
+    },
+  ];
+}
 
 const GRADIENT = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
 
@@ -396,6 +449,12 @@ export function BoothProjectManager() {
                       >
                         <FolderOpen className="h-4 w-4" />
                       </button>
+                      <ExportButton
+                        sheets={buildBoqSheets(p, materials)}
+                        fileName={`proposal-boq-${p.name.toLowerCase().replace(/\s+/g, "-")}`}
+                        iconOnly
+                        title="Ekspor Proposal/BOQ"
+                      />
                       <button
                         type="button"
                         onClick={() => openEditModal(p)}

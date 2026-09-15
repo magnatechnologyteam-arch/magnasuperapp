@@ -9,6 +9,7 @@ import { formatRupiah } from "@/lib/shared/utils";
 import { KeuanganStatGrid } from "./KeuanganStatGrid";
 import { PiutangTable, type PiutangModule, type PiutangRow, type PiutangStatus } from "@/components/admin/PiutangTable";
 import { TrendBarChart } from "@/components/ui/TrendBarChart";
+import { ExportButton, type ExportSheet } from "@/components/ui/ExportButton";
 
 type PaymentStatusLike = "Belum Bayar" | "DP" | "Lunas";
 
@@ -163,29 +164,69 @@ export default async function KeuanganPage() {
       .reduce((sum, e) => sum + e.value, 0),
   }));
 
+  const MODULE_LABEL: Record<PiutangModule, string> = {
+    magnarent: "Magnarent",
+    magnative: "Magnativ",
+    production: "Production",
+  };
+
+  // Data buat tombol Ekspor Excel (Tahap 43) — Ringkasan KPI + daftar
+  // lengkap piutang (baris yang sama dengan yang dirender PiutangTable di
+  // bawah, jadi angkanya pasti konsisten dengan yang terlihat di layar).
+  const exportSheets: ExportSheet[] = [
+    {
+      name: "Ringkasan",
+      rows: [
+        {
+          "Total Piutang (Rp)": totalPiutang,
+          "Total Pendapatan 6 Bulan (Rp)": totalPendapatan,
+          "Piutang Magnarent (Rp)": piutangPerModul("magnarent"),
+          "Piutang Magnativ (Rp)": piutangPerModul("magnative"),
+          "Piutang Production (Rp)": piutangPerModul("production"),
+          "Jumlah Tertunda": belumLunas.length,
+        },
+      ],
+    },
+    {
+      name: "Daftar Piutang",
+      rows: piutangRows.map((r) => ({
+        Modul: MODULE_LABEL[r.module],
+        Item: r.label,
+        Klien: r.namaKlien,
+        Tanggal: r.date,
+        "Sisa Tagihan (Rp)": r.value,
+        "DP Diterima (Rp)": r.dpAmount,
+        Status: r.statusPembayaran,
+      })),
+    },
+  ];
+
   return (
     <div className="p-4 md:p-8">
-      <div className="animate-fade-up flex items-start gap-4">
-        <div className="relative shrink-0">
-          <span
-            className="absolute -inset-1.5 animate-pulse rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 opacity-30 blur-lg"
-            aria-hidden
-          />
-          <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 text-white shadow-sm">
-            <Wallet2 className="h-6 w-6" />
+      <div className="animate-fade-up flex flex-wrap items-start justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className="relative shrink-0">
+            <span
+              className="absolute -inset-1.5 animate-pulse rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 opacity-30 blur-lg"
+              aria-hidden
+            />
+            <div className="relative grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br from-rose-500 to-amber-500 text-white shadow-sm">
+              <Wallet2 className="h-6 w-6" />
+            </div>
+          </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-rose-500 dark:text-rose-400">
+              Admin
+            </p>
+            <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
+              Piutang &amp; Pendapatan
+            </h1>
+            <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
+              Status pembayaran digabung dari Magnarent, Magnativ, dan Production.
+            </p>
           </div>
         </div>
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-rose-500 dark:text-rose-400">
-            Admin
-          </p>
-          <h1 className="mt-0.5 text-2xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
-            Piutang &amp; Pendapatan
-          </h1>
-          <p className="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-            Status pembayaran digabung dari Magnarent, Magnativ, dan Production.
-          </p>
-        </div>
+        <ExportButton sheets={exportSheets} fileName="piutang-pendapatan" label="Ekspor Excel" />
       </div>
 
       <div className="mt-6">

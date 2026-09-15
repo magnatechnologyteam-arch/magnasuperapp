@@ -1,7 +1,19 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { CheckCircle2, MessageSquareWarning, Pencil, Plus, Rss, Search, Trash2 } from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  List,
+  MessageSquareWarning,
+  Pencil,
+  Plus,
+  Rss,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { useMagnativeData } from "./MagnativeDataProvider";
 import { updateContentStatus } from "@/lib/magnative/actions";
 import { Modal } from "@/components/ui/Modal";
@@ -23,6 +35,31 @@ const ALL_PLATFORMS: Platform[] = ["Instagram", "TikTok", "Facebook", "YouTube",
  */
 const ALL_STATUSES: ContentStatus[] = ["Draft", "Revisi", "Disetujui", "Tayang"];
 const ALL_FILTER = "Semua";
+
+// Kalender Konten (Tahap 43 — permintaan Owner): sebelumnya jadwal 28 hari
+// dibuat manual di file terpisah (lihat catatan riwayat kerja) — sekarang
+// tinggal beralih tampilan Tabel/Kalender dari data yang SAMA (tidak ada
+// tabel baru, tidak ada Server Action baru), supaya kalender selalu sinkron
+// dengan status approval yang sudah ada.
+const HARI_LABEL = ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"];
+
+/** Grid 6x7 bulan tertentu, dimulai hari Senin — sel di luar bulan bernilai null. */
+function buildCalendarGrid(year: number, month: number): (Date | null)[] {
+  const firstOfMonth = new Date(year, month, 1);
+  // getDay(): 0=Minggu..6=Sabtu -> digeser supaya 0=Senin..6=Minggu.
+  const leadingBlanks = (firstOfMonth.getDay() + 6) % 7;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const cells: (Date | null)[] = [];
+  for (let i = 0; i < leadingBlanks; i++) cells.push(null);
+  for (let day = 1; day <= daysInMonth; day++) cells.push(new Date(year, month, day));
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+function toISODate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 /** Status tujuan tombol "lanjut" (CheckCircle2) di tiap baris — null berarti sudah status akhir. */
 const NEXT_APPROVAL_STATUS: Partial<Record<ContentStatus, ContentStatus>> = {
@@ -88,6 +125,12 @@ export function ContentPlanner() {
   const [revisionSubmitting, setRevisionSubmitting] = useState(false);
   const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
 
+  const [view, setView] = useState<"tabel" | "kalender">("tabel");
+  const [calendarCursor, setCalendarCursor] = useState(() => {
+    const now = new Date();
+    return { year: now.getFullYear(), month: now.getMonth() };
+  });
+
   const clientName = (id?: string) => (id ? clients.find((c) => c.id === id)?.name ?? "—" : "Internal");
 
   const sortedPosts = useMemo(
@@ -105,9 +148,41 @@ export function ContentPlanner() {
     });
   }, [sortedPosts, searchTerm, statusFilter, platformFilter, clients]);
 
-  function openAddModal() {
+  const postsByDate = useMemo(() => {
+    const map = new Map<string, ContentPost[]>();
+    for (const p of filteredPosts) {
+      const list = map.get(p.tanggalPosting) ?? [];
+      list.push(p);
+      map.set(p.tanggalPosting, list);
+    }
+    return map;
+  }, [filteredPosts]);
+
+  const calendarGrid = useMemo(
+    () => buildCalendarGrid(calendarCursor.year, calendarCursor.month),
+    [calendarCursor]
+  );
+  const calendarTitle = new Date(calendarCursor.year, calendarCursor.month, 1).toLocaleDateString("id-ID", {
+    month: "long",
+    year: "numeric",
+  });
+  const todayISOValue = todayISO();
+
+  function goToMonth(offset: number) {
+    setCalendarCursor((prev) => {
+      const d = new Date(prev.year, prev.month + offset, 1);
+      return { year: d.getFullYear(), month: d.getMonth() };
+    });
+  }
+
+  function goToCurrentMonth() {
+    const now = new Date();
+    setCalendarCursor({ year: now.getFullYear(), month: now.getMonth() });
+  }
+
+  function openAddModal(prefillDate?: string) {
     setEditingId(null);
-    setForm(emptyForm());
+    setForm({ ...emptyForm(), ...(prefillDate ? { tanggalPosting: prefillDate } : {}) });
     setError(null);
     setFormOpen(true);
   }
@@ -224,15 +299,45 @@ export function ContentPlanner() {
             {filteredPosts.length} dari {contentPosts.length} konten ditampilkan
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.02] active:scale-[0.98]"
-          style={{ background: GRADIENT }}
-        >
-          <Plus className="h-4 w-4" />
-          Tambah Konten
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-full border border-black/10 p-0.5 dark:border-white/10">
+            <button
+              type="button"
+              onClick={() => setView("tabel")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                view === "tabel"
+                  ? "bg-fuchsia-600 text-white shadow-sm"
+                  : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10"
+              )}
+            >
+              <List className="h-3.5 w-3.5" />
+              Tabel
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("kalender")}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                view === "kalender"
+                  ? "bg-fuchsia-600 text-white shadow-sm"
+                  : "text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10"
+              )}
+            >
+              <CalendarDays className="h-3.5 w-3.5" />
+              Kalender
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={() => openAddModal()}
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            style={{ background: GRADIENT }}
+          >
+            <Plus className="h-4 w-4" />
+            Tambah Konten
+          </button>
+        </div>
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2.5">
@@ -271,6 +376,101 @@ export function ContentPlanner() {
         </select>
       </div>
 
+      {view === "kalender" ? (
+        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <div className="flex items-center justify-between gap-3 border-b border-black/5 px-4 py-3 dark:border-white/10">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => goToMonth(-1)}
+                aria-label="Bulan sebelumnya"
+                className="grid h-8 w-8 place-items-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => goToMonth(1)}
+                aria-label="Bulan berikutnya"
+                className="grid h-8 w-8 place-items-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-white/10"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+              <h3 className="ml-1 text-sm font-bold capitalize text-zinc-900 dark:text-white">{calendarTitle}</h3>
+            </div>
+            <button
+              type="button"
+              onClick={goToCurrentMonth}
+              className="rounded-full border border-black/10 px-3 py-1.5 text-xs font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+            >
+              Hari Ini
+            </button>
+          </div>
+
+          <div className="grid grid-cols-7 border-b border-black/5 dark:border-white/10">
+            {HARI_LABEL.map((h) => (
+              <div
+                key={h}
+                className="px-2 py-2 text-center text-[11px] font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500"
+              >
+                {h}
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-7">
+            {calendarGrid.map((date, i) => {
+              if (!date) {
+                return <div key={`blank-${i}`} className="min-h-[100px] border-b border-r border-black/5 bg-zinc-50/50 dark:border-white/5 dark:bg-white/[0.02]" />;
+              }
+              const iso = toISODate(date);
+              const dayPosts = postsByDate.get(iso) ?? [];
+              const isToday = iso === todayISOValue;
+              return (
+                <div
+                  key={iso}
+                  className="group min-h-[100px] border-b border-r border-black/5 p-1.5 last:border-r-0 dark:border-white/5"
+                >
+                  <div className="mb-1 flex items-center justify-between">
+                    <span
+                      className={cn(
+                        "grid h-5 w-5 place-items-center rounded-full text-[11px] font-bold",
+                        isToday ? "bg-fuchsia-600 text-white" : "text-zinc-400 dark:text-zinc-500"
+                      )}
+                    >
+                      {date.getDate()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openAddModal(iso)}
+                      aria-label={`Tambah konten tanggal ${date.getDate()}`}
+                      className="hidden h-5 w-5 place-items-center rounded-full text-zinc-300 transition-colors hover:bg-fuchsia-50 hover:text-fuchsia-600 group-hover:grid dark:text-zinc-600 dark:hover:bg-fuchsia-500/10 dark:hover:text-fuchsia-300"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1">
+                    {dayPosts.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => openEditModal(p)}
+                        title={`${p.title} — ${clientName(p.clientId)}`}
+                        className={cn(
+                          "block w-full truncate rounded-md px-1.5 py-0.5 text-left text-[11px] font-semibold",
+                          PLATFORM_STYLES[p.platform]
+                        )}
+                      >
+                        {p.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
       <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[800px] text-left text-sm">
@@ -376,6 +576,7 @@ export function ContentPlanner() {
           </table>
         </div>
       </div>
+      )}
 
       <Modal open={formOpen} onClose={closeFormModal} title={editingId ? "Edit Konten" : "Tambah Konten Baru"}>
         <form onSubmit={handleSubmit} className="space-y-4">
