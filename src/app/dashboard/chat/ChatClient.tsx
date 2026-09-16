@@ -34,6 +34,7 @@ import {
 } from "@/lib/chat/actions";
 import { CHAT_ROOM_LABELS, EDIT_DELETE_WINDOW_MS, type ChatRoom } from "@/lib/chat/rooms";
 import { DIVISION_BADGE_CLASSES, DIVISION_LABELS, type Division } from "@/lib/supabase/types";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/cn";
 import { GLASS_BORDER, GLASS_INPUT, GLASS_PILL, GLASS_SURFACE, GLASS_SURFACE_STRONG } from "@/lib/glass";
 import { formatBytes, formatTimeID, getAvatarColor, getInitials } from "@/lib/shared/utils";
@@ -166,6 +167,7 @@ export function ChatClient({
   });
   const [composerText, setComposerText] = useState("");
   const [sending, setSending] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mention, setMention] = useState<MentionState | null>(null);
   const [suggestions, setSuggestions] = useState<TaggableUser[]>([]);
@@ -390,11 +392,17 @@ export function ChatClient({
     cancelEdit();
   }
 
-  async function handleDeleteMessage(id: string) {
-    if (!window.confirm("Hapus pesan ini? Tindakan ini tidak bisa dibatalkan.")) return;
+  function handleDeleteMessage(id: string) {
+    setDeleteTarget(id);
+  }
+
+  async function confirmDeleteMessage() {
+    if (!deleteTarget) return;
+    const id = deleteTarget;
     const result = await deleteChatMessage(id);
     if (!result.ok) {
       setError(result.error);
+      setDeleteTarget(null);
       return;
     }
     // Optimistis di klien sendiri — polling (dan upsert-nya) tetap akan
@@ -405,6 +413,7 @@ export function ChatClient({
         m.id === id ? { ...m, body: "", attachment: null, deletedAt: new Date().toISOString() } : m
       ),
     }));
+    setDeleteTarget(null);
   }
 
   async function handleClearRoom() {
@@ -656,7 +665,7 @@ export function ChatClient({
                           {canDeleteMsg(msg) && (
                             <button
                               type="button"
-                              onClick={() => void handleDeleteMessage(msg.id)}
+                              onClick={() => handleDeleteMessage(msg.id)}
                               aria-label="Hapus"
                               title="Hapus"
                               className="grid h-5 w-5 place-items-center rounded text-zinc-400 transition-colors hover:text-rose-600 dark:hover:text-rose-400"
@@ -820,6 +829,14 @@ export function ChatClient({
           </button>
         </div>
       </form>
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeleteMessage}
+        title="Hapus Pesan"
+        description="Hapus pesan ini? Tindakan ini tidak bisa dibatalkan."
+      />
     </div>
   );
 }
