@@ -12,6 +12,7 @@ import {
   Megaphone,
   MessageSquare,
   Receipt,
+  ReceiptText,
   Users,
   Users2,
   Wallet2,
@@ -179,6 +180,21 @@ export const CHAT_LINK: QuickLink = {
   label: "Chat",
   shortLabel: "Chat",
   icon: MessageSquare,
+};
+
+/**
+ * Tautan "Realisasi Event" (Tahap B modul baru, didiskusikan dulu dengan
+ * Owner) — pencatatan pengeluaran lintas 3 divisi + Finance/Umum. Terbuka
+ * untuk SEMUA divisi KECUALI investor, sama persis alasannya dengan
+ * CHAT_LINK di atas (lihat RLS `event_expenses` di migrasi 0049) — sengaja
+ * satu QuickLink berdiri sendiri (bukan masuk MODULES) karena bukan milik
+ * satu divisi tertentu, sama seperti Katalog Produk & Chat.
+ */
+export const REALISASI_EVENT_LINK: QuickLink = {
+  href: "/dashboard/realisasi-event",
+  label: "Realisasi Event",
+  shortLabel: "Realisasi",
+  icon: ReceiptText,
 };
 
 /** Tautan halaman Investor (division "investor" atau "all") — sama alasannya dengan ADMIN_LINKS di atas. */

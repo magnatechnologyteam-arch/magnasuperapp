@@ -9,6 +9,7 @@ import {
   DIVISION_REPORT_LINKS,
   HUB_HREF,
   INVESTOR_LINKS,
+  REALISASI_EVENT_LINK,
   getVisibleModules,
 } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
@@ -38,10 +39,13 @@ export function Sidebar({ division }: { division?: Division | null }) {
   const isInvestor = division === "investor";
   const isOperationalDivision =
     division === "magnarent" || division === "magnative" || division === "production";
-  // Chat (Tahap 37) — terbuka untuk semua divisi KECUALI investor.
+  // Chat (Tahap 37) & Realisasi Event (Tahap B) — terbuka untuk semua divisi KECUALI investor.
   const showChat = division !== "investor";
   const isChatActive = pathname === CHAT_LINK.href || pathname.startsWith(`${CHAT_LINK.href}/`);
   const ChatIcon = CHAT_LINK.icon;
+  const isRealisasiEventActive =
+    pathname === REALISASI_EVENT_LINK.href || pathname.startsWith(`${REALISASI_EVENT_LINK.href}/`);
+  const RealisasiEventIcon = REALISASI_EVENT_LINK.icon;
 
   return (
     <aside
@@ -128,6 +132,20 @@ export function Sidebar({ division }: { division?: Division | null }) {
                 >
                   <ChatIcon className="h-[18px] w-[18px]" />
                   {t(CHAT_LINK.label)}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href={REALISASI_EVENT_LINK.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                    isRealisasiEventActive
+                      ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                      : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+                  )}
+                >
+                  <RealisasiEventIcon className="h-[18px] w-[18px]" />
+                  {t(REALISASI_EVENT_LINK.label)}
                 </Link>
               </li>
             </ul>

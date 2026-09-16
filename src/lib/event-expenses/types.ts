@@ -1,0 +1,82 @@
+/**
+ * Tipe untuk modul "Realisasi Event" (Tahap B, migrasi 0049) — pencatatan
+ * pengeluaran lintas 3 divisi (Magnarent/Magnative/Production) + Finance/
+ * Umum untuk pengeluaran operasional yang tidak terikat event tertentu.
+ */
+
+export type ExpenseDivision = "magnarent" | "magnative" | "production" | "finance";
+
+export const EXPENSE_DIVISION_LABELS: Record<ExpenseDivision, string> = {
+  magnarent: "Magnarent",
+  magnative: "Magnativ",
+  production: "Production",
+  finance: "Finance / Umum",
+};
+
+export type ExpenseSourceType = "magnarent_booking" | "magnative_project" | "production_booth" | "umum";
+
+export type ExpenseCategory =
+  | "Sewa Venue"
+  | "Dekorasi & Material"
+  | "Transportasi"
+  | "Konsumsi"
+  | "Talent / Vendor"
+  | "Percetakan"
+  | "Operasional Kantor"
+  | "Lain-lain";
+
+export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  "Sewa Venue",
+  "Dekorasi & Material",
+  "Transportasi",
+  "Konsumsi",
+  "Talent / Vendor",
+  "Percetakan",
+  "Operasional Kantor",
+  "Lain-lain",
+];
+
+export type ReimbursementStatus = "Tidak Perlu" | "Belum Diganti" | "Sudah Diganti";
+
+export const REIMBURSEMENT_STATUSES: ReimbursementStatus[] = ["Tidak Perlu", "Belum Diganti", "Sudah Diganti"];
+
+/** Saran tampil di UI (datalist) — bukan daftar tertutup, staf boleh ketik
+ * metode/rekening lain sendiri (lihat komentar migrasi 0049). */
+export const PAYMENT_METHOD_SUGGESTIONS = ["Transfer BCA", "Qris", "Cash", "Kantong Jago", "Transfer Jago"];
+
+export type ExpenseProof = {
+  id: string;
+  expenseId: string;
+  fileUrl: string;
+  storagePath: string;
+  fileName: string;
+  uploadedAt: string;
+};
+
+export type EventExpense = {
+  id: string;
+  expenseDate: string;
+  division: ExpenseDivision;
+  sourceType: ExpenseSourceType;
+  sourceId: string | null;
+  category: ExpenseCategory;
+  amount: number;
+  picName: string;
+  paymentMethod: string;
+  reimbursementStatus: ReimbursementStatus;
+  notes?: string;
+  createdBy: string | null;
+  createdAt: string;
+  proofs: ExpenseProof[];
+};
+
+/** Opsi "Event/Proyek Terkait" di form — dibangun dari booking Magnarent,
+ * proyek Magnative, dan booth project Production yang sudah ada (pola sama
+ * seperti `InvoiceSourceOption` di src/lib/invoices/types.ts), plus satu
+ * opsi tetap "Finance/Umum" untuk pengeluaran yang tidak terikat event. */
+export type ExpenseSourceOption = {
+  sourceType: ExpenseSourceType;
+  sourceId: string | null;
+  division: ExpenseDivision;
+  label: string;
+};

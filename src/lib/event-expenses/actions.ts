@@ -1,0 +1,217 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { logActivity, type ActivityModule } from "@/lib/activity/log";
+import { buildProofFileName } from "./naming";
+import { rowToEventExpense, rowToExpenseProof, type EventExpenseProofRow, type EventExpenseRow } from "./mappers";
+import type {
+  EventExpense,
+  ExpenseCategory,
+  ExpenseDivision,
+  ExpenseProof,
+  ExpenseSourceType,
+  ReimbursementStatus,
+} from "./types";
+
+const MODULE_PATH = "/dashboard/realisasi-event";
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
+const BUCKET = "event-expense-proofs";
+
+export type MutationResult = { ok: true } | { ok: false; error: string };
+
+/** activity_log.module (migrasi 0008) belum mengenal "finance" — dipetakan
+ * ke "admin" sebagai kategori terdekat, sekadar label log, tidak memengaruhi
+ * akses/RLS event_expenses itu sendiri. */
+function toActivityModule(division: ExpenseDivision): ActivityModule {
+  return division === "finance" ? "admin" : division;
+}
+
+export type AddEventExpenseInput = {
+  expenseDate: string;
+  division: ExpenseDivision;
+  sourceType: ExpenseSourceType;
+  sourceId: string | null;
+  category: ExpenseCategory;
+  amount: number;
+  picName: string;
+  paymentMethod: string;
+  reimbursementStatus: ReimbursementStatus;
+  notes?: string;
+};
+
+/** Divalidasi ulang di server — form UI sudah punya `required`, tapi Server
+ * Action ini bisa dipanggil langsung sebagai fungsi. */
+function validateExpenseInput(input: AddEventExpenseInput): string | null {
+  if (!input.expenseDate) return "Tanggal pengeluaran wajib diisi.";
+  if (!input.picName?.trim()) return "PIC yang mengeluarkan dana wajib diisi.";
+  if (!input.paymentMethod?.trim()) return "Metode pembayaran wajib diisi.";
+  if (!Number.isFinite(input.amount) || input.amount <= 0) return "Nominal harus lebih dari 0.";
+  if (input.sourceType !== "umum" && !input.sourceId) {
+    return 'Pilih event/proyek terkait, atau pilih "Finance/Umum" kalau tidak terikat event.';
+  }
+  return null;
+}
+
+export async function addEventExpense(
+  input: AddEventExpenseInput
+): Promise<{ ok: true; expense: EventExpense } | { ok: false; error: string }> {
+  const validationError = validateExpenseInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("event_expenses")
+    .insert({
+      expense_date: input.expenseDate,
+      division: input.division,
+      source_type: input.sourceType,
+      source_id: input.sourceType === "umum" ? null : input.sourceId,
+      category: input.category,
+      amount: Math.round(input.amount),
+      pic_name: input.picName.trim(),
+      payment_method: input.paymentMethod.trim(),
+      reimbursement_status: input.reimbursementStatus,
+      notes: input.notes?.trim() || null,
+    })
+    .select("*")
+    .single<EventExpenseRow>();
+
+  if (error || !data) {
+    console.error("[event-expenses] addEventExpense gagal:", error?.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: toActivityModule(input.division),
+    action: "create",
+    entityType: "realisasi event",
+    entityLabel: `${input.category} — Rp${Math.round(input.amount).toLocaleString("id-ID")}`,
+  });
+  return { ok: true, expense: rowToEventExpense(data, []) };
+}
+
+export async function deleteEventExpense(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+
+  const [{ data: proofRows }, { data: expenseRow }] = await Promise.all([
+    supabase.from("event_expense_proofs").select("storage_path").eq("expense_id", id),
+    supabase.from("event_expenses").select("category, amount, division").eq("id", id).maybeSingle<{
+      category: string;
+      amount: number;
+      division: ExpenseDivision;
+    }>(),
+  ]);
+
+  const { error } = await supabase.from("event_expenses").delete().eq("id", id);
+  if (error) {
+    console.error("[event-expenses] deleteEventExpense gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  // Baris `event_expense_proofs` sudah ikut terhapus lewat "on delete
+  // cascade" (migrasi 0049) — file di Storage-nya tidak otomatis ikut
+  // terhapus (Storage bukan bagian dari transaksi Postgres), jadi
+  // dibersihkan manual di sini supaya tidak jadi file yatim piatu.
+  const paths = (proofRows ?? []).map((p) => p.storage_path).filter(Boolean);
+  if (paths.length > 0) {
+    await supabase.storage.from(BUCKET).remove(paths);
+  }
+
+  revalidatePath(MODULE_PATH);
+  if (expenseRow) {
+    void logActivity({
+      module: toActivityModule(expenseRow.division),
+      action: "delete",
+      entityType: "realisasi event",
+      entityLabel: `${expenseRow.category} — Rp${Number(expenseRow.amount).toLocaleString("id-ID")}`,
+    });
+  }
+  return { ok: true };
+}
+
+/**
+ * Upload SATU file bukti — dipanggil sekali per file dari form kalau user
+ * pilih lebih dari satu bukti sekaligus (loop di client, bukan satu
+ * FormData berisi banyak file), supaya kalau salah satu gagal, yang lain
+ * tetap tersimpan dan errornya jelas menunjuk file yang mana.
+ *
+ * Urutan upload-lalu-insert (bukan sebaliknya) sengaja dipilih, pola sama
+ * dengan `addPortfolioPhoto` (src/lib/magnative/actions.ts) — kalau insert
+ * baris metadata gagal, file yang sudah terlanjur ter-upload langsung
+ * dibersihkan supaya tidak ada file yatim piatu di bucket.
+ */
+export async function addExpenseProof(
+  formData: FormData
+): Promise<{ ok: true; proof: ExpenseProof } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const file = formData.get("file");
+  const expenseId = String(formData.get("expenseId") ?? "");
+  const picName = String(formData.get("picName") ?? "");
+  const expenseDate = String(formData.get("expenseDate") ?? "");
+  const amount = Number(formData.get("amount") ?? 0);
+  const note = String(formData.get("note") ?? "");
+  const index = Number(formData.get("index") ?? 1);
+
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Pilih file bukti terlebih dahulu." };
+  }
+  if (!expenseId) {
+    return { ok: false, error: "Pengeluaran tidak ditemukan." };
+  }
+
+  const ext = file.name.includes(".") ? file.name.split(".").pop()! : "jpg";
+  const displayName = buildProofFileName({ picName, expenseDate, amount, note, index, extension: ext });
+  const storagePath = `${crypto.randomUUID()}.${ext.toLowerCase()}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(storagePath, file, { contentType: file.type || undefined });
+
+  if (uploadError) {
+    console.error("[event-expenses] Upload bukti gagal:", uploadError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(BUCKET).getPublicUrl(storagePath);
+
+  const { data, error: insertError } = await supabase
+    .from("event_expense_proofs")
+    .insert({ expense_id: expenseId, file_url: publicUrl, storage_path: storagePath, file_name: displayName })
+    .select("*")
+    .single<EventExpenseProofRow>();
+
+  if (insertError || !data) {
+    console.error("[event-expenses] Simpan data bukti gagal:", insertError?.message);
+    await supabase.storage.from(BUCKET).remove([storagePath]);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  return { ok: true, proof: rowToExpenseProof(data) };
+}
+
+export async function deleteExpenseProof(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: row } = await supabase
+    .from("event_expense_proofs")
+    .select("storage_path")
+    .eq("id", id)
+    .maybeSingle<{ storage_path: string }>();
+
+  const { error } = await supabase.from("event_expense_proofs").delete().eq("id", id);
+  if (error) {
+    console.error("[event-expenses] deleteExpenseProof gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  if (row?.storage_path) {
+    await supabase.storage.from(BUCKET).remove([row.storage_path]);
+  }
+
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}

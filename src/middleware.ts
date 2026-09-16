@@ -32,6 +32,10 @@ const INVESTOR_PREFIX = "/dashboard/investor";
 // sini seperti INVESTOR_PREFIX di atas). Lapis kedua/ketiga ada di
 // page.tsx (redirect) & RLS chat_messages (migrasi 0038).
 const CHAT_PREFIX = "/dashboard/chat";
+// Tahap B modul Realisasi Event — sama persis alasannya dengan CHAT_PREFIX
+// di atas: terbuka untuk SEMUA divisi KECUALI investor (lihat RLS
+// event_expenses di migrasi 0049).
+const REALISASI_EVENT_PREFIX = "/dashboard/realisasi-event";
 
 /**
  * Middleware ini punya tiga tugas dalam satu jalan:
@@ -137,8 +141,17 @@ export async function middleware(request: NextRequest) {
       const isBlockedInvestorRoute = isInvestorRoute && division !== "investor";
       const isChatRoute = pathname === CHAT_PREFIX || pathname.startsWith(`${CHAT_PREFIX}/`);
       const isBlockedChatRoute = isChatRoute && division === "investor";
+      const isRealisasiEventRoute =
+        pathname === REALISASI_EVENT_PREFIX || pathname.startsWith(`${REALISASI_EVENT_PREFIX}/`);
+      const isBlockedRealisasiEventRoute = isRealisasiEventRoute && division === "investor";
 
-      if (isAdminRoute || isBlockedModule || isBlockedInvestorRoute || isBlockedChatRoute) {
+      if (
+        isAdminRoute ||
+        isBlockedModule ||
+        isBlockedInvestorRoute ||
+        isBlockedChatRoute ||
+        isBlockedRealisasiEventRoute
+      ) {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";
         url.search = "";

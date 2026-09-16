@@ -1,0 +1,98 @@
+import { createClient } from "@/lib/supabase/server";
+import { rowToBooking, type BookingRow } from "@/lib/magnarent/mappers";
+import { rowToProject, type ProjectRow } from "@/lib/magnative/mappers";
+import { rowToBoothProject, type BoothProjectRow } from "@/lib/production/mappers";
+import {
+  rowToEventExpense,
+  rowToExpenseProof,
+  type EventExpenseProofRow,
+  type EventExpenseRow,
+} from "./mappers";
+import type { EventExpense, ExpenseSourceOption } from "./types";
+
+/**
+ * Data untuk halaman "Realisasi Event" — dipanggil dari page.tsx (Server
+ * Component). Dibatasi 500 baris terbaru (Tahap 14 — batasi query yang bisa
+ * membengkak) karena tabel ini baru dibuat lewat migrasi 0049, jadi belum
+ * ada riwayat data lama yang berisiko "hilang" seperti kasus Magnarent
+ * kalender — beda dari itu, di sini batas dipasang dari awal.
+ *
+ * `sourceOptions` dipakai form "Catat Pengeluaran" untuk memilih event/
+ * proyek terkait — pola sama dengan `InvoiceSourceOption` di halaman Faktur
+ * (src/app/dashboard/admin/faktur/page.tsx), ditambah satu opsi tetap
+ * "Finance/Umum" untuk pengeluaran operasional yang tidak terikat event.
+ */
+export async function getEventExpensesPageData(): Promise<{
+  expenses: EventExpense[];
+  sourceOptions: ExpenseSourceOption[];
+}> {
+  const supabase = await createClient();
+  const [expensesRes, proofsRes, bookingsRes, projectsRes, boothRes] = await Promise.all([
+    supabase
+      .from("event_expenses")
+      .select("*")
+      .order("expense_date", { ascending: false })
+      .limit(500)
+      .returns<EventExpenseRow[]>(),
+    supabase.from("event_expense_proofs").select("*").returns<EventExpenseProofRow[]>(),
+    supabase.from("magnarent_bookings").select("*").returns<BookingRow[]>(),
+    supabase.from("magnative_projects").select("*").returns<ProjectRow[]>(),
+    supabase.from("production_booth_projects").select("*").returns<BoothProjectRow[]>(),
+  ]);
+
+  const proofsByExpense = new Map<string, EventExpenseProofRow[]>();
+  for (const proof of proofsRes.data ?? []) {
+    const list = proofsByExpense.get(proof.expense_id) ?? [];
+    list.push(proof);
+    proofsByExpense.set(proof.expense_id, list);
+  }
+
+  const expenses = (expensesRes.data ?? []).map((row) =>
+    rowToEventExpense(
+      row,
+      (proofsByExpense.get(row.id) ?? [])
+        .sort((a, b) => a.uploaded_at.localeCompare(b.uploaded_at))
+        .map(rowToExpenseProof)
+    )
+  );
+
+  const bookings = (bookingsRes.data ?? []).map(rowToBooking);
+  const projects = (projectsRes.data ?? []).map(rowToProject);
+  const boothProjects = (boothRes.data ?? []).map(rowToBoothProject);
+
+  const sourceOptions: ExpenseSourceOption[] = [
+    { sourceType: "umum", sourceId: null, division: "finance", label: "Finance / Umum (tidak terikat event)" },
+    ...bookings
+      .filter((b) => b.status !== "Dibatalkan")
+      .map(
+        (b): ExpenseSourceOption => ({
+          sourceType: "magnarent_booking",
+          sourceId: b.id,
+          division: "magnarent",
+          label: `${b.namaKlien} — ${b.tanggalMulai} s/d ${b.tanggalSelesai}`,
+        })
+      ),
+    ...projects
+      .filter((p) => p.status !== "Dibatalkan")
+      .map(
+        (p): ExpenseSourceOption => ({
+          sourceType: "magnative_project",
+          sourceId: p.id,
+          division: "magnative",
+          label: p.name,
+        })
+      ),
+    ...boothProjects
+      .filter((p) => p.status !== "Dibatalkan")
+      .map(
+        (p): ExpenseSourceOption => ({
+          sourceType: "production_booth",
+          sourceId: p.id,
+          division: "production",
+          label: p.name,
+        })
+      ),
+  ];
+
+  return { expenses, sourceOptions };
+}

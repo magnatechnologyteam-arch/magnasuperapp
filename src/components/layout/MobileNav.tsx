@@ -10,6 +10,7 @@ import {
   DIVISION_REPORT_LINKS,
   HUB_HREF,
   INVESTOR_LINKS,
+  REALISASI_EVENT_LINK,
   getVisibleModules,
 } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
@@ -72,6 +73,10 @@ export function MobileNav({ division }: { division?: Division | null }) {
     : undefined;
   const isChatActive = showChat && (pathname === CHAT_LINK.href || pathname.startsWith(`${CHAT_LINK.href}/`));
   const ChatIcon = CHAT_LINK.icon;
+  const isRealisasiEventActive =
+    showChat &&
+    (pathname === REALISASI_EVENT_LINK.href || pathname.startsWith(`${REALISASI_EVENT_LINK.href}/`));
+  const RealisasiEventIcon = REALISASI_EVENT_LINK.icon;
   const currentLabel =
     pathname === HUB_HREF
       ? t("Dashboard Hub")
@@ -81,6 +86,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
             activeInvestorLink?.label ??
             activeReportLink?.label ??
             (isChatActive ? CHAT_LINK.label : undefined) ??
+            (isRealisasiEventActive ? REALISASI_EVENT_LINK.label : undefined) ??
             "Menu"
         );
 
@@ -196,6 +202,18 @@ export function MobileNav({ division }: { division?: Division | null }) {
                       >
                         <ChatIcon className="h-[18px] w-[18px]" />
                         {t(CHAT_LINK.label)}
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        href={REALISASI_EVENT_LINK.href}
+                        className={linkClass(
+                          isRealisasiEventActive,
+                          "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                        )}
+                      >
+                        <RealisasiEventIcon className="h-[18px] w-[18px]" />
+                        {t(REALISASI_EVENT_LINK.label)}
                       </Link>
                     </li>
                   </ul>
