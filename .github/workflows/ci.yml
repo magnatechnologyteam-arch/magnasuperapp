@@ -1,0 +1,41 @@
+name: CI
+
+# Jaring pengaman sebelum Vercel men-deploy: setiap push/PR ke main dicek
+# dulu tipe TypeScript-nya + build Next.js-nya. Kalau salah satu gagal,
+# GitHub akan menandai commit itu merah — supaya bug seperti fungsi yang
+# salah dilewatkan ke komponen (pernah kejadian lolos ke production)
+# ketahuan sebelum tayang, bukan sesudahnya.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cek tipe TypeScript
+        run: npx tsc --noEmit
+
+      - name: Build Next.js
+        run: npm run build
+        env:
+          # URL + anon key ini memang untuk dipakai di browser (nama
+          # "NEXT_PUBLIC_" & "anon/publishable" artinya sengaja publik,
+          # sudah ikut ter-bundle ke aplikasi yang tayang) — jadi aman
+          # ditulis langsung di sini, bukan rahasia yang perlu disembunyikan.
+          NEXT_PUBLIC_SUPABASE_URL: https://xbynsiafccsfgeayakma.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_octaifrIhulBfnbsHnlQ_w_eAjFz-I0
