@@ -44,7 +44,7 @@ export default async function MagnativeLayout({ children }: { children: ReactNod
     // `magnative_project_costs` — lihat komentar di src/lib/magnative/actions.ts.
     supabase
       .from("event_expenses")
-      .select("id, source_id, category, notes, amount, expense_date")
+      .select("id, source_id, category, notes, amount, expense_date, payment_method")
       .eq("source_type", "magnative_project")
       .order("expense_date", { ascending: false })
       .returns<MagnativeProjectCostExpenseRow[]>(),

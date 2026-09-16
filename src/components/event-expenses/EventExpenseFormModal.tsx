@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
-import { Plus, Receipt, Upload, X } from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { Plus, Receipt, Trash2, Upload, X } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { todayISO } from "@/lib/shared/utils";
-import { addEventExpense, addExpenseProof } from "@/lib/event-expenses/actions";
+import { addEventExpense, addExpenseProof, deleteExpenseProof, updateEventExpense } from "@/lib/event-expenses/actions";
 import {
   EXPENSE_CATEGORIES,
   EXPENSE_DIVISION_LABELS,
   PAYMENT_METHOD_SUGGESTIONS,
   REIMBURSEMENT_STATUSES,
   type EventExpense,
+  type ExpenseProof,
   type ExpenseSourceOption,
 } from "@/lib/event-expenses/types";
 
@@ -33,35 +34,70 @@ function emptyForm() {
   };
 }
 
+function formFromExpense(expense: EventExpense) {
+  return {
+    expenseDate: expense.expenseDate,
+    sourceKey: `${expense.sourceType}::${expense.sourceId ?? "umum"}`,
+    category: expense.category,
+    amount: String(expense.amount),
+    picName: expense.picName,
+    paymentMethod: expense.paymentMethod,
+    reimbursementStatus: expense.reimbursementStatus,
+    notes: expense.notes ?? "",
+  };
+}
+
 /**
- * Form "Catat Pengeluaran" untuk modul Realisasi Event (Tahap B). Alur
- * submit dua langkah: (1) simpan baris pengeluaran lewat `addEventExpense`
- * untuk dapat `id`-nya, (2) BARU upload tiap file bukti satu-satu lewat
- * `addExpenseProof` — file butuh `id` pengeluaran yang sudah tersimpan
- * (lihat komentar di action-nya kenapa dilakukan berurutan, bukan sekaligus
- * dalam satu FormData).
+ * Form "Catat Pengeluaran" untuk modul Realisasi Event (Tahap B) — SEKARANG
+ * juga dipakai untuk mode Edit (perbaikan pasca-review: sebelumnya cuma
+ * bisa hapus-lalu-catat-ulang kalau ada salah input, yang juga ikut
+ * menghapus bukti yang sudah diunggah). Mode ditentukan dari ada/tidaknya
+ * prop `editing` — form di-prefill dari data itu, submit memanggil
+ * `updateEventExpense` (bukan `addEventExpense`), dan bukti yang SUDAH ADA
+ * ditampilkan dengan tombol hapus sendiri (lewat `deleteExpenseProof`)
+ * supaya tidak pernah tidak sengaja hilang cuma karena mengedit field lain.
  *
- * Kalau langkah (2) sebagian gagal, pengeluarannya SENGAJA tetap tersimpan
- * (bukan di-rollback) — datanya sudah benar, tinggal user unggah ulang
- * bukti yang gagal lewat halaman detail nanti. Lebih aman daripada
- * kehilangan pencatatan pengeluaran cuma karena satu file gagal ter-upload.
+ * Alur submit dua langkah tetap sama seperti sebelumnya: (1) simpan/ubah
+ * baris pengeluaran dulu, (2) BARU upload file bukti BARU satu-satu lewat
+ * `addExpenseProof`. Kalau langkah (2) sebagian gagal, datanya SENGAJA
+ * tetap tersimpan (bukan di-rollback) — lebih aman daripada kehilangan
+ * pencatatan pengeluaran cuma karena satu file gagal ter-upload.
  */
 export function EventExpenseFormModal({
   open,
   onClose,
   sourceOptions,
-  onCreated,
+  editing,
+  onSaved,
 }: {
   open: boolean;
   onClose: () => void;
   sourceOptions: ExpenseSourceOption[];
-  onCreated: (expense: EventExpense) => void;
+  /** Kalau diisi, modal masuk mode Edit untuk pengeluaran ini. */
+  editing?: EventExpense | null;
+  onSaved: (expense: EventExpense) => void;
 }) {
   const [form, setForm] = useState(emptyForm);
   const [files, setFiles] = useState<File[]>([]);
+  const [existingProofs, setExistingProofs] = useState<ExpenseProof[]>([]);
+  const [deletingProofId, setDeletingProofId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [uploadWarning, setUploadWarning] = useState<string | null>(null);
+
+  const isEditing = Boolean(editing);
+
+  // Prefill/reset form setiap kali modal dibuka — baik mode tambah (form
+  // kosong) maupun mode edit (form terisi dari `editing`).
+  useEffect(() => {
+    if (!open) return;
+    setForm(editing ? formFromExpense(editing) : emptyForm());
+    setExistingProofs(editing?.proofs ?? []);
+    setFiles([]);
+    setError(null);
+    setUploadWarning(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editing?.id]);
 
   const sourceByKey = useMemo(() => {
     const map = new Map<string, ExpenseSourceOption>();
@@ -85,9 +121,21 @@ export function EventExpenseFormModal({
   function handleClose() {
     setForm(emptyForm());
     setFiles([]);
+    setExistingProofs([]);
     setError(null);
     setUploadWarning(null);
     onClose();
+  }
+
+  async function handleDeleteExistingProof(proofId: string) {
+    setDeletingProofId(proofId);
+    const result = await deleteExpenseProof(proofId);
+    setDeletingProofId(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setExistingProofs((prev) => prev.filter((p) => p.id !== proofId));
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -116,7 +164,7 @@ export function EventExpenseFormModal({
     }
 
     setSubmitting(true);
-    const result = await addEventExpense({
+    const payload = {
       expenseDate: form.expenseDate,
       division: selected.division,
       sourceType: selected.sourceType,
@@ -127,7 +175,8 @@ export function EventExpenseFormModal({
       paymentMethod: form.paymentMethod,
       reimbursementStatus: form.reimbursementStatus,
       notes: form.notes,
-    });
+    };
+    const result = editing ? await updateEventExpense(editing.id, payload) : await addEventExpense(payload);
 
     if (!result.ok) {
       setSubmitting(false);
@@ -144,7 +193,7 @@ export function EventExpenseFormModal({
       fd.set("expenseDate", form.expenseDate);
       fd.set("amount", String(amount));
       fd.set("note", form.notes || form.category);
-      fd.set("index", String(i + 1));
+      fd.set("index", String(existingProofs.length + i + 1));
       fd.set("file", files[i]);
 
       const proofResult = await addExpenseProof(fd);
@@ -161,17 +210,17 @@ export function EventExpenseFormModal({
         `Pengeluaran tersimpan, tapi ${failedFiles.length} bukti gagal diunggah: ${failedFiles.join(", ")}. Coba unggah ulang dari daftar.`
       );
     }
-    onCreated(expense);
+    onSaved(expense);
     if (failedFiles.length === 0) {
       handleClose();
     } else {
-      setForm(emptyForm());
       setFiles([]);
+      setExistingProofs(expense.proofs);
     }
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Catat Pengeluaran" maxWidth="max-w-xl">
+    <Modal open={open} onClose={handleClose} title={isEditing ? "Edit Pengeluaran" : "Catat Pengeluaran"} maxWidth="max-w-xl">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="ee-source" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
@@ -316,9 +365,39 @@ export function EventExpenseFormModal({
           />
         </div>
 
+        {isEditing && existingProofs.length > 0 && (
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Bukti yang Sudah Diunggah
+            </label>
+            <ul className="space-y-1 rounded-xl border border-black/5 p-2 dark:border-white/10">
+              {existingProofs.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex items-center justify-between gap-2 rounded-lg bg-zinc-50 px-3 py-1.5 text-xs text-zinc-600 dark:bg-white/5 dark:text-zinc-300"
+                >
+                  <a href={p.fileUrl} target="_blank" rel="noreferrer" className="truncate text-blue-600 underline hover:text-blue-700 dark:text-blue-400">
+                    {p.fileName}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteExistingProof(p.id)}
+                    disabled={deletingProofId === p.id}
+                    title="Hapus bukti ini"
+                    aria-label={`Hapus ${p.fileName}`}
+                    className="shrink-0 text-zinc-400 hover:text-rose-600 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <div>
           <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-            Bukti Transaksi (boleh lebih dari satu file)
+            {isEditing ? "Tambah Bukti Baru (opsional)" : "Bukti Transaksi (boleh lebih dari satu file)"}
           </label>
           <label
             htmlFor="ee-files"
@@ -335,6 +414,7 @@ export function EventExpenseFormModal({
             className="hidden"
             onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
           />
+          <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">Maks. 10MB per file — foto (JPG/PNG/HEIC) atau PDF.</p>
           {files.length > 0 && (
             <ul className="mt-2 space-y-1">
               {files.map((f, i) => (
@@ -388,6 +468,11 @@ export function EventExpenseFormModal({
                 <>
                   <Receipt className="h-4 w-4 animate-pulse" />
                   Menyimpan…
+                </>
+              ) : isEditing ? (
+                <>
+                  <Receipt className="h-4 w-4" />
+                  Simpan Perubahan
                 </>
               ) : (
                 <>

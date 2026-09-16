@@ -31,6 +31,7 @@ type MagnativeDataContextValue = {
 
   getCostsForProject: (projectId: string) => ProjectCost[];
   addProjectCost: (input: Omit<ProjectCost, "id">) => Promise<MutationResult>;
+  updateProjectCost: (id: string, input: Omit<ProjectCost, "id">) => Promise<MutationResult>;
   deleteProjectCost: (id: string) => Promise<MutationResult>;
 };
 
@@ -78,6 +79,10 @@ export function MagnativeDataProvider({
   const deleteContentPost = useCallback((id: string) => actions.deleteContentPost(id), []);
 
   const addProjectCost = useCallback((input: Omit<ProjectCost, "id">) => actions.addProjectCost(input), []);
+  const updateProjectCost = useCallback(
+    (id: string, input: Omit<ProjectCost, "id">) => actions.updateProjectCost(id, input),
+    []
+  );
   const deleteProjectCost = useCallback((id: string) => actions.deleteProjectCost(id), []);
 
   /** Dipakai UI untuk memblokir hapus klien yang masih punya proyek aktif. */
@@ -112,6 +117,7 @@ export function MagnativeDataProvider({
       deleteContentPost,
       getCostsForProject,
       addProjectCost,
+      updateProjectCost,
       deleteProjectCost,
     }),
     [
@@ -131,6 +137,7 @@ export function MagnativeDataProvider({
       deleteContentPost,
       getCostsForProject,
       addProjectCost,
+      updateProjectCost,
       deleteProjectCost,
     ]
   );

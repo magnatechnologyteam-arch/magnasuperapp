@@ -17,6 +17,12 @@ import type {
 const MODULE_PATH = "/dashboard/realisasi-event";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
 const BUCKET = "event-expense-proofs";
+/** Batas ukuran & tipe file bukti (perbaikan pasca-review) — sebelumnya
+ * cuma dicek lewat `accept` di `<input type="file">`, yang cuma hint UI dan
+ * gampang dilewati (upload langsung lewat DevTools/API). Divalidasi ulang
+ * di sini supaya benar-benar ditegakkan. */
+const MAX_PROOF_SIZE_BYTES = 10 * 1024 * 1024;
+const LOAD_MORE_BATCH = 200;
 
 export type MutationResult = { ok: true } | { ok: false; error: string };
 
@@ -92,6 +98,67 @@ export async function addEventExpense(
   return { ok: true, expense: rowToEventExpense(data, []) };
 }
 
+/**
+ * Edit pengeluaran yang sudah tersimpan (perbaikan pasca-review — sebelumnya
+ * cuma bisa hapus lalu catat ulang kalau ada salah input, yang juga ikut
+ * menghapus bukti yang sudah diunggah). Bukti transaksi SENGAJA tidak
+ * disentuh di sini — dikelola terpisah lewat `addExpenseProof`/
+ * `deleteExpenseProof` (lihat `EventExpenseFormModal.tsx` mode edit),
+ * supaya klik "Simpan Perubahan" tidak pernah tidak sengaja menghapus bukti
+ * yang sudah ada.
+ */
+export async function updateEventExpense(
+  id: string,
+  input: AddEventExpenseInput
+): Promise<{ ok: true; expense: EventExpense } | { ok: false; error: string }> {
+  const validationError = validateExpenseInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+
+  const { data: existingProofRows } = await supabase
+    .from("event_expense_proofs")
+    .select("*")
+    .eq("expense_id", id)
+    .returns<EventExpenseProofRow[]>();
+
+  const { data, error } = await supabase
+    .from("event_expenses")
+    .update({
+      expense_date: input.expenseDate,
+      division: input.division,
+      source_type: input.sourceType,
+      source_id: input.sourceType === "umum" ? null : input.sourceId,
+      category: input.category,
+      amount: Math.round(input.amount),
+      pic_name: input.picName.trim(),
+      payment_method: input.paymentMethod.trim(),
+      reimbursement_status: input.reimbursementStatus,
+      notes: input.notes?.trim() || null,
+    })
+    .eq("id", id)
+    .select("*")
+    .single<EventExpenseRow>();
+
+  if (error || !data) {
+    console.error("[event-expenses] updateEventExpense gagal:", error?.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: toActivityModule(input.division),
+    action: "update",
+    entityType: "realisasi event",
+    entityLabel: `${input.category} — Rp${Math.round(input.amount).toLocaleString("id-ID")}`,
+  });
+
+  const proofs = (existingProofRows ?? [])
+    .sort((a, b) => a.uploaded_at.localeCompare(b.uploaded_at))
+    .map(rowToExpenseProof);
+  return { ok: true, expense: rowToEventExpense(data, proofs) };
+}
+
 export async function deleteEventExpense(id: string): Promise<MutationResult> {
   const supabase = await createClient();
 
@@ -160,6 +227,12 @@ export async function addExpenseProof(
   if (!expenseId) {
     return { ok: false, error: "Pengeluaran tidak ditemukan." };
   }
+  if (file.size > MAX_PROOF_SIZE_BYTES) {
+    return { ok: false, error: "Ukuran file bukti maksimal 10MB." };
+  }
+  if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+    return { ok: false, error: "Format file tidak didukung — gunakan foto (JPG/PNG/HEIC) atau PDF." };
+  }
 
   const ext = file.name.includes(".") ? file.name.split(".").pop()! : "jpg";
   const displayName = buildProofFileName({ picName, expenseDate, amount, note, index, extension: ext });
@@ -214,4 +287,54 @@ export async function deleteExpenseProof(id: string): Promise<MutationResult> {
 
   revalidatePath(MODULE_PATH);
   return { ok: true };
+}
+
+/**
+ * Muat pengeluaran yang lebih lama (perbaikan pasca-review) — halaman
+ * awalnya cuma menampilkan 500 baris terbaru (`getEventExpensesPageData`,
+ * lihat komentar Tahap 14 di sana) tanpa cara melihat sisanya begitu data
+ * bertambah banyak. Dipanggil dari tombol "Muat Lebih Banyak" di
+ * `EventExpenseManager.tsx` dengan `offset` = jumlah baris yang sudah
+ * ditampilkan; urutannya harus identik dengan query awal (expense_date
+ * desc) supaya tidak ada baris yang terlewat/dobel.
+ */
+export async function loadMoreEventExpenses(
+  offset: number
+): Promise<{ ok: true; expenses: EventExpense[]; hasMore: boolean } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const { data: rows, error } = await supabase
+    .from("event_expenses")
+    .select("*")
+    .order("expense_date", { ascending: false })
+    .range(offset, offset + LOAD_MORE_BATCH - 1)
+    .returns<EventExpenseRow[]>();
+
+  if (error) {
+    console.error("[event-expenses] loadMoreEventExpenses gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const ids = (rows ?? []).map((r) => r.id);
+  const { data: proofRows } =
+    ids.length > 0
+      ? await supabase.from("event_expense_proofs").select("*").in("expense_id", ids).returns<EventExpenseProofRow[]>()
+      : { data: [] as EventExpenseProofRow[] };
+
+  const proofsByExpense = new Map<string, EventExpenseProofRow[]>();
+  for (const proof of proofRows ?? []) {
+    const list = proofsByExpense.get(proof.expense_id) ?? [];
+    list.push(proof);
+    proofsByExpense.set(proof.expense_id, list);
+  }
+
+  const expenses = (rows ?? []).map((row) =>
+    rowToEventExpense(
+      row,
+      (proofsByExpense.get(row.id) ?? [])
+        .sort((a, b) => a.uploaded_at.localeCompare(b.uploaded_at))
+        .map(rowToExpenseProof)
+    )
+  );
+
+  return { ok: true, expenses, hasMore: expenses.length === LOAD_MORE_BATCH };
 }

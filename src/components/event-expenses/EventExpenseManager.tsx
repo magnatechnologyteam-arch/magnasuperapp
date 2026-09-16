@@ -1,14 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Receipt, Search, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Receipt, Search, Trash2 } from "lucide-react";
 import { EventExpenseFormModal } from "./EventExpenseFormModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ExportButton, type ExportSheet } from "@/components/ui/ExportButton";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatDateID, formatRupiah } from "@/lib/shared/utils";
-import { deleteEventExpense } from "@/lib/event-expenses/actions";
+import { deleteEventExpense, loadMoreEventExpenses } from "@/lib/event-expenses/actions";
 import { EXPENSE_CATEGORIES, EXPENSE_DIVISION_LABELS, type EventExpense, type ExpenseDivision, type ExpenseSourceOption } from "@/lib/event-expenses/types";
 
 const GRADIENT = "linear-gradient(135deg, #4C1D95 0%, #7C3AED 100%)";
@@ -44,17 +44,37 @@ const CATEGORY_GUIDE: { kategori: string; dipakaiUntuk: string; contoh: string }
 export function EventExpenseManager({
   initialExpenses,
   sourceOptions,
+  initialHasMore = false,
 }: {
   initialExpenses: EventExpense[];
   sourceOptions: ExpenseSourceOption[];
+  /** true kalau kemungkinan masih ada baris lebih lama di luar 500 yang
+   * dimuat awal — menampilkan tombol "Muat Lebih Banyak" (perbaikan
+   * pasca-review, lewat `loadMoreEventExpenses`). */
+  initialHasMore?: boolean;
 }) {
   const { showToast } = useToast();
   const [expenses, setExpenses] = useState(initialExpenses);
   const [formOpen, setFormOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<EventExpense | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<EventExpense | null>(null);
   const [divisionFilter, setDivisionFilter] = useState<ExpenseDivision | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  async function handleLoadMore() {
+    setLoadingMore(true);
+    const result = await loadMoreEventExpenses(expenses.length);
+    setLoadingMore(false);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    setExpenses((prev) => [...prev, ...result.expenses]);
+    setHasMore(result.hasMore);
+  }
 
   const sourceLabelByKey = useMemo(() => {
     const map = new Map<string, string>();
@@ -203,7 +223,10 @@ export function EventExpenseManager({
           <ExportButton sheets={exportSheets} fileName="realisasi-event" />
           <button
             type="button"
-            onClick={() => setFormOpen(true)}
+            onClick={() => {
+              setEditTarget(null);
+              setFormOpen(true);
+            }}
             className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm"
             style={{ background: GRADIENT }}
           >
@@ -278,15 +301,29 @@ export function EventExpenseManager({
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(e)}
-                        title="Hapus pengeluaran"
-                        aria-label="Hapus pengeluaran"
-                        className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditTarget(e);
+                            setFormOpen(true);
+                          }}
+                          title="Edit pengeluaran"
+                          aria-label="Edit pengeluaran"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-500/10 dark:hover:text-violet-300"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget(e)}
+                          title="Hapus pengeluaran"
+                          aria-label="Hapus pengeluaran"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -305,15 +342,36 @@ export function EventExpenseManager({
             </table>
           </div>
         )}
+        {hasMore && (
+          <div className="flex justify-center border-t border-black/5 py-3 dark:border-white/10">
+            <button
+              type="button"
+              onClick={() => void handleLoadMore()}
+              disabled={loadingMore}
+              className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-4 py-2 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+            >
+              {loadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              {loadingMore ? "Memuat…" : "Muat Pengeluaran Lebih Lama"}
+            </button>
+          </div>
+        )}
       </div>
 
       <EventExpenseFormModal
         open={formOpen}
-        onClose={() => setFormOpen(false)}
+        onClose={() => {
+          setFormOpen(false);
+          setEditTarget(null);
+        }}
         sourceOptions={sourceOptions}
-        onCreated={(expense) => {
-          setExpenses((prev) => [expense, ...prev]);
-          showToast("Pengeluaran berhasil dicatat.");
+        editing={editTarget}
+        onSaved={(expense) => {
+          setExpenses((prev) => {
+            const exists = prev.some((item) => item.id === expense.id);
+            return exists ? prev.map((item) => (item.id === expense.id ? expense : item)) : [expense, ...prev];
+          });
+          showToast(editTarget ? "Pengeluaran berhasil diperbarui." : "Pengeluaran berhasil dicatat.");
+          setEditTarget(null);
         }}
       />
 

@@ -61,6 +61,17 @@ export type ProjectCost = {
   description: string;
   amount: number;
   costDate: string;
+  /** Ditambahkan pasca-review (Tahap C modul "Realisasi Event") — sebelumnya
+   * baris dari modal ini selalu dipaksa kategori "Lain-lain" & metode
+   * "Tidak dicatat (via Biaya Proyek)" begitu disatukan ke `event_expenses`,
+   * yang bikin rekap kategori/metode pembayaran jadi kurang rinci untuk
+   * biaya proyek Magnative. Sekarang staf isi sendiri lewat modal ini —
+   * nilainya sama persis dengan `ExpenseCategory`/metode bebas di modul
+   * Realisasi Event (lihat src/lib/event-expenses/types.ts), cuma dipakai
+   * sebagai `string` biasa di sini supaya types.ts modul Magnative tidak
+   * perlu bergantung ke modul lain. */
+  category: string;
+  paymentMethod: string;
 };
 
 /**

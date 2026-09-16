@@ -171,6 +171,11 @@ export function rowToProjectCost(row: ProjectCostRow): ProjectCost {
     description: row.description,
     amount: row.amount,
     costDate: row.cost_date,
+    // Skema lama tidak punya kolom ini (lihat komentar `ProjectCost` di
+    // types.ts) — nilai bawaan cuma supaya tipenya cocok, mapper ini sendiri
+    // sudah tidak dipanggil di mana pun.
+    category: "Lain-lain",
+    paymentMethod: "",
   };
 }
 
@@ -190,6 +195,7 @@ export type MagnativeProjectCostExpenseRow = {
   notes: string | null;
   amount: number;
   expense_date: string;
+  payment_method: string;
 };
 
 export function rowToProjectCostFromExpense(row: MagnativeProjectCostExpenseRow): ProjectCost {
@@ -199,6 +205,8 @@ export function rowToProjectCostFromExpense(row: MagnativeProjectCostExpenseRow)
     description: row.notes?.trim() || row.category,
     amount: row.amount,
     costDate: row.expense_date,
+    category: row.category,
+    paymentMethod: row.payment_method,
   };
 }
 

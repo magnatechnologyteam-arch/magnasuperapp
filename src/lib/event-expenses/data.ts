@@ -25,6 +25,11 @@ import type { EventExpense, ExpenseSourceOption } from "./types";
 export async function getEventExpensesPageData(): Promise<{
   expenses: EventExpense[];
   sourceOptions: ExpenseSourceOption[];
+  /** true kalau kemungkinan masih ada baris lebih lama di luar 500 yang
+   * dimuat di sini — dipakai `EventExpenseManager.tsx` untuk menampilkan
+   * tombol "Muat Lebih Banyak" (perbaikan pasca-review, lewat
+   * `loadMoreEventExpenses` di actions.ts). */
+  hasMore: boolean;
 }> {
   const supabase = await createClient();
   const [expensesRes, proofsRes, bookingsRes, projectsRes, boothRes] = await Promise.all([
@@ -94,5 +99,5 @@ export async function getEventExpensesPageData(): Promise<{
       ),
   ];
 
-  return { expenses, sourceOptions };
+  return { expenses, sourceOptions, hasMore: expenses.length === 500 };
 }

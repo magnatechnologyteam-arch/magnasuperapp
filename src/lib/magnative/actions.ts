@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notifyDivision } from "@/lib/push/notify";
 import { logActivity } from "@/lib/activity/log";
-import { addEventExpense, deleteEventExpense } from "@/lib/event-expenses/actions";
+import { addEventExpense, deleteEventExpense, updateEventExpense } from "@/lib/event-expenses/actions";
+import type { ExpenseCategory } from "@/lib/event-expenses/types";
 import type {
   Client,
   ContentPost,
@@ -242,21 +243,25 @@ export async function deleteProject(id: string): Promise<MutationResult> {
  * Tahap C modul "Realisasi Event" (migrasi 0050): baris biaya sekarang
  * ditulis ke tabel terpadu `event_expenses` lewat action yang sama dipakai
  * halaman Realisasi Event — bukan lagi ke `magnative_project_costs`
- * (tabel lama dibiarkan ada untuk riwayat, tidak ditulis lagi). Modal ini
- * (ProjectCostModal.tsx) sengaja tetap ringkas: cuma deskripsi/nominal/
- * tanggal, jadi kategori/PIC/metode pembayaran diisi nilai wajar otomatis
- * di sini. Kalau perlu detail lengkap (kategori spesifik, bukti transaksi
- * foto nota, dll), catat langsung dari halaman Realisasi Event — baris
- * yang sama bakal muncul di kedua tempat karena source-nya identik
- * (source_type "magnative_project").
+ * (tabel lama dibiarkan ada untuk riwayat, tidak ditulis lagi). Kategori &
+ * metode pembayaran diisi sendiri oleh staf lewat modal ini (perbaikan
+ * pasca-review — sebelumnya dipaksa "Lain-lain"/"Tidak dicatat" otomatis,
+ * bikin rekap di halaman Realisasi Event kurang rinci untuk biaya proyek
+ * Magnative). Kalau perlu bukti transaksi foto nota, catat langsung dari
+ * halaman Realisasi Event — baris yang sama bakal muncul di kedua tempat
+ * karena source-nya identik (source_type "magnative_project").
  */
+function validateProjectCostInput(input: Omit<ProjectCost, "id">): string | null {
+  if (!input.description?.trim()) return "Deskripsi biaya wajib diisi.";
+  if (!Number.isFinite(input.amount) || input.amount <= 0) return "Nominal biaya harus lebih dari 0.";
+  if (!input.category?.trim()) return "Kategori biaya wajib dipilih.";
+  if (!input.paymentMethod?.trim()) return "Metode pembayaran wajib diisi.";
+  return null;
+}
+
 export async function addProjectCost(input: Omit<ProjectCost, "id">): Promise<MutationResult> {
-  if (!input.description?.trim()) {
-    return { ok: false, error: "Deskripsi biaya wajib diisi." };
-  }
-  if (!Number.isFinite(input.amount) || input.amount <= 0) {
-    return { ok: false, error: "Nominal biaya harus lebih dari 0." };
-  }
+  const validationError = validateProjectCostInput(input);
+  if (validationError) return { ok: false, error: validationError };
 
   const supabase = await createClient();
   const {
@@ -278,11 +283,54 @@ export async function addProjectCost(input: Omit<ProjectCost, "id">): Promise<Mu
     division: "magnative",
     sourceType: "magnative_project",
     sourceId: input.projectId,
-    category: "Lain-lain",
+    category: input.category as ExpenseCategory,
     amount: input.amount,
     picName,
-    paymentMethod: "Tidak dicatat (via Biaya Proyek)",
+    paymentMethod: input.paymentMethod,
     reimbursementStatus: "Tidak Perlu",
+    notes: input.description,
+  });
+
+  if (!result.ok) {
+    return { ok: false, error: result.error };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+/**
+ * Edit biaya proyek yang sudah tersimpan (perbaikan pasca-review — sebelum
+ * ini cuma bisa hapus lalu catat ulang kalau salah input). PIC & status
+ * penggantian dana yang sudah ada di baris itu DIPERTAHANKAN (diambil ulang
+ * dari `event_expenses`, bukan dari form ini yang sengaja tetap ringkas)
+ * supaya edit deskripsi/nominal/tanggal/kategori/metode tidak tidak sengaja
+ * menimpa field lain yang tidak ditampilkan di modal ini.
+ */
+export async function updateProjectCost(id: string, input: Omit<ProjectCost, "id">): Promise<MutationResult> {
+  const validationError = validateProjectCostInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("event_expenses")
+    .select("pic_name, reimbursement_status")
+    .eq("id", id)
+    .maybeSingle<{ pic_name: string; reimbursement_status: "Tidak Perlu" | "Belum Diganti" | "Sudah Diganti" }>();
+
+  if (!existing) {
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const result = await updateEventExpense(id, {
+    expenseDate: input.costDate,
+    division: "magnative",
+    sourceType: "magnative_project",
+    sourceId: input.projectId,
+    category: input.category as ExpenseCategory,
+    amount: input.amount,
+    picName: existing.pic_name,
+    paymentMethod: input.paymentMethod,
+    reimbursementStatus: existing.reimbursement_status,
     notes: input.description,
   });
 

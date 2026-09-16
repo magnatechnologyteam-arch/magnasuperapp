@@ -12,7 +12,7 @@ import { ToastProvider } from "@/components/ui/ToastProvider";
  * (diblokir eksplisit di middleware + RLS `event_expenses`).
  */
 export default async function RealisasiEventPage() {
-  const { expenses, sourceOptions } = await getEventExpensesPageData();
+  const { expenses, sourceOptions, hasMore } = await getEventExpensesPageData();
 
   return (
     <div className="p-4 md:p-8">
@@ -42,7 +42,7 @@ export default async function RealisasiEventPage() {
 
       <div className="mt-6">
         <ToastProvider>
-          <EventExpenseManager initialExpenses={expenses} sourceOptions={sourceOptions} />
+          <EventExpenseManager initialExpenses={expenses} sourceOptions={sourceOptions} initialHasMore={hasMore} />
         </ToastProvider>
       </div>
     </div>

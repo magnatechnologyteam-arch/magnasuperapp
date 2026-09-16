@@ -46,7 +46,7 @@ export default async function ArusKasProyekPage() {
     supabase.from("magnative_clients").select("*").returns<ClientRow[]>(),
     supabase
       .from("event_expenses")
-      .select("id, source_id, category, notes, amount, expense_date")
+      .select("id, source_id, category, notes, amount, expense_date, payment_method")
       .eq("source_type", "magnative_project")
       .returns<MagnativeProjectCostExpenseRow[]>(),
     supabase.from("invoices").select("*").eq("source_type", "magnative_project").returns<InvoiceRow[]>(),
