@@ -150,6 +150,12 @@ export function rowToCreativeAsset(row: CreativeAssetRow): CreativeAsset {
   };
 }
 
+/** Bentuk baris `magnative_project_costs` (migrasi 0017) — tabel ini
+ * dibiarkan ada untuk riwayat lama, tapi TIDAK ditulis/dibaca lagi oleh
+ * aplikasi sejak Tahap C modul "Realisasi Event" (migrasi 0050). Tipe &
+ * mapper ini disimpan sekadar dokumentasi/keperluan tooling admin di masa
+ * depan — lihat `rowToProjectCostFromExpense` di bawah untuk sumber data
+ * yang sekarang benar-benar dipakai. */
 export type ProjectCostRow = {
   id: string;
   project_id: string;
@@ -165,6 +171,34 @@ export function rowToProjectCost(row: ProjectCostRow): ProjectCost {
     description: row.description,
     amount: row.amount,
     costDate: row.cost_date,
+  };
+}
+
+/**
+ * Baris `event_expenses` (migrasi 0049) yang sudah difilter
+ * `source_type = 'magnative_project'` — dipetakan balik ke bentuk
+ * `ProjectCost` supaya UI lama (ProjectCostModal, ArusKasProyekView) tidak
+ * perlu tahu skema tabel sumbernya sudah berubah (Tahap C, migrasi 0050).
+ * `description` diambil dari `notes` (isi form Biaya Proyek disimpan ke
+ * situ); kalau kosong (mis. entri dari halaman Realisasi Event tanpa
+ * keterangan), jatuh ke nama kategori supaya tidak tampil blank.
+ */
+export type MagnativeProjectCostExpenseRow = {
+  id: string;
+  source_id: string | null;
+  category: string;
+  notes: string | null;
+  amount: number;
+  expense_date: string;
+};
+
+export function rowToProjectCostFromExpense(row: MagnativeProjectCostExpenseRow): ProjectCost {
+  return {
+    id: row.id,
+    projectId: row.source_id ?? "",
+    description: row.notes?.trim() || row.category,
+    amount: row.amount,
+    costDate: row.expense_date,
   };
 }
 

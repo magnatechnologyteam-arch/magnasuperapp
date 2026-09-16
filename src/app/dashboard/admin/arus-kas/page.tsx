@@ -4,10 +4,10 @@ import { createClient, getCurrentProfile } from "@/lib/supabase/server";
 import {
   rowToClient,
   rowToProject,
-  rowToProjectCost,
+  rowToProjectCostFromExpense,
   type ClientRow,
   type ProjectRow,
-  type ProjectCostRow,
+  type MagnativeProjectCostExpenseRow,
 } from "@/lib/magnative/mappers";
 import { rowToInvoice, type InvoiceRow } from "@/lib/invoices/mappers";
 import { ArusKasProyekView, type ArusKasEvent, type ProyekArusKas } from "@/components/admin/ArusKasProyekView";
@@ -29,8 +29,10 @@ import { ArusKasProyekView, type ArusKasEvent, type ProyekArusKas } from "@/comp
  * ditampilkan di timeline tapi dihitung sebagai "potensi", bukan dana
  * yang sudah cair — lihat komentar di ArusKasProyekView.tsx.
  *
- * Dana KELUAR dihitung dari `magnative_project_costs` (migrasi 0017),
- * tanggalnya eksplisit lewat `costDate`.
+ * Dana KELUAR dihitung dari `event_expenses` (migrasi 0049) yang difilter
+ * `source_type = 'magnative_project'` — sejak Tahap C modul "Realisasi
+ * Event" (migrasi 0050), ini menggantikan `magnative_project_costs` lama
+ * sebagai sumber datanya, tanggalnya eksplisit lewat `expense_date`.
  */
 export default async function ArusKasProyekPage() {
   const profile = await getCurrentProfile();
@@ -42,13 +44,17 @@ export default async function ArusKasProyekPage() {
   const [projectsRes, clientsRes, costsRes, invoicesRes] = await Promise.all([
     supabase.from("magnative_projects").select("*").returns<ProjectRow[]>(),
     supabase.from("magnative_clients").select("*").returns<ClientRow[]>(),
-    supabase.from("magnative_project_costs").select("*").returns<ProjectCostRow[]>(),
+    supabase
+      .from("event_expenses")
+      .select("id, source_id, category, notes, amount, expense_date")
+      .eq("source_type", "magnative_project")
+      .returns<MagnativeProjectCostExpenseRow[]>(),
     supabase.from("invoices").select("*").eq("source_type", "magnative_project").returns<InvoiceRow[]>(),
   ]);
 
   const projects = (projectsRes.data ?? []).map(rowToProject);
   const clients = (clientsRes.data ?? []).map(rowToClient);
-  const costs = (costsRes.data ?? []).map(rowToProjectCost);
+  const costs = (costsRes.data ?? []).map(rowToProjectCostFromExpense);
   const invoices = (invoicesRes.data ?? []).map(rowToInvoice);
 
   const data: ProyekArusKas[] = projects.map((p) => {

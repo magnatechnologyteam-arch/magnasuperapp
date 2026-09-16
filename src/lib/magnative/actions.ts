@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { notifyDivision } from "@/lib/push/notify";
 import { logActivity } from "@/lib/activity/log";
+import { addEventExpense, deleteEventExpense } from "@/lib/event-expenses/actions";
 import type {
   Client,
   ContentPost,
@@ -234,9 +235,20 @@ export async function deleteProject(id: string): Promise<MutationResult> {
 }
 
 /**
- * Biaya/pengeluaran per proyek (migrasi 0017) — lihat komentar `ProjectCost`
- * di types.ts. Tidak perlu cek `status` proyek: biaya boleh dicatat di
- * tahap apa pun, termasuk "Pitching" yang belum pasti deal.
+ * Biaya/pengeluaran per proyek — lihat komentar `ProjectCost` di types.ts.
+ * Tidak perlu cek `status` proyek: biaya boleh dicatat di tahap apa pun,
+ * termasuk "Pitching" yang belum pasti deal.
+ *
+ * Tahap C modul "Realisasi Event" (migrasi 0050): baris biaya sekarang
+ * ditulis ke tabel terpadu `event_expenses` lewat action yang sama dipakai
+ * halaman Realisasi Event — bukan lagi ke `magnative_project_costs`
+ * (tabel lama dibiarkan ada untuk riwayat, tidak ditulis lagi). Modal ini
+ * (ProjectCostModal.tsx) sengaja tetap ringkas: cuma deskripsi/nominal/
+ * tanggal, jadi kategori/PIC/metode pembayaran diisi nilai wajar otomatis
+ * di sini. Kalau perlu detail lengkap (kategori spesifik, bukti transaksi
+ * foto nota, dll), catat langsung dari halaman Realisasi Event — baris
+ * yang sama bakal muncul di kedua tempat karena source-nya identik
+ * (source_type "magnative_project").
  */
 export async function addProjectCost(input: Omit<ProjectCost, "id">): Promise<MutationResult> {
   if (!input.description?.trim()) {
@@ -251,48 +263,46 @@ export async function addProjectCost(input: Omit<ProjectCost, "id">): Promise<Mu
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { error } = await supabase.from("magnative_project_costs").insert({
-    project_id: input.projectId,
-    description: input.description,
+  let picName = "Tidak diketahui";
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .maybeSingle<{ full_name: string }>();
+    picName = profile?.full_name?.trim() || picName;
+  }
+
+  const result = await addEventExpense({
+    expenseDate: input.costDate,
+    division: "magnative",
+    sourceType: "magnative_project",
+    sourceId: input.projectId,
+    category: "Lain-lain",
     amount: input.amount,
-    cost_date: input.costDate,
-    created_by: user?.id ?? null,
+    picName,
+    paymentMethod: "Tidak dicatat (via Biaya Proyek)",
+    reimbursementStatus: "Tidak Perlu",
+    notes: input.description,
   });
 
-  if (error) {
-    console.error("[magnative] addProjectCost gagal:", error.message);
-    return { ok: false, error: GENERIC_ERROR };
+  if (!result.ok) {
+    return { ok: false, error: result.error };
   }
   revalidatePath(MODULE_PATH);
-  void logActivity({
-    module: "magnative",
-    action: "create",
-    entityType: "biaya proyek",
-    entityLabel: input.description,
-  });
   return { ok: true };
 }
 
 export async function deleteProjectCost(id: string): Promise<MutationResult> {
-  const supabase = await createClient();
-  const { data: costRow } = await supabase
-    .from("magnative_project_costs")
-    .select("description")
-    .eq("id", id)
-    .maybeSingle();
-
-  const { error } = await supabase.from("magnative_project_costs").delete().eq("id", id);
-  if (error) {
-    console.error("[magnative] deleteProjectCost gagal:", error.message);
-    return { ok: false, error: GENERIC_ERROR };
+  // Tahap C: baris ini sekarang milik `event_expenses` (lihat
+  // `addProjectCost` di atas) — hapus lewat action yang sama dipakai
+  // halaman Realisasi Event, supaya bukti transaksi & file di Storage-nya
+  // (kalau sempat ditambahkan dari sana) ikut dibersihkan.
+  const result = await deleteEventExpense(id);
+  if (!result.ok) {
+    return result;
   }
   revalidatePath(MODULE_PATH);
-  void logActivity({
-    module: "magnative",
-    action: "delete",
-    entityType: "biaya proyek",
-    entityLabel: costRow?.description,
-  });
   return { ok: true };
 }
 

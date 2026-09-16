@@ -8,11 +8,11 @@ import {
   rowToClient,
   rowToContentPost,
   rowToProject,
-  rowToProjectCost,
+  rowToProjectCostFromExpense,
   type ClientRow,
   type ContentPostRow,
   type ProjectRow,
-  type ProjectCostRow,
+  type MagnativeProjectCostExpenseRow,
 } from "@/lib/magnative/mappers";
 
 const mod = MODULES.find((m) => m.id === "magnative")!;
@@ -39,11 +39,15 @@ export default async function MagnativeLayout({ children }: { children: ReactNod
       .select("*")
       .order("tanggal_posting", { ascending: true })
       .returns<ContentPostRow[]>(),
+    // Tahap C modul "Realisasi Event" (migrasi 0050): biaya proyek sekarang
+    // dibaca dari tabel terpadu `event_expenses`, bukan lagi
+    // `magnative_project_costs` — lihat komentar di src/lib/magnative/actions.ts.
     supabase
-      .from("magnative_project_costs")
-      .select("*")
-      .order("cost_date", { ascending: false })
-      .returns<ProjectCostRow[]>(),
+      .from("event_expenses")
+      .select("id, source_id, category, notes, amount, expense_date")
+      .eq("source_type", "magnative_project")
+      .order("expense_date", { ascending: false })
+      .returns<MagnativeProjectCostExpenseRow[]>(),
   ]);
 
   if (clientsResult.error) console.error("[magnative] Gagal memuat klien:", clientsResult.error.message);
@@ -54,7 +58,7 @@ export default async function MagnativeLayout({ children }: { children: ReactNod
   const clients = (clientsResult.data ?? []).map(rowToClient);
   const projects = (projectsResult.data ?? []).map(rowToProject);
   const contentPosts = (postsResult.data ?? []).map(rowToContentPost);
-  const projectCosts = (costsResult.data ?? []).map(rowToProjectCost);
+  const projectCosts = (costsResult.data ?? []).map(rowToProjectCostFromExpense);
 
   return (
     <ToastProvider>
