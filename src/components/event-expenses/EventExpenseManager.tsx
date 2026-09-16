@@ -5,6 +5,7 @@ import { Plus, Receipt, Search, Trash2 } from "lucide-react";
 import { EventExpenseFormModal } from "./EventExpenseFormModal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { ExportButton, type ExportSheet } from "@/components/ui/ExportButton";
 import { useToast } from "@/components/ui/ToastProvider";
 import { formatDateID, formatRupiah } from "@/lib/shared/utils";
 import { deleteEventExpense } from "@/lib/event-expenses/actions";
@@ -17,6 +18,20 @@ const REIMBURSE_BADGE: Record<string, string> = {
   "Belum Diganti": "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
   "Sudah Diganti": "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
 };
+
+/** Penjelasan tiap kategori — dipakai di sheet "Panduan Kategori" pada
+ * ekspor Excel (Tahap D), sama persis dengan isi yang sudah disetujui
+ * Owner waktu diskusi model ekspor. */
+const CATEGORY_GUIDE: { kategori: string; dipakaiUntuk: string; contoh: string }[] = [
+  { kategori: "Sewa Venue", dipakaiUntuk: "Biaya sewa tempat/lokasi penyelenggaraan acara.", contoh: "Sewa ballroom, gedung, tenda, halaman outdoor" },
+  { kategori: "Dekorasi & Material", dipakaiUntuk: "Bahan dan properti untuk dekorasi/tampilan acara atau booth.", contoh: "Backdrop, bunga, kain, properti panggung, material booth" },
+  { kategori: "Transportasi", dipakaiUntuk: "Ongkos angkut alat/tim dan biaya perjalanan terkait event.", contoh: "Sewa truk/mobil, BBM, tol, parkir, ongkos kirim alat" },
+  { kategori: "Konsumsi", dipakaiUntuk: "Makan dan minum untuk tim, klien, atau tamu selama persiapan/acara.", contoh: "Katering, snack, air minum kru" },
+  { kategori: "Talent / Vendor", dipakaiUntuk: "Honor atau pembayaran ke pihak yang disewa untuk acara.", contoh: "MC, talent, fotografer/videografer, tukang/vendor eksternal" },
+  { kategori: "Percetakan", dipakaiUntuk: "Cetak materi fisik terkait acara.", contoh: "Banner, id card, undangan, materi promosi cetak" },
+  { kategori: "Operasional Kantor", dipakaiUntuk: 'Pengeluaran rutin kantor yang TIDAK terikat ke event/proyek tertentu — dipakai untuk entri "Finance / Umum".', contoh: "ATK, listrik, internet kantor, langganan software" },
+  { kategori: "Lain-lain", dipakaiUntuk: "Pengeluaran sah yang tidak cocok masuk kategori manapun di atas.", contoh: "Pengeluaran situasional/darurat di lapangan" },
+];
 
 /**
  * Manajer utama halaman "Realisasi Event" — daftar pengeluaran + form
@@ -66,6 +81,73 @@ export function EventExpenseManager({
   }, [expenses, divisionFilter, categoryFilter, searchTerm]);
 
   const total = useMemo(() => filtered.reduce((sum, e) => sum + e.amount, 0), [filtered]);
+
+  /**
+   * Data ekspor Excel (Tahap D) — dibangun dari `filtered` (mengikuti
+   * pencarian/filter divisi/kategori yang sedang aktif, pola sama seperti
+   * tombol Ekspor di halaman Laporan). Bentuk & isi sheet mengikuti model
+   * yang sudah didiskusikan & disetujui Owner: detail transaksi diurutkan
+   * dari tanggal paling awal dengan kolom "Total Berjalan" (saldo kumulatif
+   * dipakai sebagai jejak/track pengeluaran), lalu rekap per Divisi/
+   * Kategori/Metode Pembayaran, dan panduan kategori. `ExportButton` (SheetJS
+   * di browser) cuma bisa satu tabel datar per tab, jadi tiga rekap yang di
+   * model awal digabung satu tab dipisah jadi tiga tab kecil di sini —
+   * angkanya tetap sama persis, cuma tata letaknya yang menyesuaikan.
+   */
+  const exportSheets = useMemo<ExportSheet[]>(() => {
+    const sorted = [...filtered].sort((a, b) => a.expenseDate.localeCompare(b.expenseDate));
+    let running = 0;
+    const detailRows = sorted.map((e, i) => {
+      running += e.amount;
+      return {
+        "No.": i + 1,
+        Tanggal: formatDateID(e.expenseDate),
+        Divisi: EXPENSE_DIVISION_LABELS[e.division],
+        "Event/Proyek Terkait": labelFor(e),
+        Kategori: e.category,
+        "PIC Pengeluaran": e.picName,
+        Nominal: e.amount,
+        "Total Berjalan": running,
+        "Metode Pembayaran": e.paymentMethod,
+        "Status Penggantian Dana": e.reimbursementStatus,
+        "Bukti Transaksi": e.proofs.length > 0 ? e.proofs.map((p) => p.fileName).join("; ") : "Belum diunggah",
+        Keterangan: e.notes ?? "",
+      };
+    });
+
+    function rekap(labelCol: string, keyOf: (e: EventExpense) => string, order: string[]) {
+      const totals = new Map<string, number>();
+      for (const e of sorted) {
+        const k = keyOf(e);
+        totals.set(k, (totals.get(k) ?? 0) + e.amount);
+      }
+      const keys = order.length > 0 ? order : [...totals.keys()].sort((a, b) => a.localeCompare(b));
+      const rows = keys.map((k) => ({ [labelCol]: k, "Total Nominal": totals.get(k) ?? 0 }));
+      const grandTotal = rows.reduce((sum, r) => sum + (r["Total Nominal"] as number), 0);
+      rows.push({ [labelCol]: "TOTAL", "Total Nominal": grandTotal });
+      return rows;
+    }
+
+    const paymentMethods = [...new Set(sorted.map((e) => e.paymentMethod))];
+
+    return [
+      { name: "Realisasi Event", rows: detailRows },
+      {
+        name: "Rekap per Divisi",
+        rows: rekap("Divisi", (e) => EXPENSE_DIVISION_LABELS[e.division], Object.values(EXPENSE_DIVISION_LABELS)),
+      },
+      { name: "Rekap per Kategori", rows: rekap("Kategori", (e) => e.category, EXPENSE_CATEGORIES) },
+      { name: "Rekap per Metode Bayar", rows: rekap("Metode Pembayaran", (e) => e.paymentMethod, paymentMethods) },
+      {
+        name: "Panduan Kategori",
+        rows: CATEGORY_GUIDE.map((c) => ({
+          Kategori: c.kategori,
+          "Dipakai untuk": c.dipakaiUntuk,
+          Contoh: c.contoh,
+        })),
+      },
+    ];
+  }, [filtered]);
 
   async function confirmDelete() {
     if (!deleteTarget) return;
@@ -117,15 +199,18 @@ export function EventExpenseManager({
             ))}
           </select>
         </div>
-        <button
-          type="button"
-          onClick={() => setFormOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm"
-          style={{ background: GRADIENT }}
-        >
-          <Plus className="h-4 w-4" />
-          Catat Pengeluaran
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportButton sheets={exportSheets} fileName="realisasi-event" />
+          <button
+            type="button"
+            onClick={() => setFormOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm"
+            style={{ background: GRADIENT }}
+          >
+            <Plus className="h-4 w-4" />
+            Catat Pengeluaran
+          </button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
