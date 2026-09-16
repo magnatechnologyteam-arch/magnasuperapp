@@ -25,7 +25,7 @@ export default async function FakturPage() {
 
   const supabase = await createClient();
   const [invoicesRes, bookingsRes, inventoryRes, projectsRes, boothRes, clientsRes] = await Promise.all([
-    supabase.from("invoices").select("*").order("created_at", { ascending: false }).returns<InvoiceRow[]>(),
+    supabase.from("invoices").select("*").order("created_at", { ascending: false }).limit(200).returns<InvoiceRow[]>(),
     supabase.from("magnarent_bookings").select("*").returns<BookingRow[]>(),
     supabase.from("magnarent_inventory").select("*").returns<InventoryRow[]>(),
     supabase.from("magnative_projects").select("*").returns<ProjectRow[]>(),
