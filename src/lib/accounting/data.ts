@@ -1,5 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
-import { ACCOUNT_CODE } from "./types";
+import { ACCOUNT_CODE, DIVISION_LABELS } from "./types";
+import type { Account, AccountType, JournalEntry, JournalLine, JournalSourceType, NormalBalance } from "./types";
+
+// Diekspor ulang dari sini (bukan cuma dipakai internal) supaya kode lama
+// yang sudah `import { DIVISION_LABELS } from "@/lib/accounting/data"`
+// (halaman Laba-Rugi & Arus Kas) tidak perlu diubah.
+export { DIVISION_LABELS };
 
 /**
  * Sisi BACA modul "Akuntansi" (Tahap C) -- Laporan Laba-Rugi ditarik
@@ -42,14 +48,6 @@ export type IncomeStatement = {
    * kelihatan kalau laporannya kosong karena memang belum ada transaksi
    * di rentang tanggal itu (bukan karena ada yang salah). */
   entryCount: number;
-};
-
-export const DIVISION_LABELS: Record<string, string> = {
-  magnarent: "Magnarent",
-  magnative: "Magnativ",
-  production: "Production",
-  finance: "Finance/Umum",
-  "": "Tanpa Divisi (Jurnal Manual)",
 };
 
 function emptyIncomeStatement(startDate: string, endDate: string): IncomeStatement {
@@ -581,4 +579,141 @@ export async function getCashFlowStatement(startDate: string, endDate: string): 
     lines,
     entryCount: entries.length,
   };
+}
+
+
+/**
+ * Tahap F -- sisi BACA untuk halaman "Akuntansi" (/dashboard/admin/
+ * akuntansi): Daftar Akun (Chart of Accounts) + Jurnal Manual, DISATUKAN
+ * jadi satu halaman/satu tautan navigasi (bukan dua halaman terpisah)
+ * supaya menu Admin tidak makin panjang -- beda dari Laba-Rugi/Neraca/
+ * Arus Kas (Tahap C/D/E) yang masing-masing laporan besar dengan filter
+ * sendiri, Daftar Akun & Jurnal Manual sama-sama alat "input/kelola" yang
+ * ukurannya pas digabung satu tempat.
+ */
+export async function getChartOfAccounts(): Promise<Account[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("chart_of_accounts")
+    .select("id, account_code, account_name, account_type, account_subtype, normal_balance, is_active, description")
+    .order("account_code")
+    .returns<
+      {
+        id: string;
+        account_code: string;
+        account_name: string;
+        account_type: AccountType;
+        account_subtype: string;
+        normal_balance: NormalBalance;
+        is_active: boolean;
+        description: string | null;
+      }[]
+    >();
+
+  if (error) {
+    console.error("[accounting] getChartOfAccounts: gagal ambil daftar akun:", error.message);
+    return [];
+  }
+
+  return (data ?? []).map((a) => ({
+    id: a.id,
+    code: a.account_code,
+    name: a.account_name,
+    type: a.account_type,
+    subtype: a.account_subtype,
+    normalBalance: a.normal_balance,
+    isActive: a.is_active,
+    description: a.description ?? undefined,
+  }));
+}
+
+/**
+ * Jurnal MANUAL saja (source_type = 'manual') -- jurnal hasil auto-posting
+ * (invoice/event_expense) sengaja tidak ditampilkan di sini, siklus
+ * hidupnya ikut sumbernya masing-masing (lihat komentar
+ * `deleteManualJournalEntry` di actions.ts). Dibatasi 200 entri terbaru --
+ * cukup besar untuk pemakaian jurnal koreksi/manual yang jarang, tanpa
+ * perlu paginasi di Tahap F ini.
+ */
+export async function getManualJournalEntries(limit = 200): Promise<JournalEntry[]> {
+  const supabase = await createClient();
+
+  const { data: entries, error: entriesError } = await supabase
+    .from("journal_entries")
+    .select("id, entry_date, reference_number, description, source_type, source_id, division, created_at")
+    .eq("source_type", "manual")
+    .order("entry_date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit)
+    .returns<
+      {
+        id: string;
+        entry_date: string;
+        reference_number: string | null;
+        description: string;
+        source_type: string;
+        source_id: string | null;
+        division: string | null;
+        created_at: string;
+      }[]
+    >();
+
+  if (entriesError) {
+    console.error("[accounting] getManualJournalEntries: gagal ambil entri jurnal:", entriesError.message);
+    return [];
+  }
+  if (!entries || entries.length === 0) return [];
+
+  const entryIds = entries.map((e) => e.id);
+  const [{ data: lines, error: linesError }, { data: accounts, error: accountsError }] = await Promise.all([
+    supabase
+      .from("journal_entry_lines")
+      .select("id, journal_entry_id, account_id, debit, credit, notes")
+      .in("journal_entry_id", entryIds)
+      .returns<
+        { id: string; journal_entry_id: string; account_id: string; debit: number; credit: number; notes: string | null }[]
+      >(),
+    supabase
+      .from("chart_of_accounts")
+      .select("id, account_code, account_name")
+      .returns<{ id: string; account_code: string; account_name: string }[]>(),
+  ]);
+
+  if (linesError || accountsError) {
+    console.error(
+      "[accounting] getManualJournalEntries: gagal ambil baris jurnal/daftar akun:",
+      linesError?.message,
+      accountsError?.message
+    );
+    return [];
+  }
+
+  const accountById = new Map((accounts ?? []).map((a) => [a.id, a]));
+  const linesByEntry = new Map<string, JournalLine[]>();
+  for (const line of lines ?? []) {
+    const account = accountById.get(line.account_id);
+    const bucket = linesByEntry.get(line.journal_entry_id) ?? [];
+    bucket.push({
+      id: line.id,
+      accountId: line.account_id,
+      accountCode: account?.account_code ?? "-",
+      accountName: account?.account_name ?? "(akun sudah dihapus)",
+      debit: line.debit,
+      credit: line.credit,
+      notes: line.notes ?? undefined,
+    });
+    linesByEntry.set(line.journal_entry_id, bucket);
+  }
+
+  return entries.map((e) => ({
+    id: e.id,
+    entryDate: e.entry_date,
+    referenceNumber: e.reference_number ?? undefined,
+    description: e.description,
+    sourceType: e.source_type as JournalSourceType,
+    sourceId: e.source_id ?? undefined,
+    division: e.division ?? undefined,
+    createdAt: e.created_at,
+    lines: linesByEntry.get(e.id) ?? [],
+  }));
 }

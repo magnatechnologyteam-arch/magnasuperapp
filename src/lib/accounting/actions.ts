@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity/log";
-import { ACCOUNT_CODE, type ManualJournalInput } from "./types";
+import { ACCOUNT_CODE, type AccountType, type ManualJournalInput, type NormalBalance } from "./types";
 import type { InvoiceDivision } from "@/lib/invoices/types";
 
 const MODULE_PATH = "/dashboard/admin/akuntansi";
@@ -253,6 +253,96 @@ export async function deleteManualJournalEntry(id: string): Promise<MutationResu
     action: "delete",
     entityType: "jurnal akuntansi",
     entityLabel: existing.description,
+  });
+  return { ok: true };
+}
+
+
+export type CreateAccountInput = {
+  code: string;
+  name: string;
+  type: AccountType;
+  subtype?: string;
+  normalBalance: NormalBalance;
+  description?: string;
+};
+
+/**
+ * Tambah akun baru ke Daftar Akun (Tahap F) -- dipakai kalau akun bawaan
+ * seed migrasi 0051 belum cukup (mis. buka rekening bank baru, kategori
+ * beban baru). SENGAJA tidak ada validasi "kode harus mengikuti pola
+ * 1-xxxx/2-xxxx dst" -- itu cuma konvensi penomoran, bukan aturan yang
+ * ditegakkan database, supaya staf Finance tetap bebas menomori sesuai
+ * kebutuhan mereka sendiri.
+ */
+export async function createAccount(input: CreateAccountInput): Promise<MutationResult> {
+  const code = input.code.trim();
+  const name = input.name.trim();
+  if (!code) return { ok: false, error: "Kode akun wajib diisi." };
+  if (!name) return { ok: false, error: "Nama akun wajib diisi." };
+  if (!input.type) return { ok: false, error: "Tipe akun wajib dipilih." };
+  if (!input.normalBalance) return { ok: false, error: "Saldo normal wajib dipilih." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("chart_of_accounts").insert({
+    account_code: code,
+    account_name: name,
+    account_type: input.type,
+    account_subtype: input.subtype?.trim() || "",
+    normal_balance: input.normalBalance,
+    description: input.description?.trim() || null,
+  });
+
+  if (error) {
+    console.error("[accounting] createAccount gagal:", error.message);
+    if (error.code === "23505") {
+      return { ok: false, error: `Kode akun "${code}" sudah dipakai akun lain.` };
+    }
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "admin",
+    action: "create",
+    entityType: "daftar akun",
+    entityLabel: `${code} — ${name}`,
+  });
+  return { ok: true };
+}
+
+/**
+ * Aktifkan/nonaktifkan akun -- SENGAJA tidak ada hapus akun permanen dari
+ * UI. Akun yang sudah pernah dipakai punya baris jurnal yang mereferensi
+ * `account_id`-nya (FK ke journal_entry_lines); menghapus akun akan
+ * merusak riwayat laporan lama. "Nonaktif" cukup menyembunyikan akun itu
+ * dari pilihan akun BARU (form Jurnal Manual memfilter is_active) tanpa
+ * mengubah satu pun data historis.
+ */
+export async function setAccountActive(id: string, isActive: boolean): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("chart_of_accounts")
+    .select("account_code, account_name")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError || !existing) {
+    return { ok: false, error: "Akun tidak ditemukan." };
+  }
+
+  const { error } = await supabase.from("chart_of_accounts").update({ is_active: isActive }).eq("id", id);
+  if (error) {
+    console.error("[accounting] setAccountActive gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "admin",
+    action: "update",
+    entityType: "daftar akun",
+    entityLabel: `${existing.account_code} — ${existing.account_name} (${isActive ? "diaktifkan" : "dinonaktifkan"})`,
   });
   return { ok: true };
 }

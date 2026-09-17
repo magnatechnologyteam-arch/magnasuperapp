@@ -30,6 +30,19 @@ export type JournalLineInput = {
 
 export type ManualJournalDivision = "magnarent" | "magnative" | "production" | "finance";
 
+/** Label tampilan untuk `journal_entries.division` -- disatukan di sini
+ * (bukan di data.ts yang mengimpor `@/lib/supabase/server`) supaya bisa
+ * dipakai baik dari Server Component/data fetcher MAUPUN Client Component
+ * (mis. `ManualJournalManager`) tanpa menyeret modul server-only ke bundle
+ * client. */
+export const DIVISION_LABELS: Record<string, string> = {
+  magnarent: "Magnarent",
+  magnative: "Magnativ",
+  production: "Production",
+  finance: "Finance/Umum",
+  "": "Tanpa Divisi (Jurnal Manual)",
+};
+
 export type ManualJournalInput = {
   entryDate: string;
   description: string;
