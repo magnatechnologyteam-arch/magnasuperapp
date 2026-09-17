@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { ACCOUNT_CODE } from "./types";
 
 /**
  * Sisi BACA modul "Akuntansi" (Tahap C) -- Laporan Laba-Rugi ditarik
@@ -43,7 +44,7 @@ export type IncomeStatement = {
   entryCount: number;
 };
 
-const DIVISION_LABELS: Record<string, string> = {
+export const DIVISION_LABELS: Record<string, string> = {
   magnarent: "Magnarent",
   magnative: "Magnativ",
   production: "Production",
@@ -324,6 +325,260 @@ export async function getBalanceSheet(asOfDate: string): Promise<BalanceSheet> {
     // menolak jurnal yang debit/kreditnya tidak sama, jadi ketidakcocokan
     // di sini adalah sinyal ada bug, bukan hal yang wajar terjadi.
     isBalanced: Math.abs(totalAset - (totalKewajiban + totalModal)) < 1,
+    entryCount: entries.length,
+  };
+}
+
+
+/**
+ * Tahap E -- Arus Kas (dari Jurnal). BEDA dari halaman "Arus Kas Proyek"
+ * (/dashboard/admin/arus-kas) yang lama -- itu hitung ulang langsung dari
+ * event_expenses/invoices per proyek; ini laporan resmi akuntansi: mutasi
+ * Kas Kecil (1-1001) + Bank Operasional (1-1002) yang SUDAH terposting ke
+ * Jurnal Umum (Tahap A/B), diklasifikasi Operasional/Investasi/Pendanaan
+ * seperti Laporan Arus Kas standar (mirip Accurate) -- bukan mengulang
+ * logika hitung dari sumbernya lagi, sama seperti Laba-Rugi & Neraca.
+ *
+ * Klasifikasi ditentukan dari akun LAWAN di baris jurnal yang sama (baris
+ * non-kas lain di satu entri jurnal yang sama):
+ * - lawan Aset Tetap (mis. beli peralatan) -> Investasi
+ * - lawan Modal (mis. setoran modal pemilik) -> Pendanaan
+ * - lawan sesama akun Kas/Bank (transfer internal Kas Kecil <-> Bank
+ *   Operasional) -> Lainnya, supaya tidak dobel dihitung sebagai
+ *   Operasional padahal bukan transaksi ke pihak luar
+ * - selain itu (Pendapatan, Beban, Piutang, Hutang jangka pendek) ->
+ *   Operasional, karena semuanya berasal dari aktivitas usaha sehari-hari
+ */
+export type CashFlowCategory = "Operasional" | "Investasi" | "Pendanaan" | "Lainnya";
+
+export type CashFlowLine = {
+  entryId: string;
+  entryDate: string;
+  description: string;
+  division: string;
+  sourceType: string;
+  cashAccountCode: string;
+  cashAccountName: string;
+  /** Positif = kas/bank bertambah (masuk), negatif = berkurang (keluar). */
+  amount: number;
+  category: CashFlowCategory;
+  counterAccountName: string;
+};
+
+export type CashFlowCategorySummary = {
+  category: CashFlowCategory;
+  totalMasuk: number;
+  totalKeluar: number;
+  net: number;
+};
+
+export type CashFlowStatement = {
+  startDate: string;
+  endDate: string;
+  /** Saldo Kas+Bank akumulasi dari semua jurnal SEBELUM startDate. */
+  saldoAwal: number;
+  saldoAkhir: number;
+  totalMasuk: number;
+  totalKeluar: number;
+  netChange: number;
+  byCategory: CashFlowCategorySummary[];
+  lines: CashFlowLine[];
+  entryCount: number;
+};
+
+const CASH_ACCOUNT_CODES = [ACCOUNT_CODE.KAS_KECIL, ACCOUNT_CODE.BANK_OPERASIONAL] as const;
+const CASH_FLOW_CATEGORY_ORDER: CashFlowCategory[] = ["Operasional", "Investasi", "Pendanaan", "Lainnya"];
+
+function emptyCashFlowStatement(startDate: string, endDate: string, saldoAwal = 0): CashFlowStatement {
+  return {
+    startDate,
+    endDate,
+    saldoAwal,
+    saldoAkhir: saldoAwal,
+    totalMasuk: 0,
+    totalKeluar: 0,
+    netChange: 0,
+    byCategory: [],
+    lines: [],
+    entryCount: 0,
+  };
+}
+
+export async function getCashFlowStatement(startDate: string, endDate: string): Promise<CashFlowStatement> {
+  const supabase = await createClient();
+
+  const { data: cashAccounts, error: cashAccountsError } = await supabase
+    .from("chart_of_accounts")
+    .select("id, account_code, account_name")
+    .in("account_code", CASH_ACCOUNT_CODES)
+    .returns<{ id: string; account_code: string; account_name: string }[]>();
+
+  if (cashAccountsError || !cashAccounts || cashAccounts.length === 0) {
+    console.error("[accounting] getCashFlowStatement: gagal ambil akun Kas/Bank:", cashAccountsError?.message);
+    return emptyCashFlowStatement(startDate, endDate);
+  }
+  const cashAccountIds = cashAccounts.map((a) => a.id);
+  const cashAccountById = new Map(cashAccounts.map((a) => [a.id, a]));
+
+  // Saldo awal: akumulasi seluruh jurnal SEBELUM startDate (sejak awal
+  // berdiri) yang menyentuh akun Kas/Bank -- sama pola akumulasi kumulatif
+  // seperti getBalanceSheet di atas, cuma dibatasi ke 2 akun ini saja.
+  const { data: priorEntries, error: priorEntriesError } = await supabase
+    .from("journal_entries")
+    .select("id")
+    .lt("entry_date", startDate)
+    .returns<{ id: string }[]>();
+
+  if (priorEntriesError) {
+    console.error(
+      "[accounting] getCashFlowStatement: gagal ambil jurnal sebelum periode:",
+      priorEntriesError.message
+    );
+    return emptyCashFlowStatement(startDate, endDate);
+  }
+
+  let saldoAwal = 0;
+  if (priorEntries && priorEntries.length > 0) {
+    const { data: priorLines, error: priorLinesError } = await supabase
+      .from("journal_entry_lines")
+      .select("debit, credit")
+      .in("journal_entry_id", priorEntries.map((e) => e.id))
+      .in("account_id", cashAccountIds)
+      .returns<{ debit: number; credit: number }[]>();
+
+    if (priorLinesError) {
+      console.error("[accounting] getCashFlowStatement: gagal ambil saldo awal kas:", priorLinesError.message);
+      return emptyCashFlowStatement(startDate, endDate);
+    }
+    saldoAwal = (priorLines ?? []).reduce((sum, l) => sum + (l.debit - l.credit), 0);
+  }
+
+  // Mutasi dalam periode yang diminta.
+  const { data: entries, error: entriesError } = await supabase
+    .from("journal_entries")
+    .select("id, entry_date, description, division, source_type")
+    .gte("entry_date", startDate)
+    .lte("entry_date", endDate)
+    .returns<
+      { id: string; entry_date: string; description: string; division: string | null; source_type: string }[]
+    >();
+
+  if (entriesError) {
+    console.error("[accounting] getCashFlowStatement: gagal ambil jurnal periode:", entriesError.message);
+    return emptyCashFlowStatement(startDate, endDate, saldoAwal);
+  }
+  if (!entries || entries.length === 0) {
+    return emptyCashFlowStatement(startDate, endDate, saldoAwal);
+  }
+
+  const entryIds = entries.map((e) => e.id);
+  const entryById = new Map(entries.map((e) => [e.id, e]));
+
+  const [{ data: allLines, error: allLinesError }, { data: allAccounts, error: allAccountsError }] =
+    await Promise.all([
+      supabase
+        .from("journal_entry_lines")
+        .select("journal_entry_id, account_id, debit, credit")
+        .in("journal_entry_id", entryIds)
+        .returns<{ journal_entry_id: string; account_id: string; debit: number; credit: number }[]>(),
+      supabase
+        .from("chart_of_accounts")
+        .select("id, account_code, account_name, account_type, account_subtype")
+        .returns<
+          { id: string; account_code: string; account_name: string; account_type: string; account_subtype: string }[]
+        >(),
+    ]);
+
+  if (allLinesError || allAccountsError) {
+    console.error(
+      "[accounting] getCashFlowStatement: gagal ambil baris jurnal/daftar akun periode:",
+      allLinesError?.message,
+      allAccountsError?.message
+    );
+    return emptyCashFlowStatement(startDate, endDate, saldoAwal);
+  }
+
+  const accountById = new Map((allAccounts ?? []).map((a) => [a.id, a]));
+
+  // Kelompokkan semua baris per entri jurnal supaya tiap baris kas bisa
+  // cari "akun lawan"-nya (baris non-kas lain di entri jurnal yang sama).
+  const linesByEntry = new Map<string, { account_id: string; debit: number; credit: number }[]>();
+  for (const line of allLines ?? []) {
+    const bucket = linesByEntry.get(line.journal_entry_id) ?? [];
+    bucket.push(line);
+    linesByEntry.set(line.journal_entry_id, bucket);
+  }
+
+  function classifyCategory(counterAccountId: string | undefined): CashFlowCategory {
+    if (!counterAccountId) return "Lainnya";
+    const counter = accountById.get(counterAccountId);
+    if (!counter) return "Lainnya";
+    if (cashAccountIds.includes(counter.id)) return "Lainnya"; // transfer internal Kas <-> Bank
+    if (counter.account_subtype === "Aset Tetap") return "Investasi";
+    if (counter.account_type === "Modal") return "Pendanaan";
+    return "Operasional";
+  }
+
+  const lines: CashFlowLine[] = [];
+  for (const [entryId, entryLines] of linesByEntry) {
+    const entry = entryById.get(entryId);
+    if (!entry) continue;
+    const cashLines = entryLines.filter((l) => cashAccountIds.includes(l.account_id));
+    if (cashLines.length === 0) continue;
+    const counterLine = entryLines.find((l) => !cashAccountIds.includes(l.account_id));
+    const category = classifyCategory(counterLine?.account_id);
+    const counterAccountName = counterLine ? (accountById.get(counterLine.account_id)?.account_name ?? "-") : "-";
+
+    for (const line of cashLines) {
+      const cashAccount = cashAccountById.get(line.account_id);
+      if (!cashAccount) continue;
+      const amount = line.debit - line.credit;
+      if (amount === 0) continue;
+      lines.push({
+        entryId,
+        entryDate: entry.entry_date,
+        description: entry.description,
+        division: entry.division ?? "",
+        sourceType: entry.source_type,
+        cashAccountCode: cashAccount.account_code,
+        cashAccountName: cashAccount.account_name,
+        amount,
+        category,
+        counterAccountName,
+      });
+    }
+  }
+
+  lines.sort((a, b) => a.entryDate.localeCompare(b.entryDate) || a.cashAccountCode.localeCompare(b.cashAccountCode));
+
+  const totalMasuk = lines.filter((l) => l.amount > 0).reduce((sum, l) => sum + l.amount, 0);
+  const totalKeluar = lines.filter((l) => l.amount < 0).reduce((sum, l) => sum + Math.abs(l.amount), 0);
+  const netChange = totalMasuk - totalKeluar;
+
+  const byCategoryMap = new Map<CashFlowCategory, { totalMasuk: number; totalKeluar: number }>();
+  for (const line of lines) {
+    const bucket = byCategoryMap.get(line.category) ?? { totalMasuk: 0, totalKeluar: 0 };
+    if (line.amount > 0) bucket.totalMasuk += line.amount;
+    else bucket.totalKeluar += Math.abs(line.amount);
+    byCategoryMap.set(line.category, bucket);
+  }
+  const byCategory: CashFlowCategorySummary[] = CASH_FLOW_CATEGORY_ORDER.filter((cat) => byCategoryMap.has(cat)).map(
+    (cat) => {
+      const v = byCategoryMap.get(cat)!;
+      return { category: cat, totalMasuk: v.totalMasuk, totalKeluar: v.totalKeluar, net: v.totalMasuk - v.totalKeluar };
+    }
+  );
+
+  return {
+    startDate,
+    endDate,
+    saldoAwal,
+    saldoAkhir: saldoAwal + netChange,
+    totalMasuk,
+    totalKeluar,
+    netChange,
+    byCategory,
+    lines,
     entryCount: entries.length,
   };
 }

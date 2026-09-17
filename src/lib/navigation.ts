@@ -17,6 +17,7 @@ import {
   TrendingUp,
   Users,
   Users2,
+  Wallet,
   Wallet2,
   Wrench,
 } from "lucide-react";
@@ -151,6 +152,7 @@ export const ADMIN_LINKS: QuickLink[] = [
   { href: "/dashboard/admin/keuangan", label: "Piutang & Pendapatan", shortLabel: "Piutang", icon: Wallet2 },
   { href: "/dashboard/admin/laba-rugi", label: "Laba-Rugi", shortLabel: "Laba-Rugi", icon: TrendingUp },
   { href: "/dashboard/admin/neraca", label: "Neraca", shortLabel: "Neraca", icon: Scale },
+  { href: "/dashboard/admin/arus-kas-akuntansi", label: "Arus Kas (Jurnal)", shortLabel: "Arus Kas Jurnal", icon: Wallet },
   { href: "/dashboard/admin/produk", label: "Katalog Produk", shortLabel: "Produk", icon: Boxes },
   { href: "/dashboard/admin/faktur", label: "Faktur", shortLabel: "Faktur", icon: Receipt },
   { href: "/dashboard/admin/arus-kas", label: "Arus Kas Proyek", shortLabel: "Arus Kas", icon: ArrowLeftRight },
