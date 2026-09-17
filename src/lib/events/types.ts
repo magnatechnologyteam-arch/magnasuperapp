@@ -1,3 +1,5 @@
+import type { Division } from "@/lib/supabase/types";
+
 /**
  * Tipe untuk modul baru "Tracking Progress Event" (ceklis running event,
  * permintaan Owner -- migrasi 0053). Tahap B: kelola jenis event + template
@@ -119,7 +121,12 @@ export type EventChecklistItem = {
   qtyInfo?: string;
   notes?: string;
   status: EventChecklistStatus;
+  /** id profil (uuid) staf yang ditugaskan -- diisi/diubah lewat Papan
+   * Tracking (Tahap D), bukan di halaman detail Admin (Tahap C). */
   pic?: string;
+  /** Nama tampilan untuk `pic` di atas, diresolusi di data.ts (Tahap D) --
+   * dipisah dari `pic` (uuid) supaya UI tidak perlu query profiles sendiri. */
+  picName?: string;
   sortOrder: number;
 };
 
@@ -152,4 +159,27 @@ export type LinkableSource = {
   sourceType: EventSourceType;
   sourceId: string;
   label: string;
+};
+
+// ---------------------------------------------------------------------
+// Tahap D: "Papan Tracking" -- update status & PIC tiap item checklist,
+// terbuka untuk 3 divisi operasional + akses penuh (lihat RLS
+// `event_checklist_items_update`, sudah dibuka sejak migrasi 0053).
+// Halaman terpisah dari detail Admin (Tahap C) di /dashboard/admin/events
+// -- Papan Tracking ada di /dashboard/tracking-event, tanpa fitur kelola
+// event (tambah/hapus item, kaitan) yang tetap khusus Admin.
+// ---------------------------------------------------------------------
+
+/** Staf yang bisa ditunjuk sebagai PIC -- profil dari 3 divisi operasional
+ * + akses penuh (lihat policy profiles baru "Lihat profil staf operasional
+ * untuk penunjukan PIC"), TIDAK termasuk investor. */
+export type PicOption = {
+  id: string;
+  fullName: string;
+  division: Division;
+};
+
+export type UpdateChecklistProgressInput = {
+  status: EventChecklistStatus;
+  picId: string | null;
 };

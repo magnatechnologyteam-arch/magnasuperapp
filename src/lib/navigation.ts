@@ -208,6 +208,19 @@ export const REALISASI_EVENT_LINK: QuickLink = {
   icon: ReceiptText,
 };
 
+/**
+ * Tautan "Papan Tracking" (Tahap D modul Tracking Progress Event) — sama
+ * persis alasannya dengan REALISASI_EVENT_LINK di atas: terbuka untuk
+ * SEMUA divisi KECUALI investor (lihat RLS event_checklist_items_update di
+ * migrasi 0053 & src/middleware.ts).
+ */
+export const TRACKING_EVENT_LINK: QuickLink = {
+  href: "/dashboard/tracking-event",
+  label: "Papan Tracking",
+  shortLabel: "Tracking",
+  icon: ClipboardList,
+};
+
 /** Tautan halaman Investor (division "investor" atau "all") — sama alasannya dengan ADMIN_LINKS di atas. */
 export const INVESTOR_LINKS: QuickLink[] = [
   { href: "/dashboard/investor", label: "Ringkasan Investor", shortLabel: "Ringkasan", icon: LayoutGrid },

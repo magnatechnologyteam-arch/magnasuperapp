@@ -13,10 +13,14 @@ import type {
   TemplateImportRow,
   TemplateImportSummary,
   TemplateItemInput,
+  UpdateChecklistProgressInput,
 } from "./types";
 
 const MODULE_PATH = "/dashboard/admin/jenis-event";
 const EVENTS_PATH = "/dashboard/admin/events";
+/** Papan Tracking (Tahap D) -- halaman terpisah dari EVENTS_PATH di atas,
+ * dibuka untuk 3 divisi operasional + akses penuh (lihat page.tsx-nya). */
+const TRACKING_PATH = "/dashboard/tracking-event";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
 
 export type MutationResult = { ok: true } | { ok: false; error: string };
@@ -432,6 +436,36 @@ export async function updateEventChecklistItem(
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  revalidatePath(`${EVENTS_PATH}/${eventId}`);
+  return { ok: true };
+}
+
+/**
+ * Update status & PIC satu item checklist (Tahap D, "Papan Tracking") --
+ * SENGAJA action terpisah dari `updateEventChecklistItem` di atas: yang
+ * itu untuk Admin edit kategori/nama/detail item (Tahap C), ini khusus
+ * untuk staf 3 divisi operasional update progress di halaman tracking
+ * mereka sendiri. RLS `event_checklist_items_update` sudah membuka UPDATE
+ * ke 3 divisi + akses penuh sejak migrasi 0053, jadi tidak perlu guard
+ * tambahan di sini -- Supabase yang menolak kalau bukan haknya.
+ */
+export async function updateEventChecklistProgress(
+  id: string,
+  eventId: string,
+  input: UpdateChecklistProgressInput
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("event_checklist_items")
+    .update({ status: input.status, pic: input.picId })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[events] updateEventChecklistProgress gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(`${TRACKING_PATH}/${eventId}`);
   revalidatePath(`${EVENTS_PATH}/${eventId}`);
   return { ok: true };
 }

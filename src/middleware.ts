@@ -36,6 +36,11 @@ const CHAT_PREFIX = "/dashboard/chat";
 // di atas: terbuka untuk SEMUA divisi KECUALI investor (lihat RLS
 // event_expenses di migrasi 0049).
 const REALISASI_EVENT_PREFIX = "/dashboard/realisasi-event";
+// Tahap D modul Tracking Progress Event ("Papan Tracking") — sama persis
+// alasannya dengan REALISASI_EVENT_PREFIX di atas: terbuka untuk SEMUA
+// divisi KECUALI investor (lihat RLS event_checklist_items_update, sudah
+// dibuka ke 3 divisi + akses penuh sejak migrasi 0053).
+const TRACKING_EVENT_PREFIX = "/dashboard/tracking-event";
 
 /**
  * Middleware ini punya tiga tugas dalam satu jalan:
@@ -144,13 +149,17 @@ export async function middleware(request: NextRequest) {
       const isRealisasiEventRoute =
         pathname === REALISASI_EVENT_PREFIX || pathname.startsWith(`${REALISASI_EVENT_PREFIX}/`);
       const isBlockedRealisasiEventRoute = isRealisasiEventRoute && division === "investor";
+      const isTrackingEventRoute =
+        pathname === TRACKING_EVENT_PREFIX || pathname.startsWith(`${TRACKING_EVENT_PREFIX}/`);
+      const isBlockedTrackingEventRoute = isTrackingEventRoute && division === "investor";
 
       if (
         isAdminRoute ||
         isBlockedModule ||
         isBlockedInvestorRoute ||
         isBlockedChatRoute ||
-        isBlockedRealisasiEventRoute
+        isBlockedRealisasiEventRoute ||
+        isBlockedTrackingEventRoute
       ) {
         const url = request.nextUrl.clone();
         url.pathname = "/dashboard";

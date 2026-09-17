@@ -10,6 +10,7 @@ import {
   HUB_HREF,
   INVESTOR_LINKS,
   REALISASI_EVENT_LINK,
+  TRACKING_EVENT_LINK,
   getVisibleModules,
 } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
@@ -46,6 +47,9 @@ export function Sidebar({ division }: { division?: Division | null }) {
   const isRealisasiEventActive =
     pathname === REALISASI_EVENT_LINK.href || pathname.startsWith(`${REALISASI_EVENT_LINK.href}/`);
   const RealisasiEventIcon = REALISASI_EVENT_LINK.icon;
+  const isTrackingEventActive =
+    pathname === TRACKING_EVENT_LINK.href || pathname.startsWith(`${TRACKING_EVENT_LINK.href}/`);
+  const TrackingEventIcon = TRACKING_EVENT_LINK.icon;
 
   return (
     <aside
@@ -146,6 +150,20 @@ export function Sidebar({ division }: { division?: Division | null }) {
                 >
                   <RealisasiEventIcon className="h-[18px] w-[18px]" />
                   {t(REALISASI_EVENT_LINK.label)}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href={TRACKING_EVENT_LINK.href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                    isTrackingEventActive
+                      ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300"
+                      : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+                  )}
+                >
+                  <TrackingEventIcon className="h-[18px] w-[18px]" />
+                  {t(TRACKING_EVENT_LINK.label)}
                 </Link>
               </li>
             </ul>

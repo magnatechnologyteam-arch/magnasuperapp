@@ -8,6 +8,7 @@ import type {
   EventSummary,
   EventType,
   EventTypeTemplateItem,
+  PicOption,
 } from "./types";
 
 type EventTypeRow = {
@@ -264,9 +265,58 @@ export async function getEventById(id: string): Promise<EventDetail | null> {
     createdAt: row.created_at,
   }));
 
+  const picIds = Array.from(new Set((itemRows ?? []).map((r) => r.pic).filter((v): v is string => !!v)));
+  const picNameById = await resolvePicNames(supabase, picIds);
+  const checklistItems: EventChecklistItem[] = (itemRows ?? []).map((row) => ({
+    ...mapChecklistItem(row),
+    picName: row.pic ? picNameById.get(row.pic) : undefined,
+  }));
+
   return {
     event: mapEvent(eventRow),
-    checklistItems: (itemRows ?? []).map(mapChecklistItem),
+    checklistItems,
     links,
   };
+}
+
+/** Nama tampilan untuk kolom `pic` (uuid) tiap item checklist -- lihat
+ * komentar `picName` di types.ts. Query terpisah (bukan embedded select)
+ * karena `event_checklist_items.pic` sengaja tidak diberi FK literal ke
+ * `profiles` (menghindari constraint tambahan lintas skema RLS berbeda). */
+async function resolvePicNames(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  picIds: string[]
+): Promise<Map<string, string>> {
+  if (picIds.length === 0) return new Map();
+  const { data, error } = await supabase.from("profiles").select("id, full_name").in("id", picIds);
+  if (error) {
+    console.error("[events] resolvePicNames gagal:", error.message);
+    return new Map();
+  }
+  return new Map((data ?? []).map((r) => [r.id as string, r.full_name as string]));
+}
+
+type PicProfileRow = { id: string; full_name: string; division: PicOption["division"] };
+
+/** Staf yang bisa ditunjuk sebagai PIC di Papan Tracking (Tahap D) -- 3
+ * divisi operasional + akses penuh, diurutkan per divisi lalu nama supaya
+ * gampang di-scan di dropdown. Bergantung pada RLS `profiles` baru
+ * ("Lihat profil staf operasional untuk penunjukan PIC", migrasi
+ * `event_tracking_board_pic_visibility`) yang membuka lintas-divisi khusus
+ * untuk keperluan ini -- sebelumnya staf cuma bisa lihat profil sendiri. */
+export async function getAssignablePics(): Promise<PicOption[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, division")
+    .in("division", ["magnarent", "magnative", "production", "all"])
+    .order("division", { ascending: true })
+    .order("full_name", { ascending: true })
+    .returns<PicProfileRow[]>();
+
+  if (error) {
+    console.error("[events] getAssignablePics gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map((row) => ({ id: row.id, fullName: row.full_name, division: row.division }));
 }
