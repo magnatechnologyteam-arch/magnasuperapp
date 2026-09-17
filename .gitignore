@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# scratch files from local build/commit tooling (not part of the app)
+tsc_log*.txt
+tsc_tahap_*.log
+build_log.txt
+commit_msg_*.txt
+push_*.log
