@@ -3,9 +3,20 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity/log";
-import type { CreateEventTypeInput, TemplateImportRow, TemplateImportSummary, TemplateItemInput } from "./types";
+import { notifyDivision } from "@/lib/push/notify";
+import type {
+  CreateEventInput,
+  CreateEventTypeInput,
+  EventSourceType,
+  EventStatus,
+  LinkableSource,
+  TemplateImportRow,
+  TemplateImportSummary,
+  TemplateItemInput,
+} from "./types";
 
 const MODULE_PATH = "/dashboard/admin/jenis-event";
+const EVENTS_PATH = "/dashboard/admin/events";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
 
 export type MutationResult = { ok: true } | { ok: false; error: string };
@@ -252,4 +263,336 @@ export async function bulkImportTemplateItems(
     entityLabel: `${eventType.name} (${summary.inserted} item diimpor)`,
   });
   return { ok: true, summary };
+}
+
+// ---------------------------------------------------------------------
+// Tahap C: event AKTUAL -- lihat komentar di types.ts.
+// ---------------------------------------------------------------------
+
+export type CreateEventResult = { ok: true; id: string } | { ok: false; error: string };
+
+/**
+ * Bikin event baru (titik "Event In" di diagram Owner) -- SENGAJA cuma
+ * akses penuh yang bisa (RLS `events_insert`), staf 3 divisi operasional
+ * baru terlibat lewat checklist & kaitan sesudahnya. Kalau `eventTypeId`
+ * diisi, template checklist jenis itu langsung di-clone jadi checklist
+ * AKTUAL event ini -- kalau kosong, checklist dimulai kosong (diisi
+ * manual/import lewat halaman detail).
+ *
+ * Notifikasi ke 3 divisi operasional dikirim SETELAH event (+ clone
+ * checklist) berhasil tersimpan -- best-effort, gagal kirim tidak
+ * membatalkan event yang sudah dibuat (lihat komentar `notifyDivision`).
+ */
+export async function createEvent(input: CreateEventInput): Promise<CreateEventResult> {
+  const name = input.name.trim();
+  if (!name) return { ok: false, error: "Nama event wajib diisi." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { data: event, error } = await supabase
+    .from("events")
+    .insert({
+      name,
+      client_name: input.clientName?.trim() || null,
+      event_type_id: input.eventTypeId || null,
+      location: input.location?.trim() || null,
+      start_date: input.startDate || null,
+      end_date: input.endDate || null,
+      notes: input.notes?.trim() || null,
+      created_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (error || !event) {
+    console.error("[events] createEvent gagal:", error?.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  if (input.eventTypeId) {
+    const { data: templateItems, error: templateError } = await supabase
+      .from("event_type_template_items")
+      .select("category, item_name, detail, qty_info, notes, sort_order")
+      .eq("event_type_id", input.eventTypeId)
+      .order("sort_order", { ascending: true });
+
+    if (templateError) {
+      console.error("[events] createEvent: gagal ambil template:", templateError.message);
+    } else if (templateItems && templateItems.length > 0) {
+      const { error: cloneError } = await supabase.from("event_checklist_items").insert(
+        templateItems.map((t) => ({
+          event_id: event.id,
+          category: t.category,
+          item_name: t.item_name,
+          detail: t.detail,
+          qty_info: t.qty_info,
+          notes: t.notes,
+          sort_order: t.sort_order,
+        }))
+      );
+      if (cloneError) {
+        console.error("[events] createEvent: gagal clone template:", cloneError.message);
+      }
+    }
+  }
+
+  revalidatePath(EVENTS_PATH);
+  void logActivity({ module: "admin", action: "create", entityType: "event", entityLabel: name });
+  void notifyDivision(
+    ["magnarent", "magnative", "production"],
+    {
+      title: "Event Baru",
+      body: `${name}${input.clientName ? ` — ${input.clientName.trim()}` : ""} baru dibuat. Cek checklist & kaitkan booking/proyek yang relevan.`,
+    },
+    user?.id
+  );
+
+  return { ok: true, id: event.id };
+}
+
+export async function updateEventStatus(id: string, status: EventStatus): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: existing } = await supabase.from("events").select("name").eq("id", id).maybeSingle();
+  if (!existing) return { ok: false, error: "Event tidak ditemukan." };
+
+  const { error } = await supabase.from("events").update({ status }).eq("id", id);
+  if (error) {
+    console.error("[events] updateEventStatus gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(EVENTS_PATH);
+  revalidatePath(`${EVENTS_PATH}/${id}`);
+  void logActivity({
+    module: "admin",
+    action: "update",
+    entityType: "event",
+    entityLabel: `${existing.name} (status → ${status})`,
+  });
+  return { ok: true };
+}
+
+export async function addEventChecklistItem(
+  eventId: string,
+  input: TemplateItemInput,
+  sortOrder: number
+): Promise<MutationResult> {
+  const category = input.category.trim();
+  const itemName = input.itemName.trim();
+  if (!category) return { ok: false, error: "Kategori wajib diisi." };
+  if (!itemName) return { ok: false, error: "Nama item wajib diisi." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("event_checklist_items").insert({
+    event_id: eventId,
+    category,
+    item_name: itemName,
+    detail: input.detail?.trim() || null,
+    qty_info: input.qtyInfo?.trim() || null,
+    notes: input.notes?.trim() || null,
+    sort_order: sortOrder,
+  });
+
+  if (error) {
+    console.error("[events] addEventChecklistItem gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(`${EVENTS_PATH}/${eventId}`);
+  return { ok: true };
+}
+
+export async function updateEventChecklistItem(
+  id: string,
+  eventId: string,
+  input: TemplateItemInput
+): Promise<MutationResult> {
+  const category = input.category.trim();
+  const itemName = input.itemName.trim();
+  if (!category) return { ok: false, error: "Kategori wajib diisi." };
+  if (!itemName) return { ok: false, error: "Nama item wajib diisi." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("event_checklist_items")
+    .update({
+      category,
+      item_name: itemName,
+      detail: input.detail?.trim() || null,
+      qty_info: input.qtyInfo?.trim() || null,
+      notes: input.notes?.trim() || null,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[events] updateEventChecklistItem gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(`${EVENTS_PATH}/${eventId}`);
+  return { ok: true };
+}
+
+export async function deleteEventChecklistItem(id: string, eventId: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("event_checklist_items").delete().eq("id", id);
+  if (error) {
+    console.error("[events] deleteEventChecklistItem gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(`${EVENTS_PATH}/${eventId}`);
+  return { ok: true };
+}
+
+/** Import massal checklist AKTUAL satu event -- sama persis pola/parser
+ * dengan `bulkImportTemplateItems`, cuma target tabelnya `event_checklist_
+ * items` (status default "Belum Mulai", pic kosong -- diisi belakangan di
+ * Papan Tracking, Tahap D). */
+export async function bulkImportEventChecklistItems(
+  eventId: string,
+  rows: TemplateImportRow[],
+  mode: "replace" | "append"
+): Promise<{ ok: true; summary: TemplateImportSummary } | { ok: false; error: string }> {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return { ok: false, error: "Tidak ada baris data untuk diimpor." };
+  }
+
+  const supabase = await createClient();
+  const { data: event, error: eventError } = await supabase
+    .from("events")
+    .select("name")
+    .eq("id", eventId)
+    .maybeSingle();
+  if (eventError || !event) return { ok: false, error: "Event tidak ditemukan." };
+
+  if (mode === "replace") {
+    const { error: deleteError } = await supabase.from("event_checklist_items").delete().eq("event_id", eventId);
+    if (deleteError) {
+      console.error("[events] bulkImportEventChecklistItems: gagal hapus item lama:", deleteError.message);
+      return { ok: false, error: GENERIC_ERROR };
+    }
+  }
+
+  const summary: TemplateImportSummary = { inserted: 0, skipped: 0, errors: [] };
+  const toInsert: {
+    event_id: string;
+    category: string;
+    item_name: string;
+    detail: string | null;
+    qty_info: string | null;
+    notes: string | null;
+    sort_order: number;
+  }[] = [];
+
+  rows.forEach((row, index) => {
+    const category = row.category?.trim();
+    const itemName = row.itemName?.trim();
+    if (!category || !itemName) {
+      summary.skipped++;
+      summary.errors.push(`Baris ${index + 1}: kategori atau nama item kosong, dilewati.`);
+      return;
+    }
+    toInsert.push({
+      event_id: eventId,
+      category,
+      item_name: itemName,
+      detail: row.detail?.trim() || null,
+      qty_info: row.qtyInfo?.trim() || null,
+      notes: row.notes?.trim() || null,
+      sort_order: index * 10,
+    });
+  });
+
+  if (toInsert.length === 0) {
+    return { ok: false, error: "Semua baris tidak valid (kategori/nama item kosong)." };
+  }
+
+  const { error: insertError } = await supabase.from("event_checklist_items").insert(toInsert);
+  if (insertError) {
+    console.error("[events] bulkImportEventChecklistItems: gagal simpan:", insertError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  summary.inserted = toInsert.length;
+
+  revalidatePath(`${EVENTS_PATH}/${eventId}`);
+  void logActivity({
+    module: "admin",
+    action: "create",
+    entityType: "checklist event",
+    entityLabel: `${event.name} (${summary.inserted} item diimpor)`,
+  });
+  return { ok: true, summary };
+}
+
+/** Cari booking/proyek yang sudah ada di satu divisi untuk dikaitkan ke
+ * event (dipanggil dari kotak pencarian di halaman detail event) -- baca
+ * biasa, TAPI harus lewat Server Action (bukan data.ts) karena dipicu
+ * interaksi client (mengetik kata kunci), bukan render awal halaman. */
+export async function searchLinkableSources(sourceType: EventSourceType, query: string): Promise<LinkableSource[]> {
+  const q = query.trim();
+  if (!q) return [];
+  const supabase = await createClient();
+  const like = `%${q}%`;
+
+  if (sourceType === "magnarent_booking") {
+    const { data } = await supabase
+      .from("magnarent_bookings")
+      .select("id, nama_klien, tanggal_mulai")
+      .ilike("nama_klien", like)
+      .limit(20);
+    return (data ?? []).map((r) => ({
+      sourceType,
+      sourceId: r.id as string,
+      label: `${r.nama_klien} — ${r.tanggal_mulai ?? "?"}`,
+    }));
+  }
+  if (sourceType === "magnative_project") {
+    const { data } = await supabase.from("magnative_projects").select("id, name").ilike("name", like).limit(20);
+    return (data ?? []).map((r) => ({ sourceType, sourceId: r.id as string, label: r.name as string }));
+  }
+  const { data } = await supabase.from("production_booth_projects").select("id, name").ilike("name", like).limit(20);
+  return (data ?? []).map((r) => ({ sourceType, sourceId: r.id as string, label: r.name as string }));
+}
+
+export async function addEventLink(
+  eventId: string,
+  sourceType: EventSourceType,
+  sourceId: string,
+  label: string
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("event_links")
+    .insert({ event_id: eventId, source_type: sourceType, source_id: sourceId });
+
+  if (error) {
+    console.error("[events] addEventLink gagal:", error.message);
+    if (error.code === "23505") return { ok: false, error: "Data ini sudah dikaitkan ke event." };
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(`${EVENTS_PATH}/${eventId}`);
+  void logActivity({
+    module: "admin",
+    action: "create",
+    entityType: "kaitan event",
+    entityLabel: label,
+  });
+  return { ok: true };
+}
+
+export async function removeEventLink(id: string, eventId: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("event_links").delete().eq("id", id);
+  if (error) {
+    console.error("[events] removeEventLink gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(`${EVENTS_PATH}/${eventId}`);
+  return { ok: true };
 }

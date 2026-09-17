@@ -1,0 +1,10 @@
+Tahap C modul Tracking Progress Event: halaman Buat Event Baru + detail
+
+Menambahkan alur bikin event baru dari jenis event (checklist template
+otomatis disalin jadi checklist aktual), halaman detail event untuk
+kelola checklist (tambah/edit/hapus manual + import Excel/CSV) dan
+kaitan ke booking/proyek yang sudah ada di Magnarent/Magnativ/Production,
+plus notifikasi ke 3 divisi saat event baru dibuat.
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Q6FUhDFz1dsGHVtPbatwPn

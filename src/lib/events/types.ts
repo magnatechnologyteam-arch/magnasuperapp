@@ -61,3 +61,95 @@ export type TemplateImportSummary = {
   skipped: number;
   errors: string[];
 };
+
+// ---------------------------------------------------------------------
+// Tahap C: event AKTUAL (bukan template lagi) -- dibuat dari salah satu
+// EventType di atas (opsional -- boleh juga tanpa jenis, checklist kosong
+// lalu diisi manual/import sendiri), checklist-nya hasil clone dari
+// template jenis tsb, dan bisa dikaitkan ke booking/proyek yang sudah ada
+// di masing-masing divisi (event_links, migrasi 0053) -- itulah dasar
+// akses baca lintas-divisi yang diminta Owner.
+// ---------------------------------------------------------------------
+
+export type EventStatus = "Berjalan" | "Selesai" | "Dibatalkan";
+export const EVENT_STATUSES: EventStatus[] = ["Berjalan", "Selesai", "Dibatalkan"];
+
+/** 5 tahap dari diagram Owner (Sample -> Approval -> Preparation ->
+ * Production -> Finish) PLUS "Belum Mulai" sebagai status awal item yang
+ * baru di-clone/dibuat -- berlaku untuk SEMUA kategori item (bukan cuma
+ * barang fisik), lihat diskusi Tahap awal modul ini. */
+export type EventChecklistStatus = "Belum Mulai" | "Sample" | "Approval" | "Preparation" | "Production" | "Finish";
+export const EVENT_CHECKLIST_STATUSES: EventChecklistStatus[] = [
+  "Belum Mulai",
+  "Sample",
+  "Approval",
+  "Preparation",
+  "Production",
+  "Finish",
+];
+
+export type EventSourceType = "magnarent_booking" | "magnative_project" | "production_booth_project";
+
+export const EVENT_SOURCE_LABELS: Record<EventSourceType, string> = {
+  magnarent_booking: "Booking Magnarent",
+  magnative_project: "Proyek Magnativ",
+  production_booth_project: "Proyek Booth Production",
+};
+
+export type EventSummary = {
+  id: string;
+  name: string;
+  clientName?: string;
+  eventTypeId?: string;
+  eventTypeName?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  status: EventStatus;
+  notes?: string;
+  createdAt: string;
+};
+
+export type EventChecklistItem = {
+  id: string;
+  eventId: string;
+  category: string;
+  itemName: string;
+  detail?: string;
+  qtyInfo?: string;
+  notes?: string;
+  status: EventChecklistStatus;
+  pic?: string;
+  sortOrder: number;
+};
+
+export type EventLink = {
+  id: string;
+  eventId: string;
+  sourceType: EventSourceType;
+  sourceId: string;
+  sourceLabel: string;
+  createdAt: string;
+};
+
+export type EventDetail = {
+  event: EventSummary;
+  checklistItems: EventChecklistItem[];
+  links: EventLink[];
+};
+
+export type CreateEventInput = {
+  name: string;
+  clientName?: string;
+  eventTypeId?: string | null;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  notes?: string;
+};
+
+export type LinkableSource = {
+  sourceType: EventSourceType;
+  sourceId: string;
+  label: string;
+};

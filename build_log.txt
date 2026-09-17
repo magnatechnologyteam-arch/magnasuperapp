@@ -1,0 +1,33 @@
+
+> magnasuperapp@0.1.0 build
+> next build
+
+▲ Next.js 16.3.4 (Turbopack)
+- Environments: .env.local
+  Downloading swc package @next/swc-wasm-nodejs... to C:\Users\magna\AppData\Local\next-swc
+⚠ Attempted to load @next/swc-win32-x64-msvc, but an error occurred: An Application Control policy has blocked this file.
+\\?\C:\Users\magna\magnasuperapp\node_modules\@next\swc-win32-x64-msvc\next-swc.win32-x64-msvc.node
+⚠ Warning: Next.js ignored package-lock.json in C:\Users\magna because it is outside the current Git repository (C:\Users\magna\magnasuperapp).
+ To use this directory, set `turbopack.root` in your Next.js config.
+
+✓ Running next.config.ts took 17.5s
+  Skipping creating a lockfile at C:\Users\magna\magnasuperapp\.next\lock because we're using WASM bindings
+
+⚠ The "middleware" file convention is deprecated. Please use "proxy" instead.
+
+  To migrate automatically, run:
+  npx @next/codemod@canary middleware-to-proxy .
+
+  Learn more: https://nextjs.org/docs/messages/middleware-to-proxy
+  Creating an optimized production build ...
+⚠ Attempted to load @next/swc-win32-x64-msvc, but an error occurred: An Application Control policy has blocked this file.
+\\?\C:\Users\magna\magnasuperapp\node_modules\@next\swc-win32-x64-msvc\next-swc.win32-x64-msvc.node
+
+> Build error occurred
+Error: Turbopack is not supported on this platform (win32/x64) because native bindings are not available. Only WebAssembly (WASM) bindings were loaded, and Turbopack requires native bindings.
+
+To build on this platform, use Webpack instead:
+  next build --webpack
+
+For more information, see: https://nextjs.org/docs/app/api-reference/turbopack#supported-platforms
+    at ignore-listed frames
