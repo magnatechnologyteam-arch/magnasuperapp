@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity/log";
 import { invoiceItemToRow, rowToInvoice, type InvoiceRow } from "./mappers";
 import { renderInvoicePdf } from "./pdf";
 import { triggerInvoiceWhatsAppWebhook } from "./whatsapp";
+import { postInvoiceLunasJournal, deleteInvoiceJournal } from "@/lib/accounting/actions";
 import type { Invoice, InvoiceDivision, InvoiceSourceType, InvoiceStatus } from "./types";
 
 const MODULE_PATH = "/dashboard/admin/faktur";
@@ -113,7 +114,7 @@ export async function updateInvoice(id: string, input: InvoiceFormInput): Promis
   if (!built) return { ok: false, error: "Minimal satu baris item dengan deskripsi, qty, dan harga yang valid." };
 
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("invoices")
     .update({
       division: input.division,
@@ -125,11 +126,29 @@ export async function updateInvoice(id: string, input: InvoiceFormInput): Promis
       due_date: input.dueDate || null,
       catatan: input.catatan?.trim() || null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("status, invoice_number, division, client_name, total, issued_date, created_by")
+    .single();
 
-  if (error) {
-    console.error("[invoices] updateInvoice gagal:", error.message);
+  if (error || !updated) {
+    console.error("[invoices] updateInvoice gagal:", error?.message);
     return { ok: false, error: GENERIC_ERROR };
+  }
+
+  // Invoice yang sudah "Lunas" lalu diedit (mis. koreksi total) -- jurnal
+  // yang sudah terlanjur diposting perlu diperbarui juga, kalau tidak
+  // Laba-Rugi/Neraca nanti masih pakai angka lama. Lihat komentar di
+  // postInvoiceLunasJournal (src/lib/accounting/actions.ts).
+  if (updated.status === "Lunas") {
+    void postInvoiceLunasJournal({
+      id,
+      invoiceNumber: updated.invoice_number,
+      division: updated.division,
+      clientName: updated.client_name,
+      total: updated.total,
+      issuedDate: updated.issued_date,
+      createdBy: updated.created_by,
+    });
   }
 
   revalidatePath(MODULE_PATH);
@@ -154,6 +173,7 @@ export async function deleteInvoice(id: string): Promise<MutationResult> {
   if (invoiceRow?.pdf_storage_path) {
     await supabase.storage.from(PDF_BUCKET).remove([invoiceRow.pdf_storage_path]);
   }
+  void deleteInvoiceJournal(id);
   revalidatePath(MODULE_PATH);
   void logActivity({ module: "admin", action: "delete", entityType: "invoice", entityLabel: invoiceRow?.invoice_number });
   return { ok: true };
@@ -167,12 +187,30 @@ export async function markInvoiceStatus(id: string, status: InvoiceStatus): Prom
     .from("invoices")
     .update({ status })
     .eq("id", id)
-    .select("invoice_number")
+    .select("invoice_number, division, client_name, total, issued_date, created_by")
     .single();
 
   if (error) {
     console.error("[invoices] markInvoiceStatus gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
+  }
+
+  // "Lunas" -- posting jurnal (Debit Bank, Kredit Pendapatan). Status
+  // lain (termasuk mundur DARI "Lunas" karena koreksi kesalahan) -- hapus
+  // jurnal yang sudah terlanjur ada, supaya tidak ada pendapatan tercatat
+  // untuk invoice yang sebenarnya belum/tidak jadi lunas.
+  if (status === "Lunas") {
+    void postInvoiceLunasJournal({
+      id,
+      invoiceNumber: invoiceRow.invoice_number,
+      division: invoiceRow.division,
+      clientName: invoiceRow.client_name,
+      total: invoiceRow.total,
+      issuedDate: invoiceRow.issued_date,
+      createdBy: invoiceRow.created_by,
+    });
+  } else {
+    void deleteInvoiceJournal(id);
   }
 
   revalidatePath(MODULE_PATH);

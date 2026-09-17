@@ -1,0 +1,258 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/activity/log";
+import { ACCOUNT_CODE, type ManualJournalInput } from "./types";
+import type { InvoiceDivision } from "@/lib/invoices/types";
+
+const MODULE_PATH = "/dashboard/admin/akuntansi";
+const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
+
+export type MutationResult = { ok: true } | { ok: false; error: string };
+
+const PENDAPATAN_BY_DIVISION: Record<InvoiceDivision, string> = {
+  magnarent: ACCOUNT_CODE.PENDAPATAN_MAGNARENT,
+  magnative: ACCOUNT_CODE.PENDAPATAN_MAGNATIV,
+  production: ACCOUNT_CODE.PENDAPATAN_PRODUCTION,
+};
+
+export type InvoiceForJournal = {
+  id: string;
+  invoiceNumber: string;
+  division: InvoiceDivision;
+  clientName: string;
+  total: number;
+  issuedDate: string;
+  createdBy: string | null;
+};
+
+/**
+ * Posting otomatis saat invoice ditandai "Lunas" -- dipanggil dari
+ * `markInvoiceStatus`/`updateInvoice` (src/lib/invoices/actions.ts). TIDAK
+ * butuh SECURITY DEFINER (beda dari event_expenses, lihat migrasi 0052)
+ * karena halaman Faktur sendiri sudah membatasi akses cuma division "all"
+ * (redirect di admin/faktur/page.tsx) -- pemanggil di sini sudah pasti
+ * lolos RLS chart_of_accounts/journal_entries yang juga cuma division
+ * "all", jadi cukup pakai client Supabase biasa.
+ *
+ * Best-effort: gagal posting jurnal TIDAK membatalkan perubahan status
+ * invoice-nya sendiri -- cuma dicatat ke console, sama seperti pola
+ * `logActivity` di modul lain. Kalau nanti ketahuan sering gagal, itu baru
+ * kelihatan dari log server, bukan bikin staf tidak bisa menandai invoice
+ * Lunas.
+ *
+ * ASUMSI yang didokumentasikan: invoice belum punya kolom metode
+ * pembayaran, jadi pelunasan SELALU diposting ke akun "Bank Operasional"
+ * (bukan Kas Kecil) -- wajar untuk invoice B2B/klien korporat. Kalau nanti
+ * ada pelunasan tunai yang perlu dibedakan, ini perlu disesuaikan setelah
+ * kolom metode pembayaran ditambahkan ke tabel invoices.
+ */
+export async function postInvoiceLunasJournal(invoice: InvoiceForJournal): Promise<void> {
+  try {
+    const supabase = await createClient();
+
+    // Re-posting (invoice yang sudah Lunas diedit lagi) -- hapus dulu
+    // supaya tidak dobel, baru buat dari data terkini.
+    await supabase.from("journal_entries").delete().eq("source_type", "invoice").eq("source_id", invoice.id);
+
+    if (invoice.total <= 0) return;
+
+    const pendapatanCode = PENDAPATAN_BY_DIVISION[invoice.division];
+    const { data: accounts, error: accountsError } = await supabase
+      .from("chart_of_accounts")
+      .select("id, account_code")
+      .in("account_code", [ACCOUNT_CODE.BANK_OPERASIONAL, pendapatanCode]);
+
+    if (accountsError) {
+      console.error("[accounting] postInvoiceLunasJournal: gagal ambil akun:", accountsError.message);
+      return;
+    }
+
+    const bankAccount = accounts?.find((a) => a.account_code === ACCOUNT_CODE.BANK_OPERASIONAL);
+    const pendapatanAccount = accounts?.find((a) => a.account_code === pendapatanCode);
+    if (!bankAccount || !pendapatanAccount) {
+      console.error("[accounting] postInvoiceLunasJournal: akun tidak ditemukan untuk divisi", invoice.division);
+      return;
+    }
+
+    const { data: entry, error: entryError } = await supabase
+      .from("journal_entries")
+      .insert({
+        entry_date: invoice.issuedDate,
+        description: `Pelunasan Invoice ${invoice.invoiceNumber} — ${invoice.clientName}`,
+        source_type: "invoice",
+        source_id: invoice.id,
+        division: invoice.division,
+        created_by: invoice.createdBy,
+      })
+      .select("id")
+      .single();
+
+    if (entryError || !entry) {
+      console.error("[accounting] postInvoiceLunasJournal: gagal buat entri jurnal:", entryError?.message);
+      return;
+    }
+
+    const { error: linesError } = await supabase.from("journal_entry_lines").insert([
+      { journal_entry_id: entry.id, account_id: bankAccount.id, debit: invoice.total, credit: 0 },
+      { journal_entry_id: entry.id, account_id: pendapatanAccount.id, debit: 0, credit: invoice.total },
+    ]);
+
+    if (linesError) {
+      console.error("[accounting] postInvoiceLunasJournal: gagal buat baris jurnal:", linesError.message);
+      await supabase.from("journal_entries").delete().eq("id", entry.id);
+    }
+  } catch (err) {
+    console.error("[accounting] postInvoiceLunasJournal: exception:", err instanceof Error ? err.message : err);
+  }
+}
+
+/**
+ * Hapus jurnal yang terhubung ke satu invoice -- dipanggil saat invoice
+ * dihapus, atau statusnya mundur dari "Lunas" ke status lain (koreksi
+ * kesalahan input).
+ */
+export async function deleteInvoiceJournal(invoiceId: string): Promise<void> {
+  try {
+    const supabase = await createClient();
+    await supabase.from("journal_entries").delete().eq("source_type", "invoice").eq("source_id", invoiceId);
+  } catch (err) {
+    console.error("[accounting] deleteInvoiceJournal: exception:", err instanceof Error ? err.message : err);
+  }
+}
+
+function validateManualJournal(input: ManualJournalInput): string | null {
+  if (!input.entryDate) return "Tanggal jurnal wajib diisi.";
+  if (!input.description?.trim()) return "Keterangan jurnal wajib diisi.";
+  if (!Array.isArray(input.lines) || input.lines.length < 2) {
+    return "Jurnal minimal punya 2 baris (debit dan kredit).";
+  }
+  let totalDebit = 0;
+  let totalCredit = 0;
+  for (const line of input.lines) {
+    const debit = Math.round(Number(line.debit) || 0);
+    const credit = Math.round(Number(line.credit) || 0);
+    if (!line.accountCode) return "Setiap baris wajib memilih akun.";
+    if ((debit > 0 && credit > 0) || (debit === 0 && credit === 0)) {
+      return "Setiap baris cuma boleh isi salah satu: debit ATAU kredit, tidak dua-duanya atau kosong.";
+    }
+    totalDebit += debit;
+    totalCredit += credit;
+  }
+  if (totalDebit !== totalCredit) {
+    return `Jurnal tidak balance: total debit Rp${totalDebit.toLocaleString("id-ID")} vs kredit Rp${totalCredit.toLocaleString("id-ID")}.`;
+  }
+  return null;
+}
+
+/**
+ * Input jurnal MANUAL -- untuk transaksi yang tidak lewat modul lain
+ * (mis. setoran modal awal, koreksi saldo, penyusutan aset). Beda dari
+ * posting otomatis invoice/event_expense, ini dipakai langsung oleh staf
+ * Finance/Owner lewat halaman Akuntansi (Tahap F) -- makanya sengaja pakai
+ * client Supabase biasa yang tunduk RLS "division = all", TIDAK perlu
+ * SECURITY DEFINER seperti auto-posting event_expenses.
+ */
+export async function createManualJournalEntry(input: ManualJournalInput): Promise<MutationResult> {
+  const validationError = validateManualJournal(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const codes = Array.from(new Set(input.lines.map((l) => l.accountCode)));
+  const { data: accounts, error: accountsError } = await supabase
+    .from("chart_of_accounts")
+    .select("id, account_code")
+    .in("account_code", codes);
+
+  if (accountsError) {
+    console.error("[accounting] createManualJournalEntry: gagal ambil akun:", accountsError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const accountIdByCode = new Map((accounts ?? []).map((a) => [a.account_code, a.id]));
+  const missing = codes.filter((c) => !accountIdByCode.has(c));
+  if (missing.length > 0) {
+    return { ok: false, error: `Kode akun tidak ditemukan: ${missing.join(", ")}` };
+  }
+
+  const { data: entry, error: entryError } = await supabase
+    .from("journal_entries")
+    .insert({
+      entry_date: input.entryDate,
+      description: input.description.trim(),
+      source_type: "manual",
+      division: input.division ?? null,
+      created_by: user?.id ?? null,
+    })
+    .select("id")
+    .single();
+
+  if (entryError || !entry) {
+    console.error("[accounting] createManualJournalEntry: gagal buat entri:", entryError?.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const { error: linesError } = await supabase.from("journal_entry_lines").insert(
+    input.lines.map((line) => ({
+      journal_entry_id: entry.id,
+      account_id: accountIdByCode.get(line.accountCode)!,
+      debit: Math.round(Number(line.debit) || 0),
+      credit: Math.round(Number(line.credit) || 0),
+      notes: line.notes?.trim() || null,
+    }))
+  );
+
+  if (linesError) {
+    console.error("[accounting] createManualJournalEntry: gagal buat baris (jurnal tidak balance?):", linesError.message);
+    await supabase.from("journal_entries").delete().eq("id", entry.id);
+    return { ok: false, error: "Jurnal tidak balance atau data tidak valid — pastikan total debit sama dengan total kredit." };
+  }
+
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "admin",
+    action: "create",
+    entityType: "jurnal akuntansi",
+    entityLabel: input.description.trim(),
+  });
+  return { ok: true };
+}
+
+/**
+ * Hapus jurnal MANUAL saja -- jurnal hasil auto-posting (invoice/event
+ * expense) sengaja tidak bisa dihapus langsung dari sini; siklus hidupnya
+ * ikut sumbernya (edit/hapus invoice atau event_expense itu sendiri).
+ */
+export async function deleteManualJournalEntry(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: existing } = await supabase
+    .from("journal_entries")
+    .select("id, source_type, description")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existing) return { ok: false, error: "Jurnal tidak ditemukan." };
+  if (existing.source_type !== "manual") {
+    return { ok: false, error: "Jurnal otomatis tidak bisa dihapus langsung — edit atau hapus data sumbernya." };
+  }
+
+  const { error } = await supabase.from("journal_entries").delete().eq("id", id);
+  if (error) {
+    console.error("[accounting] deleteManualJournalEntry gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "admin",
+    action: "delete",
+    entityType: "jurnal akuntansi",
+    entityLabel: existing.description,
+  });
+  return { ok: true };
+}

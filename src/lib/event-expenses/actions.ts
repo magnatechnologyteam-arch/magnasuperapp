@@ -88,6 +88,14 @@ export async function addEventExpense(
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  // Posting jurnal otomatis (Tahap B modul Akuntansi, migrasi 0052) --
+  // best-effort, tidak membatalkan pencatatan pengeluaran ini kalau
+  // gagal. Dibungkus SECURITY DEFINER karena modul ini dipakai staf non-
+  // Finance juga (lihat komentar fungsinya di migrasi 0052).
+  void supabase.rpc("post_event_expense_journal", { p_expense_id: data.id }).then(({ error: rpcError }) => {
+    if (rpcError) console.error("[event-expenses] post_event_expense_journal gagal:", rpcError.message);
+  });
+
   revalidatePath(MODULE_PATH);
   void logActivity({
     module: toActivityModule(input.division),
@@ -145,6 +153,13 @@ export async function updateEventExpense(
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  // Re-posting jurnal dari data terbaru (fungsi ini menghapus jurnal lama
+  // untuk expense ini dulu sebelum buat yang baru) -- lihat komentar di
+  // addEventExpense di atas.
+  void supabase.rpc("post_event_expense_journal", { p_expense_id: id }).then(({ error: rpcError }) => {
+    if (rpcError) console.error("[event-expenses] post_event_expense_journal (update) gagal:", rpcError.message);
+  });
+
   revalidatePath(MODULE_PATH);
   void logActivity({
     module: toActivityModule(input.division),
@@ -185,6 +200,10 @@ export async function deleteEventExpense(id: string): Promise<MutationResult> {
   if (paths.length > 0) {
     await supabase.storage.from(BUCKET).remove(paths);
   }
+
+  void supabase.rpc("delete_event_expense_journal", { p_expense_id: id }).then(({ error: rpcError }) => {
+    if (rpcError) console.error("[event-expenses] delete_event_expense_journal gagal:", rpcError.message);
+  });
 
   revalidatePath(MODULE_PATH);
   if (expenseRow) {
