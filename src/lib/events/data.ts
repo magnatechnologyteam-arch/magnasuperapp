@@ -133,8 +133,14 @@ const EVENT_SELECT =
 
 /** Semua event, terbaru duluan -- halaman Admin (Tahap C) belum perlu
  * paginasi, jumlah event yang sedang berjalan/baru selesai wajar untuk
- * ditampilkan sekaligus. */
-export async function getEvents(): Promise<EventSummary[]> {
+ * ditampilkan sekaligus.
+ *
+ * `withProgress` (Tahap E, dashboard ringkasan) -- kalau true, tiap event
+ * ikut dilengkapi `checklistTotal`/`checklistDone` (lihat
+ * `attachChecklistProgress` di bawah). Opsional (default false) supaya
+ * pemanggil yang tidak butuh progress (mis. dropdown pilih event di form
+ * lain) tidak menanggung query tambahan itu. */
+export async function getEvents(options?: { withProgress?: boolean }): Promise<EventSummary[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("events")
@@ -146,7 +152,39 @@ export async function getEvents(): Promise<EventSummary[]> {
     console.error("[events] getEvents gagal:", error.message);
     return [];
   }
-  return (data ?? []).map(mapEvent);
+  const events = (data ?? []).map(mapEvent);
+  if (!options?.withProgress) return events;
+  return attachChecklistProgress(supabase, events);
+}
+
+/** Isi `checklistTotal`/`checklistDone` tiap event dalam SATU query
+ * tambahan (bukan N+1 per event) -- ambil `event_id, status` semua item
+ * checklist milik event-event yang diminta, lalu dihitung di JS. Dipakai
+ * dashboard ringkasan Admin (Tahap E) & daftar Papan Tracking (Tahap D). */
+async function attachChecklistProgress(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  events: EventSummary[]
+): Promise<EventSummary[]> {
+  if (events.length === 0) return events;
+  const ids = events.map((e) => e.id);
+  const { data, error } = await supabase.from("event_checklist_items").select("event_id, status").in("event_id", ids);
+  if (error) {
+    console.error("[events] attachChecklistProgress gagal:", error.message);
+    return events;
+  }
+
+  const countByEvent = new Map<string, { total: number; done: number }>();
+  for (const row of data ?? []) {
+    const bucket = countByEvent.get(row.event_id) ?? { total: 0, done: 0 };
+    bucket.total += 1;
+    if (row.status === "Finish") bucket.done += 1;
+    countByEvent.set(row.event_id, bucket);
+  }
+
+  return events.map((event) => {
+    const counts = countByEvent.get(event.id);
+    return { ...event, checklistTotal: counts?.total ?? 0, checklistDone: counts?.done ?? 0 };
+  });
 }
 
 type ChecklistItemRow = {

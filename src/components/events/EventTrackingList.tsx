@@ -96,6 +96,22 @@ export function EventTrackingList({ events }: { events: EventSummary[] }) {
                   </p>
                 )}
               </div>
+              {typeof ev.checklistTotal === "number" && ev.checklistTotal > 0 && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">
+                    <span>
+                      {ev.checklistDone ?? 0}/{ev.checklistTotal} item
+                    </span>
+                    <span>{Math.round(((ev.checklistDone ?? 0) / ev.checklistTotal) * 100)}%</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500"
+                      style={{ width: `${Math.round(((ev.checklistDone ?? 0) / ev.checklistTotal) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </Link>
           ))}
         </div>

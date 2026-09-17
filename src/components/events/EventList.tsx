@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { CalendarClock, Loader2, MapPin, Plus } from "lucide-react";
+import { AlertTriangle, CalendarClock, Gauge, Loader2, MapPin, Plus } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -25,14 +25,35 @@ function emptyForm() {
  * Daftar Event (Tahap C modul Tracking Progress Event) -- HANYA akses
  * penuh yang bisa BIKIN event baru (RLS `events_insert`), sama seperti
  * kelola Jenis Event di Tahap B. Setelah event dibuat, staf 3 divisi
- * operasional terlibat lewat checklist & kaitan (halaman detail) --
- * mereka tidak melihat halaman daftar ini sendiri di Tahap C (menyusul di
- * Tahap D/E: Papan Tracking & Dashboard ringkasan).
+ * operasional terlibat lewat checklist & kaitan, plus update status/PIC
+ * lewat halaman terpisah "Papan Tracking" (Tahap D) -- mereka tidak
+ * melihat halaman daftar ini sendiri.
+ *
+ * Tahap E (dashboard ringkasan): tiga kartu statistik di atas + progress
+ * bar per event, dihitung dari `checklistTotal`/`checklistDone` yang
+ * ikut dikirim `page.tsx` lewat `getEvents({ withProgress: true })` --
+ * supaya Owner/Finance bisa lihat progres semua event sekilas tanpa buka
+ * satu-satu.
  */
 export function EventList({ events, eventTypes }: { events: EventSummary[]; eventTypes: EventType[] }) {
   const router = useRouter();
   const { showToast } = useToast();
   const activeTypes = eventTypes.filter((t) => t.isActive);
+
+  const stats = useMemo(() => {
+    const running = events.filter((e) => e.status === "Berjalan");
+    const withTotal = running.filter((e) => (e.checklistTotal ?? 0) > 0);
+    const avgProgress =
+      withTotal.length === 0
+        ? 0
+        : Math.round(
+            (withTotal.reduce((sum, e) => sum + (e.checklistDone ?? 0) / (e.checklistTotal ?? 1), 0) /
+              withTotal.length) *
+              100
+          );
+    const noProgressCount = running.filter((e) => (e.checklistDone ?? 0) === 0).length;
+    return { runningCount: running.length, avgProgress, noProgressCount };
+  }, [events]);
 
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -74,7 +95,33 @@ export function EventList({ events, eventTypes }: { events: EventSummary[]; even
 
   return (
     <div>
-      <div className="flex items-center justify-end">
+      {events.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 dark:text-zinc-500">
+              <CalendarClock className="h-3.5 w-3.5" />
+              Event Berjalan
+            </div>
+            <p className="mt-1.5 text-2xl font-extrabold text-zinc-900 dark:text-white">{stats.runningCount}</p>
+          </div>
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 dark:text-zinc-500">
+              <Gauge className="h-3.5 w-3.5" />
+              Rata-rata Progress
+            </div>
+            <p className="mt-1.5 text-2xl font-extrabold text-zinc-900 dark:text-white">{stats.avgProgress}%</p>
+          </div>
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+            <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 dark:text-zinc-500">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Belum Ada Progress
+            </div>
+            <p className="mt-1.5 text-2xl font-extrabold text-zinc-900 dark:text-white">{stats.noProgressCount}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4 flex items-center justify-end">
         <button
           type="button"
           onClick={openAdd}
@@ -122,6 +169,22 @@ export function EventList({ events, eventTypes }: { events: EventSummary[]; even
                   </p>
                 )}
               </div>
+              {typeof ev.checklistTotal === "number" && ev.checklistTotal > 0 && (
+                <div className="mt-3">
+                  <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">
+                    <span>
+                      {ev.checklistDone ?? 0}/{ev.checklistTotal} item
+                    </span>
+                    <span>{Math.round(((ev.checklistDone ?? 0) / ev.checklistTotal) * 100)}%</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500"
+                      style={{ width: `${Math.round(((ev.checklistDone ?? 0) / ev.checklistTotal) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </Link>
           ))}
         </div>

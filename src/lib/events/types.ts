@@ -110,6 +110,12 @@ export type EventSummary = {
   status: EventStatus;
   notes?: string;
   createdAt: string;
+  /** Jumlah item checklist & yang sudah "Finish" (Tahap E) -- dipakai
+   * dashboard ringkasan Admin & Papan Tracking untuk progress bar per
+   * event, TANPA perlu buka detail satu-satu. undefined kalau caller
+   * belum minta dihitung (lihat `getEvents({ withProgress: true })`). */
+  checklistTotal?: number;
+  checklistDone?: number;
 };
 
 export type EventChecklistItem = {

@@ -13,7 +13,7 @@ import { EventTrackingList } from "@/components/events/EventTrackingList";
  * tambahan di sisi sini.
  */
 export default async function TrackingEventPage() {
-  const events = await getEvents();
+  const events = await getEvents({ withProgress: true });
 
   return (
     <div className="p-4 md:p-8">

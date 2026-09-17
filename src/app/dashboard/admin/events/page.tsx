@@ -6,9 +6,10 @@ import { EventList } from "@/components/events/EventList";
 
 /**
  * Halaman "Event" (Tahap C modul Tracking Progress Event) -- daftar semua
- * event + tombol bikin baru. HANYA akses penuh (RLS `events_insert`) --
- * staf 3 divisi operasional belum punya halaman sendiri di sini (menyusul
- * Tahap D: Papan Tracking, dan Tahap E: Dashboard ringkasan).
+ * event + tombol bikin baru, plus progress checklist per event & ringkasan
+ * di atasnya (Tahap E). HANYA akses penuh (RLS `events_insert`) -- staf 3
+ * divisi operasional update status/PIC lewat halaman terpisah "Papan
+ * Tracking" (Tahap D, `/dashboard/tracking-event`), bukan di sini.
  */
 export default async function EventsPage() {
   const profile = await getCurrentProfile();
@@ -16,7 +17,7 @@ export default async function EventsPage() {
     redirect("/dashboard");
   }
 
-  const [events, eventTypes] = await Promise.all([getEvents(), getEventTypes()]);
+  const [events, eventTypes] = await Promise.all([getEvents({ withProgress: true }), getEventTypes()]);
 
   return (
     <div className="p-4 md:p-8">
