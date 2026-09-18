@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/supabase/server";
 import { getChartOfAccounts, getManualJournalEntries } from "@/lib/accounting/data";
 import { ChartOfAccountsManager } from "@/components/accounting/ChartOfAccountsManager";
 import { ManualJournalManager } from "@/components/accounting/ManualJournalManager";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 /**
  * Halaman "Akuntansi" (Tahap F) -- HANYA akses penuh, sama seperti Laba-
@@ -54,8 +55,10 @@ export default async function AkuntansiPage() {
       </div>
 
       <div className="mt-6 space-y-6">
-        <ChartOfAccountsManager initialAccounts={accounts} />
-        <ManualJournalManager initialEntries={manualEntries} accounts={accounts} />
+        <ToastProvider>
+          <ChartOfAccountsManager initialAccounts={accounts} />
+          <ManualJournalManager initialEntries={manualEntries} accounts={accounts} />
+        </ToastProvider>
       </div>
     </div>
   );
