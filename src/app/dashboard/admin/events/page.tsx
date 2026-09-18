@@ -3,6 +3,7 @@ import { CalendarClock } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getEvents, getEventTypes } from "@/lib/events/data";
 import { EventList } from "@/components/events/EventList";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 /**
  * Halaman "Event" (Tahap C modul Tracking Progress Event) -- daftar semua
@@ -44,7 +45,9 @@ export default async function EventsPage() {
       </div>
 
       <div className="mt-6">
-        <EventList events={events} eventTypes={eventTypes} />
+        <ToastProvider>
+          <EventList events={events} eventTypes={eventTypes} />
+        </ToastProvider>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { CalendarClock } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getEventById } from "@/lib/events/data";
 import { EventDetailManager } from "@/components/events/EventDetailManager";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 /**
  * Detail satu event (Tahap C) -- HANYA akses penuh (Owner/Finance), sama
@@ -48,11 +49,13 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
       </div>
 
       <div className="mt-6">
-        <EventDetailManager
-          event={detail.event}
-          initialChecklistItems={detail.checklistItems}
-          initialLinks={detail.links}
-        />
+        <ToastProvider>
+          <EventDetailManager
+            event={detail.event}
+            initialChecklistItems={detail.checklistItems}
+            initialLinks={detail.links}
+          />
+        </ToastProvider>
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { ClipboardList } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getAllEventTypeTemplateItems, getEventTypes } from "@/lib/events/data";
 import { EventTypeManager } from "@/components/events/EventTypeManager";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 /**
  * Halaman "Jenis Event" (Tahap B modul Tracking Progress Event) -- HANYA
@@ -46,7 +47,9 @@ export default async function JenisEventPage() {
       </div>
 
       <div className="mt-6">
-        <EventTypeManager initialEventTypes={eventTypes} initialTemplateItems={templateItems} />
+        <ToastProvider>
+          <EventTypeManager initialEventTypes={eventTypes} initialTemplateItems={templateItems} />
+        </ToastProvider>
       </div>
     </div>
   );

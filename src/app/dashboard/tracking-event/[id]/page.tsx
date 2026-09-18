@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { ClipboardList } from "lucide-react";
 import { getAssignablePics, getEventById } from "@/lib/events/data";
 import { EventTrackingBoard } from "@/components/events/EventTrackingBoard";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 /**
  * Papan Tracking satu event (Tahap D) — lihat komentar guard divisi di
@@ -43,12 +44,14 @@ export default async function TrackingEventDetailPage({ params }: { params: Prom
       </div>
 
       <div className="mt-6">
-        <EventTrackingBoard
-          event={detail.event}
-          initialChecklistItems={detail.checklistItems}
-          links={detail.links}
-          picOptions={picOptions}
-        />
+        <ToastProvider>
+          <EventTrackingBoard
+            event={detail.event}
+            initialChecklistItems={detail.checklistItems}
+            links={detail.links}
+            picOptions={picOptions}
+          />
+        </ToastProvider>
       </div>
     </div>
   );
