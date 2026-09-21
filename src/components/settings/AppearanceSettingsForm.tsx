@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Laptop2, Moon, Sun } from "lucide-react";
+import { ChevronRight, Laptop2, Moon, Sun } from "lucide-react";
 import { updateLanguagePreference, updateThemePreference } from "@/lib/settings/actions";
 import { useToast } from "@/components/ui/ToastProvider";
 import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
+import { LanguageDrawer } from "@/components/settings/LanguageDrawer";
 import type { LanguagePreference, ThemePreference } from "@/lib/supabase/types";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
@@ -15,21 +16,29 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }
 ];
 
 /**
- * Tahap 33 — English, Malay & Chinese SEKARANG BENERAN aktif (sebelumnya
- * cuma English yang ditampilkan tapi sengaja dikunci `available: false`
- * karena belum ada satu pun teks yang diterjemahkan — lihat riwayat git).
- * Infrastruktur terjemahan (`src/lib/i18n/dictionary.ts`) sekarang menutup
- * seluruh "shell" aplikasi (Sidebar, MobileNav, Topbar, Dashboard Hub,
- * halaman Pengaturan ini, Pencarian Global) — HALAMAN DETAIL tiap modul
+ * Update Opsional 1, item 4 — daftar bahasa sekarang 9 total (sebelumnya 4:
+ * id/en/ms/zh sejak Tahap 33). Nama tiap bahasa SENGAJA ditulis dalam
+ * bahasanya sendiri (bukan lewat `t()`) supaya penutur bahasa itu selalu
+ * bisa mengenali pilihannya sendiri di daftar, apa pun bahasa aplikasi
+ * yang sedang aktif — pola umum di pemilih bahasa aplikasi manapun.
+ *
+ * Infrastruktur terjemahan (`src/lib/i18n/dictionary.ts`) menutup seluruh
+ * "shell" aplikasi (Sidebar, MobileNav, Topbar, Dashboard Hub, halaman
+ * Pengaturan ini, Pencarian Global) — HALAMAN DETAIL tiap modul
  * (Magnarent/Magnativ/Production/Admin) masih Bahasa Indonesia, jadi kalau
  * pilih bahasa lain, bagian dalam modul akan tetap tampil ID sampai
  * menyusul diterjemahkan di tahap berikutnya.
  */
-const LANGUAGE_OPTIONS: { value: LanguagePreference; label: string; available: boolean }[] = [
-  { value: "id", label: "Bahasa Indonesia", available: true },
-  { value: "en", label: "English", available: true },
-  { value: "ms", label: "Bahasa Melayu", available: true },
-  { value: "zh", label: "中文", available: true },
+const LANGUAGE_OPTIONS: { value: LanguagePreference; label: string }[] = [
+  { value: "id", label: "Bahasa Indonesia" },
+  { value: "en", label: "English" },
+  { value: "ms", label: "Bahasa Melayu" },
+  { value: "zh", label: "中文" },
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" },
+  { value: "ar", label: "العربية" },
+  { value: "fr", label: "Français" },
+  { value: "th", label: "ไทย" },
 ];
 
 /**
@@ -56,6 +65,9 @@ export function AppearanceSettingsForm({
   const [theme, setTheme] = useState(initialTheme);
   const [language, setLanguage] = useState(initialLanguage);
   const [savingTheme, setSavingTheme] = useState(false);
+  const [languageDrawerOpen, setLanguageDrawerOpen] = useState(false);
+  const activeLanguageLabel =
+    LANGUAGE_OPTIONS.find((opt) => opt.value === language)?.label ?? language;
 
   function applyThemeToDocument(value: ThemePreference) {
     const root = document.documentElement;
@@ -79,8 +91,9 @@ export function AppearanceSettingsForm({
     if (!result.ok) showToast(result.error, "error");
   }
 
-  async function handleLanguageSelect(value: LanguagePreference, available: boolean) {
-    if (!available || value === language) return;
+  async function handleLanguageSelect(value: LanguagePreference) {
+    setLanguageDrawerOpen(false);
+    if (value === language) return;
     setLanguage(value);
     const result = await updateLanguagePreference(value);
     if (!result.ok) showToast(result.error, "error");
@@ -115,36 +128,22 @@ export function AppearanceSettingsForm({
       </div>
 
       <p className="mb-2 mt-5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">{t("Bahasa")}</p>
-      <div className="space-y-1.5">
-        {LANGUAGE_OPTIONS.map((opt) => {
-          const isActive = language === opt.value;
-          return (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => handleLanguageSelect(opt.value, opt.available)}
-              disabled={!opt.available}
-              className={cn(
-                "flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-colors",
-                isActive
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-400 dark:bg-indigo-500/10 dark:text-indigo-300"
-                  : opt.available
-                    ? "border-black/10 text-zinc-600 hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
-                    : "cursor-not-allowed border-black/5 text-zinc-300 dark:border-white/5 dark:text-zinc-600"
-              )}
-            >
-              <span>{opt.label}</span>
-              {isActive ? (
-                <Check className="h-4 w-4" />
-              ) : !opt.available ? (
-                <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-400 dark:bg-white/5 dark:text-zinc-500">
-                  {t("Segera Hadir")}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
+      <button
+        type="button"
+        onClick={() => setLanguageDrawerOpen(true)}
+        className="flex w-full items-center justify-between rounded-xl border border-black/10 px-3.5 py-2.5 text-sm font-semibold text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+      >
+        <span>{activeLanguageLabel}</span>
+        <ChevronRight className="h-4 w-4 text-zinc-400" />
+      </button>
+
+      <LanguageDrawer
+        open={languageDrawerOpen}
+        onClose={() => setLanguageDrawerOpen(false)}
+        options={LANGUAGE_OPTIONS}
+        value={language}
+        onSelect={handleLanguageSelect}
+      />
     </div>
   );
 }
