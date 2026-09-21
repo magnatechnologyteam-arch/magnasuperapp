@@ -57,10 +57,14 @@ function readDivisionLogo(division: InvoiceDivision): Buffer | null {
 const styles = StyleSheet.create({
   page: { padding: 40, fontSize: 9.5, fontFamily: "Helvetica", color: "#18181b" },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 },
-  brandRow: { flexDirection: "row", alignItems: "center" },
-  logo: { width: 38, height: 38, marginRight: 10, objectFit: "contain" },
-  brand: { fontSize: 16, fontWeight: 700 },
-  brandSub: { fontSize: 8.5, color: "#71717a", marginTop: 1 },
+  // Logo per divisi (public/brand/*.png) SUDAH memuat wordmark lengkap
+  // (mis. "magnativ"/"magnarent" ikut tergambar di file-nya sendiri) — jadi
+  // logo di sini SENGAJA berdiri sendiri, diperbesar, tanpa nama divisi
+  // ditulis ulang sebagai Text terpisah (dulu dobel/redundan). Tagline
+  // ditaruh DI BAWAH logo, bukan di sampingnya, mengikuti template.
+  brandCol: { flexDirection: "column", alignItems: "flex-start" },
+  logo: { width: 132, marginBottom: 6, objectFit: "contain" },
+  brandSub: { fontSize: 8.5, color: "#71717a" },
   invoiceTitle: { fontSize: 18, fontWeight: 700, textAlign: "right" },
   invoiceDocLabel: { fontSize: 8.5, fontWeight: 700, color: "#dc2626", textAlign: "right", marginTop: 2 },
   invoiceSubtitle: { fontSize: 9, color: "#71717a", textAlign: "right", marginTop: 2 },
@@ -150,8 +154,15 @@ const styles = StyleSheet.create({
 
   signatureBlock: { marginTop: 26, alignItems: "flex-end" },
   signatureLabel: { fontSize: 9, color: "#71717a" },
-  signatureDivision: { fontSize: 9.5, fontWeight: 700, marginTop: 30 },
+  signatureDivision: { fontSize: 9.5, fontWeight: 700, marginTop: 4 },
+  // "Tanda tangan" — tanpa file gambar tanda tangan asli, dipakai nama PIC
+  // digambar besar & miring ala tulisan tangan (font standar PDF, tanpa
+  // perlu registrasi font baru), lalu nama cetak tebal kecil di bawahnya
+  // sebagai konfirmasi — pola sama seperti tanda tangan + nama di bawahnya
+  // pada template referensi.
+  signatureScript: { fontSize: 24, fontStyle: "italic", marginTop: 16, marginBottom: 2 },
   signaturePic: { fontSize: 9, fontWeight: 700, marginTop: 2 },
+  signatureBlank: { height: 30 },
 
   termsBlock: { marginTop: 18 },
   termsTitle: { fontSize: 8.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 },
@@ -182,12 +193,9 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.headerRow}>
-          <View style={styles.brandRow}>
+          <View style={styles.brandCol}>
             {logoBuffer && <Image src={{ data: logoBuffer, format: "png" }} style={styles.logo} />}
-            <View>
-              <Text style={styles.brand}>{division.label}</Text>
-              <Text style={styles.brandSub}>{division.tagline}</Text>
-            </View>
+            <Text style={styles.brandSub}>{division.tagline}</Text>
           </View>
           <View>
             <Text style={styles.invoiceTitle}>INVOICE</Text>
@@ -345,7 +353,14 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
         <View style={styles.signatureBlock}>
           <Text style={styles.signatureLabel}>Hormat Kami,</Text>
           <Text style={styles.signatureDivision}>{division.label}</Text>
-          {invoice.picName && <Text style={styles.signaturePic}>{invoice.picName}</Text>}
+          {invoice.picName ? (
+            <>
+              <Text style={styles.signatureScript}>{invoice.picName}</Text>
+              <Text style={styles.signaturePic}>{invoice.picName}</Text>
+            </>
+          ) : (
+            <View style={styles.signatureBlank} />
+          )}
         </View>
 
         {invoice.termsConditions && (
