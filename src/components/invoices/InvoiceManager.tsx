@@ -40,27 +40,65 @@ const ALL_STATUS_FILTER = "Semua Status";
 const DIVISION_OPTIONS: InvoiceDivision[] = ["magnarent", "magnative", "production"];
 const STATUS_OPTIONS: InvoiceStatus[] = ["Draft", "Terkirim", "Lunas"];
 
-type ItemForm = { description: string; qty: string; unitPrice: string };
+type ItemForm = { description: string; qty: string; unitPrice: string; qtyLabel: string; unitLabel: string; note: string };
 
 type FormState = {
   division: InvoiceDivision;
   sourceType?: InvoiceSourceType;
   sourceId?: string;
+  documentLabel: string;
+  picName: string;
+  picPhone: string;
   clientName: string;
   clientPhone: string;
+  eventName: string;
+  eventLocation: string;
+  eventDateLabel: string;
+  loadingInfo: string;
+  durationLabel: string;
+  deliveryMethod: string;
   items: ItemForm[];
+  shippingCost: string;
+  depositAmount: string;
+  depositLabel: string;
+  bankName: string;
+  bankAccountHolder: string;
+  bankAccountNumber: string;
+  paymentNote: string;
   dueDate: string;
   catatan: string;
+  termsConditions: string;
 };
+
+function emptyItemForm(): ItemForm {
+  return { description: "", qty: "1", unitPrice: "0", qtyLabel: "", unitLabel: "", note: "" };
+}
 
 function emptyForm(): FormState {
   return {
     division: "magnarent",
+    documentLabel: "",
+    picName: "",
+    picPhone: "",
     clientName: "",
     clientPhone: "",
-    items: [{ description: "", qty: "1", unitPrice: "0" }],
+    eventName: "",
+    eventLocation: "",
+    eventDateLabel: "",
+    loadingInfo: "",
+    durationLabel: "",
+    deliveryMethod: "",
+    items: [emptyItemForm()],
+    shippingCost: "0",
+    depositAmount: "0",
+    depositLabel: "",
+    bankName: "",
+    bankAccountHolder: "",
+    bankAccountNumber: "",
+    paymentNote: "",
     dueDate: "",
     catatan: "",
+    termsConditions: "",
   };
 }
 
@@ -69,11 +107,58 @@ function invoiceToForm(inv: Invoice): FormState {
     division: inv.division,
     sourceType: inv.sourceType,
     sourceId: inv.sourceId,
+    documentLabel: inv.documentLabel ?? "",
+    picName: inv.picName ?? "",
+    picPhone: inv.picPhone ?? "",
     clientName: inv.clientName,
     clientPhone: inv.clientPhone ?? "",
-    items: inv.items.map((i) => ({ description: i.description, qty: String(i.qty), unitPrice: String(i.unitPrice) })),
+    eventName: inv.eventName ?? "",
+    eventLocation: inv.eventLocation ?? "",
+    eventDateLabel: inv.eventDateLabel ?? "",
+    loadingInfo: inv.loadingInfo ?? "",
+    durationLabel: inv.durationLabel ?? "",
+    deliveryMethod: inv.deliveryMethod ?? "",
+    items: inv.items.map((i) => ({
+      description: i.description,
+      qty: String(i.qty),
+      unitPrice: String(i.unitPrice),
+      qtyLabel: i.qtyLabel ?? "",
+      unitLabel: i.unitLabel ?? "",
+      note: i.note ?? "",
+    })),
+    shippingCost: String(inv.shippingCost ?? 0),
+    depositAmount: String(inv.depositAmount ?? 0),
+    depositLabel: inv.depositLabel ?? "",
+    bankName: inv.bankName ?? "",
+    bankAccountHolder: inv.bankAccountHolder ?? "",
+    bankAccountNumber: inv.bankAccountNumber ?? "",
+    paymentNote: inv.paymentNote ?? "",
     dueDate: inv.dueDate ?? "",
     catatan: inv.catatan ?? "",
+    termsConditions: inv.termsConditions ?? "",
+  };
+}
+
+/**
+ * Isi otomatis PIC/bank saat bikin invoice BARU untuk satu divisi — bukan
+ * nilai baku yang ditanam di kode (data sensitif tidak boleh hardcode),
+ * tapi diambil dari invoice divisi yang sama PALING BARU yang sudah
+ * pernah diisi field-field ini (carry-forward), supaya staf tidak perlu
+ * ketik ulang nomor rekening/WA setiap bikin invoice baru. `invoices`
+ * sudah terurut terbaru dulu (lihat query di admin/faktur/page.tsx), jadi
+ * cukup ambil kecocokan pertama.
+ */
+function getDivisionDefaults(division: InvoiceDivision, invoices: Invoice[]) {
+  const source = invoices.find(
+    (inv) => inv.division === division && (inv.picName || inv.picPhone || inv.bankName || inv.bankAccountNumber)
+  );
+  if (!source) return null;
+  return {
+    picName: source.picName ?? "",
+    picPhone: source.picPhone ?? "",
+    bankName: source.bankName ?? "",
+    bankAccountHolder: source.bankAccountHolder ?? "",
+    bankAccountNumber: source.bankAccountNumber ?? "",
   };
 }
 
@@ -175,7 +260,9 @@ export function InvoiceManager({
 
   function openAddModal() {
     setEditingId(null);
-    setForm(emptyForm());
+    const base = emptyForm();
+    const defaults = getDivisionDefaults(base.division, invoices);
+    setForm(defaults ? { ...base, ...defaults } : base);
     setSourceSearch("");
     setError(null);
     setFormOpen(true);
@@ -203,7 +290,7 @@ export function InvoiceManager({
       sourceId: opt.sourceId,
       clientName: opt.clientName,
       clientPhone: opt.clientPhone ?? f.clientPhone,
-      items: [{ description: opt.label, qty: "1", unitPrice: String(opt.amount) }],
+      items: [{ ...emptyItemForm(), description: opt.label, qty: "1", unitPrice: String(opt.amount) }],
     }));
   }
 
@@ -211,8 +298,28 @@ export function InvoiceManager({
     setForm((f) => ({ ...f, sourceType: undefined, sourceId: undefined }));
   }
 
+  // Ganti divisi saat BIKIN invoice baru (bukan edit) -- isi ulang
+  // default PIC/bank divisi itu, tapi cuma kalau field-nya masih kosong
+  // supaya tidak menimpa yang sudah diketik staf.
+  function handleDivisionChange(division: InvoiceDivision) {
+    setForm((f) => {
+      if (editingId) return { ...f, division };
+      const defaults = getDivisionDefaults(division, invoices);
+      if (!defaults) return { ...f, division };
+      return {
+        ...f,
+        division,
+        picName: f.picName || defaults.picName,
+        picPhone: f.picPhone || defaults.picPhone,
+        bankName: f.bankName || defaults.bankName,
+        bankAccountHolder: f.bankAccountHolder || defaults.bankAccountHolder,
+        bankAccountNumber: f.bankAccountNumber || defaults.bankAccountNumber,
+      };
+    });
+  }
+
   function addItemRow() {
-    setForm((f) => ({ ...f, items: [...f.items, { description: "", qty: "1", unitPrice: "0" }] }));
+    setForm((f) => ({ ...f, items: [...f.items, emptyItemForm()] }));
   }
 
   function removeItemRow(index: number) {
@@ -238,13 +345,33 @@ export function InvoiceManager({
       division: form.division,
       sourceType: form.sourceType,
       sourceId: form.sourceId,
+      documentLabel: form.documentLabel.trim() || undefined,
+      picName: form.picName.trim() || undefined,
+      picPhone: form.picPhone.trim() || undefined,
       clientName: form.clientName.trim(),
       clientPhone: form.clientPhone.trim() || undefined,
+      eventName: form.eventName.trim() || undefined,
+      eventLocation: form.eventLocation.trim() || undefined,
+      eventDateLabel: form.eventDateLabel.trim() || undefined,
+      loadingInfo: form.loadingInfo.trim() || undefined,
+      durationLabel: form.durationLabel.trim() || undefined,
+      deliveryMethod: form.deliveryMethod.trim() || undefined,
       items: form.items.map((it) => ({
         description: it.description.trim(),
         qty: Number(it.qty),
         unitPrice: Number(it.unitPrice),
+        qtyLabel: it.qtyLabel.trim() || undefined,
+        unitLabel: it.unitLabel.trim() || undefined,
+        note: it.note.trim() || undefined,
       })),
+      shippingCost: Number(form.shippingCost) || 0,
+      depositAmount: Number(form.depositAmount) || 0,
+      depositLabel: form.depositLabel.trim() || undefined,
+      bankName: form.bankName.trim() || undefined,
+      bankAccountHolder: form.bankAccountHolder.trim() || undefined,
+      bankAccountNumber: form.bankAccountNumber.trim() || undefined,
+      paymentNote: form.paymentNote.trim() || undefined,
+      termsConditions: form.termsConditions.trim() || undefined,
       dueDate: form.dueDate || undefined,
       catatan: form.catatan.trim() || undefined,
     };
@@ -300,7 +427,11 @@ export function InvoiceManager({
     showToast(`Status invoice ${inv.invoiceNumber} diubah jadi "${status}".`);
   }
 
-  const formTotal = computeTotal(form.items);
+  const formItemsSubtotal = computeTotal(form.items);
+  const formShipping = Number(form.shippingCost) || 0;
+  const formDeposit = Number(form.depositAmount) || 0;
+  const formTotal = formItemsSubtotal + formShipping;
+  const formTotalDibayarkan = formTotal + formDeposit;
 
   return (
     <div>
@@ -482,7 +613,7 @@ export function InvoiceManager({
       </div>
 
       {/* Modal tambah/edit invoice */}
-      <Modal open={formOpen} onClose={closeFormModal} title={editingId ? "Edit Invoice" : "Buat Invoice Baru"} maxWidth="max-w-2xl">
+      <Modal open={formOpen} onClose={closeFormModal} title={editingId ? "Edit Invoice" : "Buat Invoice Baru"} maxWidth="max-w-3xl">
         <form onSubmit={handleSubmit} className="space-y-5">
           {!editingId && (
             <div>
@@ -538,13 +669,13 @@ export function InvoiceManager({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3.5">
+          <div className="grid grid-cols-3 gap-3.5">
             <div>
               <label htmlFor="invoice-division" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Divisi</label>
               <select
                 id="invoice-division"
                 value={form.division}
-                onChange={(e) => setForm((f) => ({ ...f, division: e.target.value as InvoiceDivision }))}
+                onChange={(e) => handleDivisionChange(e.target.value as InvoiceDivision)}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
               >
                 {DIVISION_OPTIONS.map((d) => (
@@ -563,6 +694,44 @@ export function InvoiceManager({
                 onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
               />
+            </div>
+            <div>
+              <label htmlFor="invoice-document-label" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Label Dokumen (opsional)</label>
+              <input
+                id="invoice-document-label"
+                value={form.documentLabel}
+                onChange={(e) => setForm((f) => ({ ...f, documentLabel: e.target.value }))}
+                placeholder="mis. Proforma Invoice (PI)"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-black/5 bg-zinc-50/60 p-3.5 dark:border-white/5 dark:bg-white/[0.03]">
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              Dari (PIC Penandatangan Invoice)
+            </p>
+            <div className="grid grid-cols-2 gap-3.5">
+              <div>
+                <label htmlFor="invoice-pic-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nama PIC (opsional)</label>
+                <input
+                  id="invoice-pic-name"
+                  value={form.picName}
+                  onChange={(e) => setForm((f) => ({ ...f, picName: e.target.value }))}
+                  placeholder="mis. Angellie"
+                  className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+                />
+              </div>
+              <div>
+                <label htmlFor="invoice-pic-phone" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">WA PIC (opsional)</label>
+                <input
+                  id="invoice-pic-phone"
+                  value={form.picPhone}
+                  onChange={(e) => setForm((f) => ({ ...f, picPhone: e.target.value }))}
+                  placeholder="mis. 0851-2330-1167"
+                  className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+                />
+              </div>
             </div>
           </div>
 
@@ -589,6 +758,50 @@ export function InvoiceManager({
             </div>
           </div>
 
+          <div className="rounded-xl border border-black/5 bg-zinc-50/60 p-3.5 dark:border-white/5 dark:bg-white/[0.03]">
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              Detail Acara &amp; Pengiriman (opsional)
+            </p>
+            <div className="grid grid-cols-2 gap-3.5">
+              <input
+                value={form.eventName}
+                onChange={(e) => setForm((f) => ({ ...f, eventName: e.target.value }))}
+                placeholder="Nama event, mis. Wikibex Jakarta 2026"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+              <input
+                value={form.eventLocation}
+                onChange={(e) => setForm((f) => ({ ...f, eventLocation: e.target.value }))}
+                placeholder="Lokasi, mis. JIExpo Kemayoran, Jakarta"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+              <input
+                value={form.eventDateLabel}
+                onChange={(e) => setForm((f) => ({ ...f, eventDateLabel: e.target.value }))}
+                placeholder="Tgl acara, mis. 2–4 Oktober 2026"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+              <input
+                value={form.loadingInfo}
+                onChange={(e) => setForm((f) => ({ ...f, loadingInfo: e.target.value }))}
+                placeholder="Loading, mis. 2 Okt 2026, 08.00 WIB"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+              <input
+                value={form.durationLabel}
+                onChange={(e) => setForm((f) => ({ ...f, durationLabel: e.target.value }))}
+                placeholder="Durasi, mis. 3 hari"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+              <input
+                value={form.deliveryMethod}
+                onChange={(e) => setForm((f) => ({ ...f, deliveryMethod: e.target.value }))}
+                placeholder="Pengiriman, mis. Lalamove (PP)"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+            </div>
+          </div>
+
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <label className="text-xs font-semibold text-zinc-600 dark:text-zinc-300">Item</label>
@@ -601,45 +814,152 @@ export function InvoiceManager({
                 Tambah baris
               </button>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {form.items.map((item, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    value={item.description}
-                    onChange={(e) => updateItemRow(i, "description", e.target.value)}
-                    placeholder="Deskripsi"
-                    className="flex-1 rounded-xl border border-black/10 bg-transparent px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    value={item.qty}
-                    onChange={(e) => updateItemRow(i, "qty", e.target.value)}
-                    placeholder="Qty"
-                    className="w-16 rounded-xl border border-black/10 bg-transparent px-2.5 py-2 text-sm text-zinc-900 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
-                  />
-                  <input
-                    type="number"
-                    min={0}
-                    value={item.unitPrice}
-                    onChange={(e) => updateItemRow(i, "unitPrice", e.target.value)}
-                    placeholder="Harga satuan"
-                    className="w-32 rounded-xl border border-black/10 bg-transparent px-2.5 py-2 text-sm text-zinc-900 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => removeItemRow(i)}
-                    disabled={form.items.length <= 1}
-                    className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+                <div key={i} className="rounded-xl border border-black/10 p-2.5 dark:border-white/10">
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={item.description}
+                      onChange={(e) => updateItemRow(i, "description", e.target.value)}
+                      placeholder="Deskripsi"
+                      className="flex-1 rounded-xl border border-black/10 bg-transparent px-3 py-2 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={item.qty}
+                      onChange={(e) => updateItemRow(i, "qty", e.target.value)}
+                      placeholder="Qty"
+                      className="w-16 rounded-xl border border-black/10 bg-transparent px-2.5 py-2 text-sm text-zinc-900 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      value={item.unitPrice}
+                      onChange={(e) => updateItemRow(i, "unitPrice", e.target.value)}
+                      placeholder="Harga satuan"
+                      className="w-32 rounded-xl border border-black/10 bg-transparent px-2.5 py-2 text-sm text-zinc-900 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeItemRow(i)}
+                      disabled={form.items.length <= 1}
+                      className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-40 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                  {/* Tiga field di bawah MURNI presentasi PDF (lihat komentar
+                      InvoiceItem di types.ts) — tidak memengaruhi hitungan
+                      subtotal, cuma cara item ini ditampilkan. */}
+                  <div className="mt-2 grid grid-cols-3 gap-2">
+                    <input
+                      value={item.qtyLabel}
+                      onChange={(e) => updateItemRow(i, "qtyLabel", e.target.value)}
+                      placeholder="Label qty (opsional), mis. 2 unit × 3 hari"
+                      className="rounded-lg border border-black/10 bg-transparent px-2.5 py-1.5 text-xs text-zinc-600 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-zinc-300"
+                    />
+                    <input
+                      value={item.unitLabel}
+                      onChange={(e) => updateItemRow(i, "unitLabel", e.target.value)}
+                      placeholder="Satuan harga (opsional), mis. hari"
+                      className="rounded-lg border border-black/10 bg-transparent px-2.5 py-1.5 text-xs text-zinc-600 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-zinc-300"
+                    />
+                    <input
+                      value={item.note}
+                      onChange={(e) => updateItemRow(i, "note", e.target.value)}
+                      placeholder="Catatan item (opsional)"
+                      className="rounded-lg border border-black/10 bg-transparent px-2.5 py-1.5 text-xs text-zinc-600 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-zinc-300"
+                    />
+                  </div>
                 </div>
               ))}
             </div>
-            <p className="mt-2 text-right text-sm font-bold text-zinc-900 dark:text-white">
-              Total: {formatRupiah(formTotal)}
+            <p className="mt-2 text-right text-sm text-zinc-500 dark:text-zinc-400">
+              Subtotal Item: {formatRupiah(formItemsSubtotal)}
             </p>
+          </div>
+
+          <div className="rounded-xl border border-black/5 bg-zinc-50/60 p-3.5 dark:border-white/5 dark:bg-white/[0.03]">
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              Ongkos Kirim &amp; Deposit (opsional)
+            </p>
+            <div className="grid grid-cols-3 gap-3.5">
+              <div>
+                <label htmlFor="invoice-shipping" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Ongkos Kirim</label>
+                <input
+                  id="invoice-shipping"
+                  type="number"
+                  min={0}
+                  value={form.shippingCost}
+                  onChange={(e) => setForm((f) => ({ ...f, shippingCost: e.target.value }))}
+                  className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+                />
+              </div>
+              <div>
+                <label htmlFor="invoice-deposit" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Deposit (dapat dikembalikan)</label>
+                <input
+                  id="invoice-deposit"
+                  type="number"
+                  min={0}
+                  value={form.depositAmount}
+                  onChange={(e) => setForm((f) => ({ ...f, depositAmount: e.target.value }))}
+                  className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+                />
+              </div>
+              <div>
+                <label htmlFor="invoice-deposit-label" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Label Deposit</label>
+                <input
+                  id="invoice-deposit-label"
+                  value={form.depositLabel}
+                  onChange={(e) => setForm((f) => ({ ...f, depositLabel: e.target.value }))}
+                  placeholder="mis. Deposit Sewa 50% (dapat dikembalikan)"
+                  className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+                />
+              </div>
+            </div>
+            <div className="mt-3 space-y-1 text-right text-sm">
+              <p className="text-zinc-500 dark:text-zinc-400">Subtotal: {formatRupiah(formItemsSubtotal)}</p>
+              <p className="font-bold text-zinc-900 dark:text-white">TOTAL: {formatRupiah(formTotal)}</p>
+              {formDeposit > 0 && (
+                <p className="font-bold text-zinc-900 dark:text-white">
+                  Total Dibayarkan (termasuk deposit): {formatRupiah(formTotalDibayarkan)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-black/5 bg-zinc-50/60 p-3.5 dark:border-white/5 dark:bg-white/[0.03]">
+            <p className="mb-2.5 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              Metode Pembayaran (opsional)
+            </p>
+            <div className="grid grid-cols-3 gap-3.5">
+              <input
+                value={form.bankName}
+                onChange={(e) => setForm((f) => ({ ...f, bankName: e.target.value }))}
+                placeholder="Nama bank, mis. Transfer Bank Jago"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+              <input
+                value={form.bankAccountHolder}
+                onChange={(e) => setForm((f) => ({ ...f, bankAccountHolder: e.target.value }))}
+                placeholder="a.n. pemilik rekening"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+              <input
+                value={form.bankAccountNumber}
+                onChange={(e) => setForm((f) => ({ ...f, bankAccountNumber: e.target.value }))}
+                placeholder="No. Rekening"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+            </div>
+            <textarea
+              value={form.paymentNote}
+              onChange={(e) => setForm((f) => ({ ...f, paymentNote: e.target.value }))}
+              placeholder="Catatan peringatan pembayaran (opsional), mis. Pembayaran pelunasan penuh di awal sebelum barang dikirim..."
+              rows={2}
+              className="mt-3 w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+            />
           </div>
 
           <div>
@@ -650,6 +970,20 @@ export function InvoiceManager({
               onChange={(e) => setForm((f) => ({ ...f, catatan: e.target.value }))}
               rows={2}
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="invoice-terms" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Syarat &amp; Ketentuan (opsional, satu baris = satu poin)
+            </label>
+            <textarea
+              id="invoice-terms"
+              value={form.termsConditions}
+              onChange={(e) => setForm((f) => ({ ...f, termsConditions: e.target.value }))}
+              placeholder={"Masa sewa dihitung per hari...\nDeposit akan dikembalikan H+3 hari kerja..."}
+              rows={4}
+              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
             />
           </div>
 

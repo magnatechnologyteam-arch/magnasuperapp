@@ -18,31 +18,56 @@ const VALID_STATUSES: InvoiceStatus[] = ["Draft", "Terkirim", "Lunas"];
 export type MutationResult = { ok: true } | { ok: false; error: string };
 export type CreateResult = { ok: true; id: string } | { ok: false; error: string };
 
-export type InvoiceItemInput = { description: string; qty: number; unitPrice: number };
+export type InvoiceItemInput = {
+  description: string;
+  qty: number;
+  unitPrice: number;
+  qtyLabel?: string;
+  unitLabel?: string;
+  note?: string;
+};
 
 export type InvoiceFormInput = {
   division: InvoiceDivision;
   sourceType?: InvoiceSourceType;
   sourceId?: string;
+  documentLabel?: string;
+  picName?: string;
+  picPhone?: string;
   clientName: string;
   clientPhone?: string;
+  eventName?: string;
+  eventLocation?: string;
+  eventDateLabel?: string;
+  loadingInfo?: string;
+  durationLabel?: string;
+  deliveryMethod?: string;
   items: InvoiceItemInput[];
+  shippingCost?: number;
+  depositAmount?: number;
+  depositLabel?: string;
+  bankName?: string;
+  bankAccountHolder?: string;
+  bankAccountNumber?: string;
+  paymentNote?: string;
+  termsConditions?: string;
   issuedDate?: string;
   dueDate?: string;
   catatan?: string;
 };
 
 /**
- * Validasi + hitung ulang subtotal/total DI SERVER dari `items` yang
- * dikirim klien — jangan percaya subtotal/total yang (mungkin) dihitung di
+ * Validasi + hitung ulang subtotal DI SERVER dari `items` yang dikirim
+ * klien — jangan percaya subtotal/total yang (mungkin) dihitung di
  * browser, supaya angka di invoice yang tersimpan selalu konsisten dengan
- * baris item-nya sendiri.
+ * baris item-nya sendiri. `qtyLabel`/`unitLabel`/`note` cuma presentasi,
+ * diteruskan apa adanya tanpa masuk hitungan.
  */
-function buildItemRows(items: InvoiceItemInput[]): { rows: ReturnType<typeof invoiceItemToRow>[]; total: number } | null {
+function buildItemRows(items: InvoiceItemInput[]): { rows: ReturnType<typeof invoiceItemToRow>[]; subtotal: number } | null {
   if (!Array.isArray(items) || items.length === 0) return null;
 
   const rows: ReturnType<typeof invoiceItemToRow>[] = [];
-  let total = 0;
+  let subtotal = 0;
   for (const item of items) {
     const description = item.description?.trim();
     const qty = Number(item.qty);
@@ -50,13 +75,35 @@ function buildItemRows(items: InvoiceItemInput[]): { rows: ReturnType<typeof inv
     if (!description || !Number.isFinite(qty) || qty <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0) {
       continue;
     }
-    const subtotal = Math.round(qty * unitPrice);
-    total += subtotal;
-    rows.push(invoiceItemToRow({ description, qty, unitPrice, subtotal }));
+    const itemSubtotal = Math.round(qty * unitPrice);
+    subtotal += itemSubtotal;
+    rows.push(
+      invoiceItemToRow({
+        description,
+        qty,
+        unitPrice,
+        subtotal: itemSubtotal,
+        qtyLabel: item.qtyLabel?.trim() || undefined,
+        unitLabel: item.unitLabel?.trim() || undefined,
+        note: item.note?.trim() || undefined,
+      })
+    );
   }
 
   if (rows.length === 0) return null;
-  return { rows, total };
+  return { rows, subtotal };
+}
+
+/**
+ * Ongkos kirim & deposit DI SERVER juga — sama seperti item, jangan
+ * percaya angka yang (mungkin) dihitung di browser. Ongkos kirim PENDAPATAN
+ * riil (ikut `total`), deposit REFUNDABLE jadi SENGAJA dipisah dan tidak
+ * pernah ikut `total`/jurnal akuntansi (lihat komentar di src/lib/invoices/
+ * types.ts dan migrasi 0058_invoice_full_detail.sql).
+ */
+function sanitizeMoneyInput(value: number | undefined): number {
+  const n = Math.round(Number(value) || 0);
+  return n > 0 ? n : 0;
 }
 
 function validateInvoiceInput(input: InvoiceFormInput): string | null {
@@ -72,6 +119,13 @@ export async function createInvoice(input: InvoiceFormInput): Promise<CreateResu
   const built = buildItemRows(input.items);
   if (!built) return { ok: false, error: "Minimal satu baris item dengan deskripsi, qty, dan harga yang valid." };
 
+  const shippingCost = sanitizeMoneyInput(input.shippingCost);
+  const depositAmount = sanitizeMoneyInput(input.depositAmount);
+  // total = subtotal item + ongkos kirim (keduanya pendapatan riil).
+  // depositAmount SENGAJA tidak ditambahkan ke sini — lihat komentar
+  // sanitizeMoneyInput di atas.
+  const total = built.subtotal + shippingCost;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -83,11 +137,28 @@ export async function createInvoice(input: InvoiceFormInput): Promise<CreateResu
       division: input.division,
       source_type: input.sourceType ?? null,
       source_id: input.sourceId ?? null,
+      document_label: input.documentLabel?.trim() || null,
+      pic_name: input.picName?.trim() || null,
+      pic_phone: input.picPhone?.trim() || null,
       client_name: input.clientName.trim(),
       client_phone: input.clientPhone?.trim() || null,
+      event_name: input.eventName?.trim() || null,
+      event_location: input.eventLocation?.trim() || null,
+      event_date_label: input.eventDateLabel?.trim() || null,
+      loading_info: input.loadingInfo?.trim() || null,
+      duration_label: input.durationLabel?.trim() || null,
+      delivery_method: input.deliveryMethod?.trim() || null,
       items: built.rows,
-      subtotal: built.total,
-      total: built.total,
+      subtotal: built.subtotal,
+      shipping_cost: shippingCost,
+      total,
+      deposit_amount: depositAmount,
+      deposit_label: input.depositLabel?.trim() || null,
+      bank_name: input.bankName?.trim() || null,
+      bank_account_holder: input.bankAccountHolder?.trim() || null,
+      bank_account_number: input.bankAccountNumber?.trim() || null,
+      payment_note: input.paymentNote?.trim() || null,
+      terms_conditions: input.termsConditions?.trim() || null,
       issued_date: input.issuedDate || undefined,
       due_date: input.dueDate || null,
       catatan: input.catatan?.trim() || null,
@@ -113,16 +184,37 @@ export async function updateInvoice(id: string, input: InvoiceFormInput): Promis
   const built = buildItemRows(input.items);
   if (!built) return { ok: false, error: "Minimal satu baris item dengan deskripsi, qty, dan harga yang valid." };
 
+  const shippingCost = sanitizeMoneyInput(input.shippingCost);
+  const depositAmount = sanitizeMoneyInput(input.depositAmount);
+  const total = built.subtotal + shippingCost;
+
   const supabase = await createClient();
   const { data: updated, error } = await supabase
     .from("invoices")
     .update({
       division: input.division,
+      document_label: input.documentLabel?.trim() || null,
+      pic_name: input.picName?.trim() || null,
+      pic_phone: input.picPhone?.trim() || null,
       client_name: input.clientName.trim(),
       client_phone: input.clientPhone?.trim() || null,
+      event_name: input.eventName?.trim() || null,
+      event_location: input.eventLocation?.trim() || null,
+      event_date_label: input.eventDateLabel?.trim() || null,
+      loading_info: input.loadingInfo?.trim() || null,
+      duration_label: input.durationLabel?.trim() || null,
+      delivery_method: input.deliveryMethod?.trim() || null,
       items: built.rows,
-      subtotal: built.total,
-      total: built.total,
+      subtotal: built.subtotal,
+      shipping_cost: shippingCost,
+      total,
+      deposit_amount: depositAmount,
+      deposit_label: input.depositLabel?.trim() || null,
+      bank_name: input.bankName?.trim() || null,
+      bank_account_holder: input.bankAccountHolder?.trim() || null,
+      bank_account_number: input.bankAccountNumber?.trim() || null,
+      payment_note: input.paymentNote?.trim() || null,
+      terms_conditions: input.termsConditions?.trim() || null,
       due_date: input.dueDate || null,
       catatan: input.catatan?.trim() || null,
     })
