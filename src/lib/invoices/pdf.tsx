@@ -29,6 +29,30 @@ const DIVISION_INFO: Record<InvoiceDivision, { label: string; tagline: string; l
 };
 
 /**
+ * ROMBAK Update 3 ("untuk list hitam ganti dengan warna pada logo jadi
+ * menyesuaikan, jika magnativ hijau ya hijau listnya gitu") — bar/aksen
+ * yang sebelumnya HARDCODE hitam (`#18181b`) di header tabel, bar TOTAL,
+ * dan garis METODE PEMBAYARAN sekarang ikut warna dominan logo
+ * masing-masing divisi. Warna diambil langsung dari sampling piksel logo
+ * asli (public/brand/*.png):
+ *  - Magnarent → navy `#292f3f` (warna dominan logo, BUKAN merah
+ *    aksennya — merah `#ff4d4d` gagal kontras WCAG AA untuk teks putih di
+ *    atasnya, sedangkan navy nyaris identik dengan hitam lama & tetap
+ *    kontras tinggi 13.35:1).
+ *  - Magnativ → hijau tosca `#047763` (warna dominan logo, kontras putih
+ *    5.49:1, lolos AA).
+ *  - Production → emas `#d4af37` (warna dominan logo). Emas TIDAK lolos
+ *    kontras dengan teks putih (2.10:1, gagal AA) — jadi khusus Production
+ *    teks di atas bar memakai warna gelap (`#18181b`, kontras 9.99:1)
+ *    alih-alih putih.
+ */
+const ACCENT_INFO: Record<InvoiceDivision, { bar: string; onBar: string }> = {
+  magnarent: { bar: "#292f3f", onBar: "#ffffff" },
+  magnative: { bar: "#047763", onBar: "#ffffff" },
+  production: { bar: "#d4af37", onBar: "#18181b" },
+};
+
+/**
  * Status invoice dipetakan ke label + warna ala template yang dikirim
  * pemilik (kolom "Status: BELUM LUNAS" berwarna merah) — "Terkirim" di
  * skema kita secara makna sama dengan "sudah dikirim ke klien, belum
@@ -49,6 +73,27 @@ const STATUS_INFO: Record<InvoiceStatus, { label: string; color: string }> = {
 function readDivisionLogo(division: InvoiceDivision): Buffer | null {
   try {
     return fs.readFileSync(path.join(process.cwd(), "public", "brand", DIVISION_INFO[division].logo));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * ROMBAK Update 3 ("untuk tanda tangan pada angelli ambil dari tanda
+ * tangan yang saya kirimkan di contoh") — gambar tanda tangan ASLI
+ * (di-crop langsung dari PDF contoh yang dikirim Owner, lengkap dengan
+ * transparansi aslinya) dipakai kalau PIC penandatangan invoice adalah
+ * Angellie. Nama PIC lain TIDAK dipetakan ke gambar apa pun (kita belum
+ * punya file tanda tangan asli mereka) — otomatis jatuh balik ke simulasi
+ * teks miring seperti sebelumnya, alih-alih memakai gambar tanda tangan
+ * orang lain secara keliru.
+ */
+function readSignatureImage(picName: string | undefined): Buffer | null {
+  if (!picName) return null;
+  const normalized = picName.trim().toLowerCase().replace(/[^a-z]/g, "");
+  if (!normalized.startsWith("angel")) return null;
+  try {
+    return fs.readFileSync(path.join(process.cwd(), "public", "signatures", "angellie.png"));
   } catch {
     return null;
   }
@@ -91,7 +136,10 @@ const styles = StyleSheet.create({
   noteText: { fontSize: 8.5, color: "#3f3f46", lineHeight: 1.4 },
 
   table: { borderTopWidth: 1, borderTopColor: "#e4e4e7", borderTopStyle: "solid" },
-  tableHeadRow: { flexDirection: "row", backgroundColor: "#18181b", paddingVertical: 6, paddingHorizontal: 4 },
+  // backgroundColor TIDAK ditaruh di sini lagi — sekarang per-divisi lewat
+  // ACCENT_INFO, di-override inline saat dipakai (lihat komentar di atas
+  // ACCENT_INFO).
+  tableHeadRow: { flexDirection: "row", paddingVertical: 6, paddingHorizontal: 4 },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
@@ -100,7 +148,9 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     paddingHorizontal: 4,
   },
-  th: { fontSize: 8, color: "#ffffff", textTransform: "uppercase", fontWeight: 700 },
+  // color TIDAK ditaruh di sini lagi — ikut ACCENT_INFO.onBar (putih atau
+  // gelap tergantung kontras bar divisinya), di-override inline.
+  th: { fontSize: 8, textTransform: "uppercase", fontWeight: 700 },
   colNo: { flex: 0.4 },
   colDesc: { flex: 3 },
   colQty: { flex: 1, textAlign: "right" },
@@ -115,24 +165,26 @@ const styles = StyleSheet.create({
   totalsValue: { fontSize: 9.5 },
   depositLabel: { fontSize: 9.5, color: "#dc2626" },
   depositValue: { fontSize: 9.5, fontWeight: 700, color: "#dc2626" },
+  // backgroundColor & color TIDAK ditaruh di sini lagi — ikut ACCENT_INFO,
+  // di-override inline (sama seperti tableHeadRow/th di atas).
   grandTotalRow: {
     flexDirection: "row",
     width: 240,
     justifyContent: "space-between",
     marginTop: 8,
-    backgroundColor: "#18181b",
     paddingVertical: 8,
     paddingHorizontal: 8,
     borderRadius: 3,
   },
-  grandTotalLabel: { fontSize: 10.5, fontWeight: 700, color: "#ffffff" },
-  grandTotalValue: { fontSize: 10.5, fontWeight: 700, color: "#ffffff" },
+  grandTotalLabel: { fontSize: 10.5, fontWeight: 700 },
+  grandTotalValue: { fontSize: 10.5, fontWeight: 700 },
 
   paymentRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 18, gap: 14 },
+  // borderLeftColor TIDAK ditaruh di sini lagi — ikut ACCENT_INFO.bar,
+  // di-override inline.
   paymentBox: {
     flex: 1,
     borderLeftWidth: 3,
-    borderLeftColor: "#18181b",
     borderLeftStyle: "solid",
     backgroundColor: "#fafafa",
     borderRadius: 3,
@@ -161,6 +213,10 @@ const styles = StyleSheet.create({
   // sebagai konfirmasi — pola sama seperti tanda tangan + nama di bawahnya
   // pada template referensi.
   signatureScript: { fontSize: 24, fontStyle: "italic", marginTop: 16, marginBottom: 2 },
+  // Dipakai kalau readSignatureImage() berhasil menemukan file gambar
+  // tanda tangan asli (saat ini: Angellie) — aspect ratio gambar aslinya
+  // 349:543 (dari crop PDF contoh), lebar dikunci 70pt supaya proporsional.
+  signatureImage: { width: 70, height: 109, marginTop: 6, marginBottom: -6, objectFit: "contain" },
   signaturePic: { fontSize: 9, fontWeight: 700, marginTop: 2 },
   signatureBlank: { height: 30 },
 
@@ -185,8 +241,10 @@ const styles = StyleSheet.create({
  */
 function InvoiceDocument({ invoice }: { invoice: Invoice }) {
   const division = DIVISION_INFO[invoice.division];
+  const accent = ACCENT_INFO[invoice.division];
   const status = STATUS_INFO[invoice.status];
   const logoBuffer = readDivisionLogo(invoice.division);
+  const signatureBuffer = readSignatureImage(invoice.picName);
   const totalDibayarkan = invoice.total + (invoice.depositAmount || 0);
 
   return (
@@ -275,12 +333,12 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
         )}
 
         <View style={styles.table}>
-          <View style={styles.tableHeadRow}>
-            <Text style={[styles.th, styles.colNo]}>No</Text>
-            <Text style={[styles.th, styles.colDesc]}>Deskripsi</Text>
-            <Text style={[styles.th, styles.colQty]}>Qty</Text>
-            <Text style={[styles.th, styles.colPrice]}>Harga Satuan</Text>
-            <Text style={[styles.th, styles.colSubtotal]}>Subtotal</Text>
+          <View style={[styles.tableHeadRow, { backgroundColor: accent.bar }]}>
+            <Text style={[styles.th, styles.colNo, { color: accent.onBar }]}>No</Text>
+            <Text style={[styles.th, styles.colDesc, { color: accent.onBar }]}>Deskripsi</Text>
+            <Text style={[styles.th, styles.colQty, { color: accent.onBar }]}>Qty</Text>
+            <Text style={[styles.th, styles.colPrice, { color: accent.onBar }]}>Harga Satuan</Text>
+            <Text style={[styles.th, styles.colSubtotal, { color: accent.onBar }]}>Subtotal</Text>
           </View>
           {invoice.items.map((item, i) => (
             <View style={styles.tableRow} key={i}>
@@ -312,9 +370,9 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
               <Text style={styles.totalsValue}>{formatRupiah(invoice.shippingCost)}</Text>
             </View>
           )}
-          <View style={styles.grandTotalRow}>
-            <Text style={styles.grandTotalLabel}>TOTAL</Text>
-            <Text style={styles.grandTotalValue}>{formatRupiah(invoice.total)}</Text>
+          <View style={[styles.grandTotalRow, { backgroundColor: accent.bar }]}>
+            <Text style={[styles.grandTotalLabel, { color: accent.onBar }]}>TOTAL</Text>
+            <Text style={[styles.grandTotalValue, { color: accent.onBar }]}>{formatRupiah(invoice.total)}</Text>
           </View>
           {invoice.depositAmount > 0 && (
             <>
@@ -322,9 +380,9 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
                 <Text style={styles.depositLabel}>{invoice.depositLabel || "Deposit"}</Text>
                 <Text style={styles.depositValue}>{formatRupiah(invoice.depositAmount)}</Text>
               </View>
-              <View style={styles.grandTotalRow}>
-                <Text style={styles.grandTotalLabel}>TOTAL DIBAYARKAN</Text>
-                <Text style={styles.grandTotalValue}>{formatRupiah(totalDibayarkan)}</Text>
+              <View style={[styles.grandTotalRow, { backgroundColor: accent.bar }]}>
+                <Text style={[styles.grandTotalLabel, { color: accent.onBar }]}>TOTAL DIBAYARKAN</Text>
+                <Text style={[styles.grandTotalValue, { color: accent.onBar }]}>{formatRupiah(totalDibayarkan)}</Text>
               </View>
             </>
           )}
@@ -333,7 +391,7 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
         {(invoice.bankName || invoice.paymentNote) && (
           <View style={styles.paymentRow}>
             {invoice.bankName && (
-              <View style={styles.paymentBox}>
+              <View style={[styles.paymentBox, { borderLeftColor: accent.bar }]}>
                 <Text style={styles.paymentBoxLabel}>Metode Pembayaran</Text>
                 <Text style={styles.paymentBankName}>{invoice.bankName}</Text>
                 {invoice.bankAccountHolder && <Text style={styles.paymentLine}>a.n. {invoice.bankAccountHolder}</Text>}
@@ -353,7 +411,12 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
         <View style={styles.signatureBlock}>
           <Text style={styles.signatureLabel}>Hormat Kami,</Text>
           <Text style={styles.signatureDivision}>{division.label}</Text>
-          {invoice.picName ? (
+          {signatureBuffer ? (
+            <>
+              <Image src={{ data: signatureBuffer, format: "png" }} style={styles.signatureImage} />
+              <Text style={styles.signaturePic}>{invoice.picName}</Text>
+            </>
+          ) : invoice.picName ? (
             <>
               <Text style={styles.signatureScript}>{invoice.picName}</Text>
               <Text style={styles.signaturePic}>{invoice.picName}</Text>
