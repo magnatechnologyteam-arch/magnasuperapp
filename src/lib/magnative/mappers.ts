@@ -11,6 +11,7 @@ import type {
   CreativeAssetFileType,
   Platform,
   PaymentStatus,
+  PortfolioFolder,
   PortfolioPhoto,
   Project,
   ProjectCost,
@@ -210,20 +211,48 @@ export function rowToProjectCostFromExpense(row: MagnativeProjectCostExpenseRow)
   };
 }
 
-export type PortfolioPhotoRow = {
+/** Baris `magnative_portfolio_folders` (migrasi 0057) — "album"-nya; judul/keterangan sekarang di sini, bukan per foto. */
+export type PortfolioFolderRow = {
   id: string;
-  photo_url: string;
-  storage_path: string;
   title: string;
   caption: string | null;
+  created_at: string;
 };
 
-export function rowToPortfolioPhoto(row: PortfolioPhotoRow): PortfolioPhoto {
+/** Baris `magnative_portfolio` pasca-migrasi 0057 — `title`/`caption` lama sudah dipindah ke `PortfolioFolderRow`, digantikan `folder_id`/`position`. */
+export type PortfolioPhotoRow = {
+  id: string;
+  folder_id: string;
+  photo_url: string;
+  storage_path: string;
+  position: number;
+};
+
+function rowToPortfolioPhotoOnly(row: PortfolioPhotoRow): PortfolioPhoto {
   return {
     id: row.id,
     photoUrl: row.photo_url,
     storagePath: row.storage_path,
-    title: row.title,
-    caption: row.caption ?? undefined,
+    position: row.position,
+  };
+}
+
+/**
+ * Gabungkan satu baris folder dengan foto-fotonya (pemanggil sudah
+ * mengelompokkan `photoRows` per `folder_id`, lihat `getPortfolioFolders`
+ * di `src/lib/magnative/portfolio-data.ts`) — folder tanpa foto dibiarkan
+ * tetap tampil dengan `photos: []` (mis. upload sempat gagal di tengah
+ * jalan) daripada disembunyikan seluruhnya.
+ */
+export function rowToPortfolioFolder(folder: PortfolioFolderRow, photoRows: PortfolioPhotoRow[]): PortfolioFolder {
+  return {
+    id: folder.id,
+    title: folder.title,
+    caption: folder.caption ?? undefined,
+    createdAt: folder.created_at,
+    photos: photoRows
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map(rowToPortfolioPhotoOnly),
   };
 }

@@ -75,17 +75,37 @@ export type ProjectCost = {
 };
 
 /**
- * Satu foto di galeri portofolio Magnativ (migrasi 0012) — menggantikan
- * PlaceholderGallery statis. `storagePath` disimpan terpisah dari
+ * Satu foto DI DALAM folder/album portofolio Magnativ (migrasi 0012,
+ * direstrukturisasi migrasi 0057 dari flat photo jadi model folder/album —
+ * lihat `PortfolioFolder` di bawah). `storagePath` disimpan terpisah dari
  * `photoUrl` supaya file di Supabase Storage bisa dihapus lewat path-nya
  * saat foto dihapus/gagal disimpan, tanpa perlu parsing URL publik.
+ * `title`/`caption` PINDAH ke level folder (migrasi 0057) — satu folder
+ * porto sekarang bisa memuat banyak foto (slide), jadi judul/keterangan
+ * cukup satu per folder, bukan per foto.
  */
 export type PortfolioPhoto = {
   id: string;
   photoUrl: string;
   storagePath: string;
+  position: number;
+};
+
+/**
+ * Folder/album portofolio Magnativ (migrasi 0057) — menggantikan model foto
+ * flat lama supaya satu momen/event bisa didokumentasikan dengan BANYAK
+ * foto sekaligus (ditampilkan sebagai slide lewat `PhotoCarousel`), bukan
+ * cuma satu foto per kartu seperti sebelumnya. Update Opsional 1 butir 5:
+ * portofolio sekarang tampil lintas divisi (widget Dashboard Hub + halaman
+ * Ringkasan Magnativ) — RLS `_select` di tabel sumbernya terbuka untuk
+ * semua akun login, meski hanya staf Magnativ yang bisa menulis/mengubah.
+ */
+export type PortfolioFolder = {
+  id: string;
   title: string;
   caption?: string;
+  photos: PortfolioPhoto[];
+  createdAt: string;
 };
 
 export type Platform = "Instagram" | "TikTok" | "Facebook" | "YouTube" | "LinkedIn" | "Lainnya";

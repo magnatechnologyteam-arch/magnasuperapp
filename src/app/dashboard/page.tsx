@@ -16,7 +16,9 @@ import {
 import { getVisibleModules, MODULES } from "@/lib/navigation";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getMagnarentSummary, getMagnativeSummary, getProductionSummary, getReminders } from "@/lib/dashboard/summary";
+import { getPortfolioFolders } from "@/lib/magnative/portfolio-data";
 import { QuickStatCard } from "@/components/dashboard/QuickStatCard";
+import { PortfolioHighlightWidget } from "@/components/dashboard/PortfolioHighlightWidget";
 import { GLASS_BORDER, GLASS_SURFACE, GLASS_SURFACE_STRONG } from "@/lib/glass";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n/dictionary";
@@ -90,11 +92,15 @@ export default async function DashboardHubPage() {
   const visibleModuleIds = new Set(modules.map((mod) => mod.id));
   const quickActions = QUICK_ACTIONS.filter((action) => visibleModuleIds.has(action.moduleId));
 
-  const [magnarentSummary, magnativeSummary, productionSummary, reminders] = await Promise.all([
+  // `portfolioFolders` SENGAJA diambil TANPA gating `visibleModuleIds.has("magnative")`
+  // (beda dari `magnativeSummary` di bawah) — Update Opsional 1 butir 5 minta
+  // portofolio tampil ke SEMUA divisi di Hub, bukan cuma staf Magnative.
+  const [magnarentSummary, magnativeSummary, productionSummary, reminders, portfolioFolders] = await Promise.all([
     visibleModuleIds.has("magnarent") ? getMagnarentSummary() : Promise.resolve(null),
     visibleModuleIds.has("magnative") ? getMagnativeSummary() : Promise.resolve(null),
     visibleModuleIds.has("production") ? getProductionSummary() : Promise.resolve(null),
     getReminders(visibleModuleIds),
+    getPortfolioFolders(),
   ]);
 
   // Tahap 31: accent kartu Ringkasan Cepat diambil dari MODULES (warna resmi
@@ -203,6 +209,8 @@ export default async function DashboardHubPage() {
           </p>
         </div>
       </div>
+
+      <PortfolioHighlightWidget folders={portfolioFolders} />
 
       {reminders.length > 0 && (
         <div className="mb-8 animate-fade-up">

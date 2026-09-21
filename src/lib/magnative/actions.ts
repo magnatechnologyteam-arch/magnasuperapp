@@ -480,96 +480,198 @@ export async function deleteContentPost(id: string): Promise<MutationResult> {
 }
 
 /**
- * Galeri portofolio (migrasi 0012) — menggantikan PlaceholderGallery statis
- * di halaman Ringkasan Magnative. Pakai `FormData` (bukan objek biasa
- * seperti action lain di file ini) karena ini satu-satunya action yang
- * perlu membawa `File` lewat batas Server Action — payload JSON tidak bisa
- * membawa data biner.
+ * Galeri portofolio Magnativ — model FOLDER/ALBUM (migrasi 0057,
+ * direstrukturisasi dari flat photo migrasi 0012) menggantikan
+ * PlaceholderGallery statis lama di halaman Ringkasan Magnative. Pakai
+ * `FormData` (bukan objek biasa seperti action lain di file ini) karena
+ * action pembuatan/penambahan foto perlu membawa banyak `File` sekaligus
+ * lewat batas Server Action — payload JSON tidak bisa membawa data biner.
  *
- * Urutan upload-lalu-insert (bukan sebaliknya) sengaja dipilih supaya kalau
- * insert baris metadata gagal, file yang sudah terlanjur ter-upload
- * langsung dibersihkan (`storage.remove`) — tidak ada file yatim piatu di
- * bucket yang tidak tercatat di tabel.
+ * Update Opsional 1 butir 5: satu folder sekarang bisa memuat BANYAK foto
+ * sekaligus (ditampilkan sebagai slide lewat `PhotoCarousel`) dan
+ * portofolio tampil lintas divisi (widget Dashboard Hub) — makanya tiap
+ * mutasi di bawah ini juga `revalidatePath("/dashboard")`, bukan cuma
+ * `MODULE_PATH`.
+ *
+ * Urutan upload-lalu-insert (bukan sebaliknya) tetap dipertahankan (sama
+ * seperti sebelum migrasi 0057) supaya kalau insert baris metadata gagal,
+ * file yang sudah terlanjur ter-upload langsung dibersihkan
+ * (`storage.remove`) — tidak ada file yatim piatu di bucket yang tidak
+ * tercatat di tabel.
  */
-export async function addPortfolioPhoto(formData: FormData): Promise<MutationResult> {
+function extractPortfolioFiles(formData: FormData): File[] {
+  return formData.getAll("photos").filter((entry): entry is File => entry instanceof File && entry.size > 0);
+}
+
+async function uploadPortfolioPhotos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  files: File[]
+): Promise<{ ok: true; storagePaths: string[] } | { ok: false; error: string; uploadedPaths: string[] }> {
+  const uploadedPaths: string[] = [];
+
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) {
+      return { ok: false, error: "Semua file yang dipilih harus berupa gambar.", uploadedPaths };
+    }
+    const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "jpg";
+    const storagePath = `${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(PORTFOLIO_BUCKET)
+      .upload(storagePath, file, { contentType: file.type || undefined });
+
+    if (uploadError) {
+      console.error("[magnative] Upload foto portofolio gagal:", uploadError.message);
+      return { ok: false, error: GENERIC_ERROR, uploadedPaths };
+    }
+    uploadedPaths.push(storagePath);
+  }
+
+  return { ok: true, storagePaths: uploadedPaths };
+}
+
+export async function createPortfolioFolder(formData: FormData): Promise<MutationResult> {
   const supabase = await createClient();
-  const file = formData.get("photo");
   const title = String(formData.get("title") ?? "").trim();
   const caption = String(formData.get("caption") ?? "").trim();
+  const files = extractPortfolioFiles(formData);
 
-  if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, error: "Pilih foto terlebih dahulu." };
-  }
   if (!title) {
-    return { ok: false, error: "Judul foto wajib diisi." };
+    return { ok: false, error: "Judul folder wajib diisi." };
   }
-  if (!file.type.startsWith("image/")) {
-    return { ok: false, error: "File yang dipilih bukan gambar." };
+  if (files.length === 0) {
+    return { ok: false, error: "Pilih minimal satu foto terlebih dahulu." };
   }
 
-  const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "jpg";
-  const storagePath = `${crypto.randomUUID()}.${ext}`;
+  const uploadResult = await uploadPortfolioPhotos(supabase, files);
+  if (!uploadResult.ok) {
+    if (uploadResult.uploadedPaths.length > 0) {
+      await supabase.storage.from(PORTFOLIO_BUCKET).remove(uploadResult.uploadedPaths);
+    }
+    return { ok: false, error: uploadResult.error };
+  }
 
-  const { error: uploadError } = await supabase.storage
-    .from(PORTFOLIO_BUCKET)
-    .upload(storagePath, file, { contentType: file.type || undefined });
+  const { data: folderRow, error: folderError } = await supabase
+    .from("magnative_portfolio_folders")
+    .insert({ title, caption: caption || null })
+    .select("id")
+    .single();
 
-  if (uploadError) {
-    console.error("[magnative] Upload foto portofolio gagal:", uploadError.message);
+  if (folderError || !folderRow) {
+    console.error("[magnative] Buat folder portofolio gagal:", folderError?.message);
+    await supabase.storage.from(PORTFOLIO_BUCKET).remove(uploadResult.storagePaths);
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage.from(PORTFOLIO_BUCKET).getPublicUrl(storagePath);
-
-  const { error: insertError } = await supabase.from("magnative_portfolio").insert({
-    photo_url: publicUrl,
+  const photoRows = uploadResult.storagePaths.map((storagePath, index) => ({
+    folder_id: folderRow.id,
     storage_path: storagePath,
-    title,
-    caption: caption || null,
-  });
+    photo_url: supabase.storage.from(PORTFOLIO_BUCKET).getPublicUrl(storagePath).data.publicUrl,
+    position: index,
+  }));
+
+  const { error: insertError } = await supabase.from("magnative_portfolio").insert(photoRows);
 
   if (insertError) {
     console.error("[magnative] Simpan data foto portofolio gagal:", insertError.message);
-    await supabase.storage.from(PORTFOLIO_BUCKET).remove([storagePath]);
+    await supabase.storage.from(PORTFOLIO_BUCKET).remove(uploadResult.storagePaths);
+    await supabase.from("magnative_portfolio_folders").delete().eq("id", folderRow.id);
     return { ok: false, error: GENERIC_ERROR };
   }
 
   revalidatePath(MODULE_PATH);
+  revalidatePath("/dashboard");
   void logActivity({ module: "magnative", action: "create", entityType: "portofolio", entityLabel: title });
   return { ok: true };
 }
 
-export async function updatePortfolioPhoto(
+/**
+ * Tambah foto baru ke folder yang sudah ada (Update Opsional 1 butir 5 —
+ * "dalam 1 folder porto dibuat bisa menambah beberapa foto") — `position`
+ * lanjut dari foto terakhir di folder itu supaya urutan slide-nya tidak
+ * kacau/tertumpuk di posisi 0.
+ */
+export async function addPhotosToFolder(folderId: string, formData: FormData): Promise<MutationResult> {
+  const supabase = await createClient();
+  const files = extractPortfolioFiles(formData);
+
+  if (files.length === 0) {
+    return { ok: false, error: "Pilih minimal satu foto terlebih dahulu." };
+  }
+
+  const { data: lastPhoto } = await supabase
+    .from("magnative_portfolio")
+    .select("position")
+    .eq("folder_id", folderId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ position: number }>();
+
+  const uploadResult = await uploadPortfolioPhotos(supabase, files);
+  if (!uploadResult.ok) {
+    if (uploadResult.uploadedPaths.length > 0) {
+      await supabase.storage.from(PORTFOLIO_BUCKET).remove(uploadResult.uploadedPaths);
+    }
+    return { ok: false, error: uploadResult.error };
+  }
+
+  const startPosition = (lastPhoto?.position ?? -1) + 1;
+  const photoRows = uploadResult.storagePaths.map((storagePath, index) => ({
+    folder_id: folderId,
+    storage_path: storagePath,
+    photo_url: supabase.storage.from(PORTFOLIO_BUCKET).getPublicUrl(storagePath).data.publicUrl,
+    position: startPosition + index,
+  }));
+
+  const { error: insertError } = await supabase.from("magnative_portfolio").insert(photoRows);
+
+  if (insertError) {
+    console.error("[magnative] Tambah foto ke folder portofolio gagal:", insertError.message);
+    await supabase.storage.from(PORTFOLIO_BUCKET).remove(uploadResult.storagePaths);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  revalidatePath("/dashboard");
+  void logActivity({
+    module: "magnative",
+    action: "update",
+    entityType: "portofolio",
+    entityLabel: `+${files.length} foto`,
+  });
+  return { ok: true };
+}
+
+export async function updatePortfolioFolder(
   id: string,
   input: { title: string; caption?: string }
 ): Promise<MutationResult> {
   const supabase = await createClient();
   const title = input.title.trim();
   if (!title) {
-    return { ok: false, error: "Judul foto wajib diisi." };
+    return { ok: false, error: "Judul folder wajib diisi." };
   }
 
   const { error } = await supabase
-    .from("magnative_portfolio")
+    .from("magnative_portfolio_folders")
     .update({ title, caption: input.caption?.trim() || null })
     .eq("id", id);
 
   if (error) {
-    console.error("[magnative] updatePortfolioPhoto gagal:", error.message);
+    console.error("[magnative] updatePortfolioFolder gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(MODULE_PATH);
+  revalidatePath("/dashboard");
   void logActivity({ module: "magnative", action: "update", entityType: "portofolio", entityLabel: title });
   return { ok: true };
 }
 
+/** Hapus satu foto DI DALAM folder (folder & foto lainnya tetap ada) — lihat `deletePortfolioFolder` untuk hapus seluruh folder sekaligus. */
 export async function deletePortfolioPhoto(id: string): Promise<MutationResult> {
   const supabase = await createClient();
   const { data: photoRow } = await supabase
     .from("magnative_portfolio")
-    .select("title, storage_path")
+    .select("storage_path")
     .eq("id", id)
     .maybeSingle();
 
@@ -583,7 +685,40 @@ export async function deletePortfolioPhoto(id: string): Promise<MutationResult> 
     await supabase.storage.from(PORTFOLIO_BUCKET).remove([photoRow.storage_path]);
   }
   revalidatePath(MODULE_PATH);
-  void logActivity({ module: "magnative", action: "delete", entityType: "portofolio", entityLabel: photoRow?.title });
+  revalidatePath("/dashboard");
+  void logActivity({ module: "magnative", action: "delete", entityType: "portofolio" });
+  return { ok: true };
+}
+
+/**
+ * Hapus seluruh folder sekaligus semua fotonya — baris `magnative_portfolio`
+ * ikut terhapus otomatis lewat `on delete cascade` (migrasi 0057), tapi
+ * file di Supabase Storage TIDAK ikut terhapus otomatis oleh cascade itu
+ * (cascade cuma untuk baris database) — path-nya makanya diambil dulu di
+ * sini sebelum folder (dan foto-fotonya) dihapus.
+ */
+export async function deletePortfolioFolder(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: folderRow } = await supabase
+    .from("magnative_portfolio_folders")
+    .select("title")
+    .eq("id", id)
+    .maybeSingle();
+  const { data: photoRows } = await supabase.from("magnative_portfolio").select("storage_path").eq("folder_id", id);
+
+  const { error } = await supabase.from("magnative_portfolio_folders").delete().eq("id", id);
+  if (error) {
+    console.error("[magnative] deletePortfolioFolder gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const storagePaths = (photoRows ?? []).map((row) => row.storage_path).filter(Boolean);
+  if (storagePaths.length > 0) {
+    await supabase.storage.from(PORTFOLIO_BUCKET).remove(storagePaths);
+  }
+  revalidatePath(MODULE_PATH);
+  revalidatePath("/dashboard");
+  void logActivity({ module: "magnative", action: "delete", entityType: "portofolio", entityLabel: folderRow?.title });
   return { ok: true };
 }
 
