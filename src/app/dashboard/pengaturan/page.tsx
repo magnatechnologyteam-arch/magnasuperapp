@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/supabase/server";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { ProfileSettingsForm } from "@/components/settings/ProfileSettingsForm";
 import { AppearanceSettingsForm } from "@/components/settings/AppearanceSettingsForm";
+import { PushToggleSettingsForm } from "@/components/settings/PushToggleSettingsForm";
 import { t } from "@/lib/i18n/dictionary";
 
 /**
@@ -53,6 +54,7 @@ export default async function PengaturanPage() {
             initialLanguage={profile.language_preference}
           />
         </ToastProvider>
+        <PushToggleSettingsForm />
       </div>
     </div>
   );

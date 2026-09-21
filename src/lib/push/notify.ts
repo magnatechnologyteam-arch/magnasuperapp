@@ -86,6 +86,11 @@ async function sendPushToDivisions(
   const targets = Array.from(new Set([...(Array.isArray(divisions) ? divisions : [divisions]), "all"]));
   const admin = createAdminClient();
 
+  // Simpan ke kotak masuk in-app (migrasi 0055) SEBELUM cek subscription
+  // push — supaya notifikasinya tetap tercatat & terlihat di Topbar biar
+  // pun tidak ada satu pun perangkat yang mengaktifkan Web Push sama sekali.
+  await persistNotification(admin, payload, { divisions: targets }, excludeUserId);
+
   const { data: profiles, error: profilesError } = await admin.from("profiles").select("id").in("division", targets);
   if (profilesError) {
     console.error("[push] Ambil daftar penerima gagal:", profilesError.message);
@@ -106,7 +111,36 @@ async function sendPushToUserIds(userIds: string[], payload: NotifyPayload, excl
 
   const ids = Array.from(new Set(userIds)).filter((id) => id !== excludeUserId);
   const admin = createAdminClient();
+  await persistNotification(admin, payload, { userIds: ids }, excludeUserId);
   await sendPushToSubscriptionOwners(admin, ids, payload);
+}
+
+/**
+ * Tulis satu baris ke kotak masuk in-app (migrasi 0055) — dipanggil dari
+ * `sendPushToDivisions`/`sendPushToUserIds`, JADI TITIK TUNGGAL yang
+ * membuat semua ~15 pemicu bisnis yang sudah ada (booking baru, event baru,
+ * proyek baru, dst) otomatis ikut tersimpan di sini tanpa perlu diubah
+ * satu-satu. Gagal simpan cuma dicatat ke log, tidak melempar error —
+ * konsisten dengan filosofi notify.ts: kegagalan notifikasi tidak boleh
+ * sampai membatalkan aksi bisnis yang memicunya.
+ */
+async function persistNotification(
+  admin: ReturnType<typeof createAdminClient>,
+  payload: NotifyPayload,
+  target: { divisions?: string[]; userIds?: string[] },
+  createdBy?: string
+): Promise<void> {
+  const { error } = await admin.from("notifications").insert({
+    title: payload.title,
+    body: payload.body,
+    url: payload.url ?? null,
+    target_divisions: target.divisions ?? [],
+    target_user_ids: target.userIds ?? [],
+    created_by: createdBy ?? null,
+  });
+  if (error) {
+    console.error("[notifications] Simpan notifikasi in-app gagal:", error.message);
+  }
 }
 
 /**

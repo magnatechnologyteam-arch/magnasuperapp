@@ -106,7 +106,7 @@ export function GlobalSearch() {
       </button>
 
       {open && (
-        <div className="animate-fade-in absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl border border-black/5 bg-white shadow-xl shadow-black/10 dark:border-white/10 dark:bg-zinc-900 sm:w-96">
+        <div className="animate-fade-in fixed inset-x-4 top-[4.5rem] z-40 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-xl shadow-black/10 dark:border-white/10 dark:bg-zinc-900 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:z-auto sm:mt-2 sm:w-96">
           <div className="border-b border-black/5 p-3 dark:border-white/10">
             <div className="flex items-center gap-2 rounded-xl border border-black/5 bg-zinc-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
               <Search className="h-4 w-4 shrink-0 text-zinc-400" />

@@ -8,8 +8,8 @@ import { formatDisplayName } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import { GLASS_BORDER, GLASS_PILL, GLASS_SURFACE_STRONG } from "@/lib/glass";
 import { DIVISION_LABELS, type Profile } from "@/lib/supabase/types";
-import { PushNotificationBell } from "@/components/push/PushNotificationBell";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { NotificationInbox } from "@/components/notifications/NotificationInbox";
 import { useT } from "@/lib/i18n/LocaleProvider";
 
 /**
@@ -65,7 +65,7 @@ export function Topbar({ user }: { user: (Profile & { email: string }) | null })
 
       <div className="flex items-center gap-2.5">
       <GlobalSearch />
-      <PushNotificationBell />
+      <NotificationInbox />
       <div className="relative" ref={ref}>
         <button
           type="button"
