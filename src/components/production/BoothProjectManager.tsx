@@ -12,6 +12,7 @@ import { formatDateID, formatRupiah, todayISO } from "@/lib/shared/utils";
 import type { MaterialConflict } from "@/lib/production/availability";
 import { cn } from "@/lib/cn";
 import type { BoothProject, BoothStatus, MaterialItem, PaymentStatus } from "@/lib/production/types";
+import type { BomTemplate } from "@/lib/production/extras-types";
 import { BOOTH_STATUS_STYLES as STATUS_STYLES, PAYMENT_STYLES } from "@/lib/status-styles";
 import { ProjectDetailModal } from "./ProjectDetailModal";
 
@@ -119,7 +120,7 @@ function projectToMaterialRows(p: BoothProject): MaterialRow[] {
  * dari perhitungan alokasinya sendiri lewat `excludeProjectId`, pola yang
  * sama dengan pencegahan bentrok jadwal booking di Magnarent.
  */
-export function BoothProjectManager() {
+export function BoothProjectManager({ templates = [] }: { templates?: BomTemplate[] }) {
   const { materials, projects, clients, addProject, updateProject, deleteProject, getAvailableStockFor } =
     useProductionData();
   const { showToast } = useToast();
@@ -216,6 +217,17 @@ export function BoothProjectManager() {
 
   function removeMaterialRow(index: number) {
     setMaterialRows((rows) => rows.filter((_, i) => i !== index));
+  }
+
+  /** Muat dari Template BOM (Tahap 44 — gap #2 analisis-gap-production.md):
+   * isi ulang baris material dari resep template, qty tetap bisa diedit
+   * sesudahnya. Menimpa baris yang sudah ada (dengan konfirmasi ringan via
+   * toast) supaya tidak dobel kalau dipilih lebih dari sekali. */
+  function loadFromTemplate(templateId: string) {
+    const tpl = templates.find((t) => t.id === templateId);
+    if (!tpl) return;
+    setMaterialRows(tpl.items.map((item) => ({ materialId: item.materialId, qty: String(item.qty) })));
+    showToast(`Template "${tpl.name}" dimuat (${tpl.items.length} material). Qty masih bisa diubah.`, "success");
   }
 
   function availableOptionsFor(currentMaterialId: string) {
@@ -659,15 +671,34 @@ export function BoothProjectManager() {
               <label className="block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Alokasi Material
               </label>
-              <button
-                type="button"
-                onClick={addMaterialRow}
-                disabled={materialRows.length >= materials.length}
-                className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-amber-400"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Tambah Material
-              </button>
+              <div className="flex items-center gap-3">
+                {templates.length > 0 && (
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      if (e.target.value) loadFromTemplate(e.target.value);
+                    }}
+                    className="rounded-lg border border-black/10 bg-transparent px-2 py-1 text-xs text-zinc-600 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-zinc-300 dark:[&>option]:bg-zinc-900"
+                    title="Muat daftar material dari template BOM"
+                  >
+                    <option value="">Muat dari Template…</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button
+                  type="button"
+                  onClick={addMaterialRow}
+                  disabled={materialRows.length >= materials.length}
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 hover:text-amber-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-amber-400"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Tambah Material
+                </button>
+              </div>
             </div>
 
             {materialRows.length === 0 ? (

@@ -59,6 +59,7 @@ export function rowToMaterial(row: MaterialRow): MaterialItem {
 export type PurchaseOrderRow = {
   id: string;
   material_id: string | null;
+  vendor_id: string | null;
   supplier_name: string;
   qty: number;
   unit_price: number;
@@ -73,6 +74,7 @@ export function rowToPurchaseOrder(row: PurchaseOrderRow): PurchaseOrder {
   return {
     id: row.id,
     materialId: row.material_id ?? undefined,
+    vendorId: row.vendor_id ?? undefined,
     supplierName: row.supplier_name,
     qty: row.qty,
     unitPrice: row.unit_price,

@@ -66,6 +66,8 @@ export type PurchaseOrderStatus = "Dipesan" | "Diterima" | "Dibatalkan";
 export type PurchaseOrder = {
   id: string;
   materialId?: string;
+  /** Tautan opsional ke master data vendor (Tahap 44 — gap #5 analisis-gap-production.md, migrasi 0059). `supplierName` tetap teks bebas & wajib diisi supaya PO ke supplier yang belum terdaftar tetap bisa dicatat. */
+  vendorId?: string;
   supplierName: string;
   qty: number;
   unitPrice: number;

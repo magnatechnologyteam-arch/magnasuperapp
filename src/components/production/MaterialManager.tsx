@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { AlertTriangle, Boxes, MapPin, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Boxes, MapPin, Pencil, Plus, QrCode, Search, Trash2 } from "lucide-react";
 import { useProductionData } from "./ProductionDataProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -11,6 +11,7 @@ import { formatRupiah } from "@/lib/shared/utils";
 import { isLowStock } from "@/lib/production/availability";
 import { cn } from "@/lib/cn";
 import type { MaterialCategory, MaterialItem, MaterialUnit } from "@/lib/production/types";
+import { QrPrintModal } from "./QrPrintModal";
 
 const GRADIENT = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
 
@@ -66,6 +67,7 @@ export function MaterialManager() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MaterialItem | null>(null);
+  const [qrTarget, setQrTarget] = useState<MaterialItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>(CATEGORY_FILTER_ALL);
   const [lowStockOnly, setLowStockOnly] = useState(false);
@@ -290,6 +292,15 @@ export function MaterialManager() {
                       <div className="flex justify-end gap-1">
                         <button
                           type="button"
+                          onClick={() => setQrTarget(m)}
+                          title="Label QR"
+                          aria-label="Label QR"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-500/10 dark:hover:text-violet-300"
+                        >
+                          <QrCode className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openEditModal(m)}
                           title="Edit material"
                           aria-label="Edit material"
@@ -450,6 +461,16 @@ export function MaterialManager() {
           </div>
         </form>
       </Modal>
+
+      {qrTarget && (
+        <QrPrintModal
+          open={qrTarget !== null}
+          onClose={() => setQrTarget(null)}
+          value={qrTarget.id}
+          title={qrTarget.name}
+          subtitle={qrTarget.category}
+        />
+      )}
 
       <ConfirmDialog
         open={deleteTarget !== null}

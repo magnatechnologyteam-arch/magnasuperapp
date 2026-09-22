@@ -4,13 +4,22 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity/log";
 import {
+  rowToBomTemplate,
+  rowToCrewTimelog,
   rowToEquipment,
   rowToEquipmentUsage,
   rowToProjectCheck,
   rowToProjectCrew,
+  rowToProjectDocument,
   rowToProjectPhoto,
+  rowToVendor,
+  type BomTemplate,
+  type BomTemplateItem,
+  type BomTemplateRow,
   type CheckStage,
   type CrewRole,
+  type CrewTimelog,
+  type CrewTimelogRow,
   type DocumentationTahap,
   type Equipment,
   type EquipmentCategory,
@@ -22,16 +31,25 @@ import {
   type ProjectCheckRow,
   type ProjectCrew,
   type ProjectCrewRow,
+  type ProjectDocument,
+  type ProjectDocumentRow,
   type ProjectPhoto,
   type ProjectPhotoRow,
+  type Vendor,
+  type VendorCategory,
+  type VendorRow,
 } from "./extras-types";
 
 const PROYEK_PATH = "/dashboard/production/proyek";
 const DOKUMENTASI_PATH = "/dashboard/production/dokumentasi";
 const ALAT_PATH = "/dashboard/production/alat";
+const BOM_PATH = "/dashboard/production/bom";
+const VENDOR_PATH = "/dashboard/production/vendor";
+const PEMBELIAN_PATH = "/dashboard/production/pembelian";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
 const CHECKS_BUCKET = "production-checks";
 const DOCS_BUCKET = "production-documentation";
+const DRAWINGS_BUCKET = "production-drawings";
 
 export type MutationResult = { ok: true } | { ok: false; error: string };
 
@@ -459,5 +477,353 @@ export async function deleteEquipmentUsage(id: string): Promise<MutationResult> 
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(ALAT_PATH);
+  return { ok: true };
+}
+
+/**
+ * Template BOM per tipe booth (Tahap 44) — CRUD sederhana, `items`
+ * disimpan langsung sebagai jsonb array (sama pola dengan kolom
+ * `materials` di production_booth_projects), jadi tidak perlu tabel item
+ * terpisah dan bisa langsung "dimuat ulang" ke form proyek.
+ */
+export async function getBomTemplates(): Promise<BomTemplate[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("production_bom_templates")
+    .select("*")
+    .order("name", { ascending: true })
+    .returns<BomTemplateRow[]>();
+
+  if (error) {
+    console.error("[production] getBomTemplates gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToBomTemplate);
+}
+
+export async function createBomTemplate(input: {
+  name: string;
+  description?: string;
+  items: BomTemplateItem[];
+}): Promise<MutationResult> {
+  if (!input.name.trim()) return { ok: false, error: "Nama template wajib diisi." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("production_bom_templates").insert({
+    name: input.name.trim(),
+    description: input.description?.trim() || null,
+    items: input.items,
+  });
+
+  if (error) {
+    console.error("[production] createBomTemplate gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(BOM_PATH);
+  void logActivity({ module: "production", action: "create", entityType: "template BOM", entityLabel: input.name });
+  return { ok: true };
+}
+
+export async function updateBomTemplate(
+  id: string,
+  input: { name: string; description?: string; items: BomTemplateItem[] }
+): Promise<MutationResult> {
+  if (!input.name.trim()) return { ok: false, error: "Nama template wajib diisi." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("production_bom_templates")
+    .update({ name: input.name.trim(), description: input.description?.trim() || null, items: input.items })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[production] updateBomTemplate gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(BOM_PATH);
+  void logActivity({ module: "production", action: "update", entityType: "template BOM", entityLabel: input.name });
+  return { ok: true };
+}
+
+export async function deleteBomTemplate(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: templateRow } = await supabase
+    .from("production_bom_templates")
+    .select("name")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("production_bom_templates").delete().eq("id", id);
+  if (error) {
+    console.error("[production] deleteBomTemplate gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(BOM_PATH);
+  void logActivity({
+    module: "production",
+    action: "delete",
+    entityType: "template BOM",
+    entityLabel: templateRow?.name,
+  });
+  return { ok: true };
+}
+
+/**
+ * Database vendor/supplier (Tahap 44) — mirror pola `MaterialManager`,
+ * dipakai sebagai picker opsional di form Purchase Order (tetap bisa isi
+ * nama supplier bebas kalau vendor belum terdaftar).
+ */
+export async function getVendors(): Promise<Vendor[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("production_vendors")
+    .select("*")
+    .order("name", { ascending: true })
+    .returns<VendorRow[]>();
+
+  if (error) {
+    console.error("[production] getVendors gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToVendor);
+}
+
+function validateVendorInput(input: { name: string }): string | null {
+  if (!input.name?.trim()) return "Nama vendor wajib diisi.";
+  return null;
+}
+
+export async function addVendor(input: {
+  name: string;
+  category: VendorCategory;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  catatan?: string;
+}): Promise<MutationResult> {
+  const validationError = validateVendorInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("production_vendors").insert({
+    name: input.name.trim(),
+    category: input.category,
+    contact_name: input.contactName?.trim() || null,
+    contact_phone: input.contactPhone?.trim() || null,
+    contact_email: input.contactEmail?.trim() || null,
+    catatan: input.catatan?.trim() || null,
+  });
+
+  if (error) {
+    console.error("[production] addVendor gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(VENDOR_PATH);
+  revalidatePath(PEMBELIAN_PATH);
+  void logActivity({ module: "production", action: "create", entityType: "vendor", entityLabel: input.name });
+  return { ok: true };
+}
+
+export async function updateVendor(
+  id: string,
+  input: {
+    name: string;
+    category: VendorCategory;
+    contactName?: string;
+    contactPhone?: string;
+    contactEmail?: string;
+    catatan?: string;
+  }
+): Promise<MutationResult> {
+  const validationError = validateVendorInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("production_vendors")
+    .update({
+      name: input.name.trim(),
+      category: input.category,
+      contact_name: input.contactName?.trim() || null,
+      contact_phone: input.contactPhone?.trim() || null,
+      contact_email: input.contactEmail?.trim() || null,
+      catatan: input.catatan?.trim() || null,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[production] updateVendor gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(VENDOR_PATH);
+  revalidatePath(PEMBELIAN_PATH);
+  void logActivity({ module: "production", action: "update", entityType: "vendor", entityLabel: input.name });
+  return { ok: true };
+}
+
+export async function deleteVendor(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: vendorRow } = await supabase.from("production_vendors").select("name").eq("id", id).maybeSingle();
+
+  const { error } = await supabase.from("production_vendors").delete().eq("id", id);
+  if (error) {
+    console.error("[production] deleteVendor gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(VENDOR_PATH);
+  revalidatePath(PEMBELIAN_PATH);
+  void logActivity({ module: "production", action: "delete", entityType: "vendor", entityLabel: vendorRow?.name });
+  return { ok: true };
+}
+
+/**
+ * Jam kerja kru (Tahap 44) — banyak baris per penugasan
+ * `production_project_crew`, dibuka on-demand dari `ProjectDetailModal`
+ * sama pola dengan checklist/kru itu sendiri. Versi internal saja (belum
+ * terhubung payroll sungguhan — lihat analisis-gap-production.md).
+ */
+export async function getCrewTimelogs(projectCrewId: string): Promise<CrewTimelog[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("production_crew_timelogs")
+    .select("*")
+    .eq("project_crew_id", projectCrewId)
+    .order("tanggal", { ascending: false })
+    .returns<CrewTimelogRow[]>();
+
+  if (error) {
+    console.error("[production] getCrewTimelogs gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToCrewTimelog);
+}
+
+export async function addCrewTimelog(
+  projectCrewId: string,
+  input: { tanggal: string; jam: number; catatan?: string }
+): Promise<MutationResult> {
+  if (!input.tanggal) return { ok: false, error: "Tanggal wajib diisi." };
+  if (!Number.isFinite(input.jam) || input.jam <= 0) return { ok: false, error: "Jam kerja harus lebih dari 0." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("production_crew_timelogs").insert({
+    project_crew_id: projectCrewId,
+    tanggal: input.tanggal,
+    jam: input.jam,
+    catatan: input.catatan?.trim() || null,
+  });
+
+  if (error) {
+    console.error("[production] addCrewTimelog gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(PROYEK_PATH);
+  return { ok: true };
+}
+
+export async function deleteCrewTimelog(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("production_crew_timelogs").delete().eq("id", id);
+  if (error) {
+    console.error("[production] deleteCrewTimelog gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(PROYEK_PATH);
+  return { ok: true };
+}
+
+/**
+ * Lampiran gambar kerja/desain per proyek (Tahap 44) — pola sama dengan
+ * `addProjectPhoto`, tapi mendukung file gambar ATAU PDF, dan disimpan ke
+ * bucket terpisah `production-drawings` supaya tidak campur dengan foto
+ * dokumentasi before/after instalasi.
+ */
+export async function addProjectDocument(formData: FormData): Promise<MutationResult> {
+  const projectId = String(formData.get("projectId") ?? "");
+  const file = formData.get("file");
+
+  if (!projectId) return { ok: false, error: "Proyek booth tidak valid." };
+  if (!(file instanceof File) || file.size === 0) return { ok: false, error: "Pilih file terlebih dahulu." };
+  if (!file.type.startsWith("image/") && file.type !== "application/pdf") {
+    return { ok: false, error: "File harus berupa gambar atau PDF." };
+  }
+
+  const supabase = await createClient();
+  const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "bin";
+  const storagePath = `${projectId}/${crypto.randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(DRAWINGS_BUCKET)
+    .upload(storagePath, file, { contentType: file.type || undefined });
+  if (uploadError) {
+    console.error("[production] Upload gambar kerja gagal:", uploadError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(DRAWINGS_BUCKET).getPublicUrl(storagePath);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase.from("production_project_documents").insert({
+    project_id: projectId,
+    file_name: file.name,
+    file_url: publicUrl,
+    storage_path: storagePath,
+    file_type: file.type || null,
+    uploaded_by: user?.id ?? null,
+  });
+
+  if (error) {
+    console.error("[production] addProjectDocument gagal:", error.message);
+    await supabase.storage.from(DRAWINGS_BUCKET).remove([storagePath]);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(PROYEK_PATH);
+  void logActivity({
+    module: "production",
+    action: "create",
+    entityType: "gambar kerja/desain",
+    entityLabel: file.name,
+  });
+  return { ok: true };
+}
+
+export async function getProjectDocuments(projectId: string): Promise<ProjectDocument[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("production_project_documents")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false })
+    .returns<ProjectDocumentRow[]>();
+
+  if (error) {
+    console.error("[production] getProjectDocuments gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToProjectDocument);
+}
+
+export async function deleteProjectDocument(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: docRow } = await supabase
+    .from("production_project_documents")
+    .select("storage_path")
+    .eq("id", id)
+    .maybeSingle<Pick<ProjectDocumentRow, "storage_path">>();
+
+  const { error } = await supabase.from("production_project_documents").delete().eq("id", id);
+  if (error) {
+    console.error("[production] deleteProjectDocument gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  if (docRow?.storage_path) await supabase.storage.from(DRAWINGS_BUCKET).remove([docRow.storage_path]);
+  revalidatePath(PROYEK_PATH);
   return { ok: true };
 }

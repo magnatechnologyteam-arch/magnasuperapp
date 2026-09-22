@@ -401,6 +401,7 @@ export async function addPurchaseOrder(
 
   const { error } = await supabase.from("production_purchase_orders").insert({
     material_id: input.materialId ?? null,
+    vendor_id: input.vendorId ?? null,
     supplier_name: input.supplierName,
     qty: input.qty,
     unit_price: input.unitPrice,

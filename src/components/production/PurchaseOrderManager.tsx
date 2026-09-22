@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID, formatRupiah, todayISO } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { PurchaseOrder, PurchaseOrderStatus } from "@/lib/production/types";
+import type { Vendor } from "@/lib/production/extras-types";
 import { PURCHASE_ORDER_STATUS_STYLES as STATUS_STYLES } from "@/lib/status-styles";
 
 const GRADIENT = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
@@ -20,6 +21,7 @@ const ALL_FILTER = "Semua Status";
 function emptyForm() {
   return {
     materialId: "",
+    vendorId: "",
     supplierName: "",
     qty: "1",
     unitPrice: "0",
@@ -37,7 +39,7 @@ function emptyForm() {
  * fungsi database `receive_purchase_order` (migrasi 0018) — dikonfirmasi
  * dulu lewat dialog karena aksi ini mengubah stok fisik secara permanen.
  */
-export function PurchaseOrderManager() {
+export function PurchaseOrderManager({ vendors = [] }: { vendors?: Vendor[] }) {
   const { materials, purchaseOrders, addPurchaseOrder, receivePurchaseOrder, cancelPurchaseOrder, deletePurchaseOrder } =
     useProductionData();
   const { showToast } = useToast();
@@ -54,6 +56,12 @@ export function PurchaseOrderManager() {
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
 
   const materialName = (id?: string) => (id ? materials.find((m) => m.id === id)?.name ?? "—" : "—");
+
+  /** Pilih vendor terdaftar (Tahap 44 — gap #5 analisis-gap-production.md) → auto-isi nama supplier (tetap bisa diedit manual sesudahnya, mis. kalau beli dari cabang/kontak lain vendor yang sama). */
+  function handlePickVendor(vendorId: string) {
+    const picked = vendors.find((v) => v.id === vendorId);
+    setForm((f) => ({ ...f, vendorId, supplierName: picked ? picked.name : f.supplierName }));
+  }
 
   const sorted = useMemo(
     () => [...purchaseOrders].sort((a, b) => b.orderDate.localeCompare(a.orderDate)),
@@ -110,6 +118,7 @@ export function PurchaseOrderManager() {
     setSubmitting(true);
     const result = await addPurchaseOrder({
       materialId: form.materialId || undefined,
+      vendorId: form.vendorId || undefined,
       supplierName: form.supplierName.trim(),
       qty,
       unitPrice,
@@ -318,6 +327,27 @@ export function PurchaseOrderManager() {
 
       <Modal open={formOpen} onClose={closeFormModal} title="Buat Purchase Order">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {vendors.length > 0 && (
+            <div>
+              <label htmlFor="po-vendor" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Vendor Terdaftar (opsional)
+              </label>
+              <select
+                id="po-vendor"
+                value={form.vendorId}
+                onChange={(e) => handlePickVendor(e.target.value)}
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-orange-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
+              >
+                <option value="">— Tidak dari database vendor —</option>
+                {vendors.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.category})
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
             <label htmlFor="po-supplier-name" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
               Supplier
@@ -325,7 +355,7 @@ export function PurchaseOrderManager() {
             <input
               id="po-supplier-name"
               value={form.supplierName}
-              onChange={(e) => setForm((f) => ({ ...f, supplierName: e.target.value }))}
+              onChange={(e) => setForm((f) => ({ ...f, vendorId: "", supplierName: e.target.value }))}
               placeholder="mis. Toko Bangunan Jaya Abadi"
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-orange-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
             />

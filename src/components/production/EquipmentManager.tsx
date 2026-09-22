@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { History, Pencil, Plus, Search, Trash2, Wrench } from "lucide-react";
+import { History, Pencil, Plus, QrCode, Search, Trash2, Wrench } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -17,6 +17,7 @@ import {
   type EquipmentCondition,
 } from "@/lib/production/extras-types";
 import { EquipmentUsageModal } from "./EquipmentUsageModal";
+import { QrPrintModal } from "./QrPrintModal";
 
 const GRADIENT = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
 const CATEGORY_FILTER_ALL = "Semua Kategori";
@@ -49,6 +50,7 @@ export function EquipmentManager({ equipment }: { equipment: Equipment[] }) {
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Equipment | null>(null);
   const [usageTarget, setUsageTarget] = useState<Equipment | null>(null);
+  const [qrTarget, setQrTarget] = useState<Equipment | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>(CATEGORY_FILTER_ALL);
 
@@ -206,6 +208,15 @@ export function EquipmentManager({ equipment }: { equipment: Equipment[] }) {
                     <div className="flex justify-end gap-1">
                       <button
                         type="button"
+                        onClick={() => setQrTarget(eq)}
+                        title="Label QR"
+                        aria-label="Label QR"
+                        className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-500/10 dark:hover:text-violet-300"
+                      >
+                        <QrCode className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setUsageTarget(eq)}
                         title="Riwayat pemakaian"
                         aria-label="Riwayat pemakaian"
@@ -337,6 +348,16 @@ export function EquipmentManager({ equipment }: { equipment: Equipment[] }) {
           equipmentName={usageTarget.name}
           open={usageTarget !== null}
           onClose={() => setUsageTarget(null)}
+        />
+      )}
+
+      {qrTarget && (
+        <QrPrintModal
+          open={qrTarget !== null}
+          onClose={() => setQrTarget(null)}
+          value={qrTarget.id}
+          title={qrTarget.name}
+          subtitle={qrTarget.kategori}
         />
       )}
 
