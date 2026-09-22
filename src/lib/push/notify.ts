@@ -76,20 +76,29 @@ async function sendPushToDivisions(
   payload: NotifyPayload,
   excludeUserId?: string
 ): Promise<void> {
-  try {
-    configureWebPush();
-  } catch (err) {
-    console.error("[push] Konfigurasi VAPID gagal, notifikasi dilewati:", err instanceof Error ? err.message : err);
-    return;
-  }
-
   const targets = Array.from(new Set([...(Array.isArray(divisions) ? divisions : [divisions]), "all"]));
   const admin = createAdminClient();
 
   // Simpan ke kotak masuk in-app (migrasi 0055) SEBELUM cek subscription
-  // push — supaya notifikasinya tetap tercatat & terlihat di Topbar biar
-  // pun tidak ada satu pun perangkat yang mengaktifkan Web Push sama sekali.
+  // push DAN SEBELUM configureWebPush() -- supaya notifikasinya tetap
+  // tercatat & terlihat di Topbar biar pun tidak ada satu pun perangkat
+  // yang mengaktifkan Web Push sama sekali, ATAU VAPID_PRIVATE_KEY /
+  // NEXT_PUBLIC_VAPID_PUBLIC_KEY belum diset di .env.local sama sekali
+  // (kasus ini yang sebelumnya bikin persistNotification() TIDAK PERNAH
+  // kepanggil -- configureWebPush() melempar error duluan, ketangkep try/
+  // catch di bawah, langsung `return`, jadi baris `notifications` juga
+  // ikut tidak pernah tersimpan meski kejadian bisnisnya sendiri sukses).
   await persistNotification(admin, payload, { divisions: targets }, excludeUserId);
+
+  try {
+    configureWebPush();
+  } catch (err) {
+    console.error(
+      "[push] Konfigurasi VAPID gagal, kirim push dilewati (notifikasi in-app tetap tersimpan):",
+      err instanceof Error ? err.message : err
+    );
+    return;
+  }
 
   const { data: profiles, error: profilesError } = await admin.from("profiles").select("id").in("division", targets);
   if (profilesError) {
@@ -102,16 +111,24 @@ async function sendPushToDivisions(
 }
 
 async function sendPushToUserIds(userIds: string[], payload: NotifyPayload, excludeUserId?: string): Promise<void> {
+  const ids = Array.from(new Set(userIds)).filter((id) => id !== excludeUserId);
+  const admin = createAdminClient();
+
+  // Sama seperti sendPushToDivisions() di atas: simpan in-app dulu SEBELUM
+  // configureWebPush(), supaya kegagalan konfigurasi VAPID tidak ikut
+  // menggagalkan baris `notifications`-nya.
+  await persistNotification(admin, payload, { userIds: ids }, excludeUserId);
+
   try {
     configureWebPush();
   } catch (err) {
-    console.error("[push] Konfigurasi VAPID gagal, notifikasi dilewati:", err instanceof Error ? err.message : err);
+    console.error(
+      "[push] Konfigurasi VAPID gagal, kirim push dilewati (notifikasi in-app tetap tersimpan):",
+      err instanceof Error ? err.message : err
+    );
     return;
   }
 
-  const ids = Array.from(new Set(userIds)).filter((id) => id !== excludeUserId);
-  const admin = createAdminClient();
-  await persistNotification(admin, payload, { userIds: ids }, excludeUserId);
   await sendPushToSubscriptionOwners(admin, ids, payload);
 }
 
