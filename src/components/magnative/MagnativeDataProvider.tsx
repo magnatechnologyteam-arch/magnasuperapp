@@ -1,7 +1,8 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
-import type { Client, ContentPost, Project, ProjectCost } from "@/lib/magnative/types";
+import type { Client, ContentPost, Project, ProjectCost, ProjectTask, ProjectVendor, Vendor } from "@/lib/magnative/types";
+import type { PicOption } from "@/lib/events/types";
 import * as actions from "@/lib/magnative/actions";
 import type { MutationResult } from "@/lib/magnative/actions";
 
@@ -15,6 +16,10 @@ type MagnativeDataContextValue = {
   projects: Project[];
   contentPosts: ContentPost[];
   projectCosts: ProjectCost[];
+  vendors: Vendor[];
+  projectVendors: ProjectVendor[];
+  projectTasks: ProjectTask[];
+  picOptions: PicOption[];
 
   addClient: (input: Omit<Client, "id">) => Promise<MutationResult>;
   updateClient: (id: string, input: Omit<Client, "id">) => Promise<MutationResult>;
@@ -33,6 +38,21 @@ type MagnativeDataContextValue = {
   addProjectCost: (input: Omit<ProjectCost, "id">) => Promise<MutationResult>;
   updateProjectCost: (id: string, input: Omit<ProjectCost, "id">) => Promise<MutationResult>;
   deleteProjectCost: (id: string) => Promise<MutationResult>;
+
+  addVendor: (input: Omit<Vendor, "id">) => Promise<MutationResult>;
+  updateVendor: (id: string, input: Omit<Vendor, "id">) => Promise<MutationResult>;
+  deleteVendor: (id: string) => Promise<MutationResult>;
+
+  getVendorLinksForProject: (projectId: string) => ProjectVendor[];
+  addProjectVendor: (input: Omit<ProjectVendor, "id">) => Promise<MutationResult>;
+  updateProjectVendor: (id: string, input: Omit<ProjectVendor, "id">) => Promise<MutationResult>;
+  deleteProjectVendor: (id: string) => Promise<MutationResult>;
+
+  getTasksForProject: (projectId: string) => ProjectTask[];
+  addProjectTask: (input: Omit<ProjectTask, "id" | "picName">) => Promise<MutationResult>;
+  updateProjectTask: (id: string, input: Omit<ProjectTask, "id" | "picName">) => Promise<MutationResult>;
+  updateProjectTaskStatus: (id: string, status: ProjectTask["status"]) => Promise<MutationResult>;
+  deleteProjectTask: (id: string) => Promise<MutationResult>;
 };
 
 const MagnativeDataContext = createContext<MagnativeDataContextValue | null>(null);
@@ -52,12 +72,20 @@ export function MagnativeDataProvider({
   projects,
   contentPosts,
   projectCosts,
+  vendors,
+  projectVendors,
+  projectTasks,
+  picOptions,
   children,
 }: {
   clients: Client[];
   projects: Project[];
   contentPosts: ContentPost[];
   projectCosts: ProjectCost[];
+  vendors: Vendor[];
+  projectVendors: ProjectVendor[];
+  projectTasks: ProjectTask[];
+  picOptions: PicOption[];
   children: ReactNode;
 }) {
   const addClient = useCallback((input: Omit<Client, "id">) => actions.addClient(input), []);
@@ -85,6 +113,31 @@ export function MagnativeDataProvider({
   );
   const deleteProjectCost = useCallback((id: string) => actions.deleteProjectCost(id), []);
 
+  const addVendor = useCallback((input: Omit<Vendor, "id">) => actions.addVendor(input), []);
+  const updateVendor = useCallback((id: string, input: Omit<Vendor, "id">) => actions.updateVendor(id, input), []);
+  const deleteVendor = useCallback((id: string) => actions.deleteVendor(id), []);
+
+  const addProjectVendor = useCallback((input: Omit<ProjectVendor, "id">) => actions.addProjectVendor(input), []);
+  const updateProjectVendor = useCallback(
+    (id: string, input: Omit<ProjectVendor, "id">) => actions.updateProjectVendor(id, input),
+    []
+  );
+  const deleteProjectVendor = useCallback((id: string) => actions.deleteProjectVendor(id), []);
+
+  const addProjectTask = useCallback(
+    (input: Omit<ProjectTask, "id" | "picName">) => actions.addProjectTask(input),
+    []
+  );
+  const updateProjectTask = useCallback(
+    (id: string, input: Omit<ProjectTask, "id" | "picName">) => actions.updateProjectTask(id, input),
+    []
+  );
+  const updateProjectTaskStatus = useCallback(
+    (id: string, status: ProjectTask["status"]) => actions.updateProjectTaskStatus(id, status),
+    []
+  );
+  const deleteProjectTask = useCallback((id: string) => actions.deleteProjectTask(id), []);
+
   /** Dipakai UI untuk memblokir hapus klien yang masih punya proyek aktif. */
   const getActiveProjectsForClient = useCallback(
     (clientId: string) =>
@@ -99,12 +152,28 @@ export function MagnativeDataProvider({
     [projectCosts]
   );
 
+  /** Dipakai modal vendor per proyek (Update Opsional 2). */
+  const getVendorLinksForProject = useCallback(
+    (projectId: string) => projectVendors.filter((v) => v.projectId === projectId),
+    [projectVendors]
+  );
+
+  /** Dipakai modal task per proyek (Update Opsional 2) — sudah diurutkan `sortOrder` dari query layout. */
+  const getTasksForProject = useCallback(
+    (projectId: string) => projectTasks.filter((t) => t.projectId === projectId),
+    [projectTasks]
+  );
+
   const value = useMemo<MagnativeDataContextValue>(
     () => ({
       clients,
       projects,
       contentPosts,
       projectCosts,
+      vendors,
+      projectVendors,
+      projectTasks,
+      picOptions,
       addClient,
       updateClient,
       deleteClient,
@@ -119,12 +188,28 @@ export function MagnativeDataProvider({
       addProjectCost,
       updateProjectCost,
       deleteProjectCost,
+      addVendor,
+      updateVendor,
+      deleteVendor,
+      getVendorLinksForProject,
+      addProjectVendor,
+      updateProjectVendor,
+      deleteProjectVendor,
+      getTasksForProject,
+      addProjectTask,
+      updateProjectTask,
+      updateProjectTaskStatus,
+      deleteProjectTask,
     }),
     [
       clients,
       projects,
       contentPosts,
       projectCosts,
+      vendors,
+      projectVendors,
+      projectTasks,
+      picOptions,
       addClient,
       updateClient,
       deleteClient,
@@ -139,6 +224,18 @@ export function MagnativeDataProvider({
       addProjectCost,
       updateProjectCost,
       deleteProjectCost,
+      addVendor,
+      updateVendor,
+      deleteVendor,
+      getVendorLinksForProject,
+      addProjectVendor,
+      updateProjectVendor,
+      deleteProjectVendor,
+      getTasksForProject,
+      addProjectTask,
+      updateProjectTask,
+      updateProjectTaskStatus,
+      deleteProjectTask,
     ]
   );
 

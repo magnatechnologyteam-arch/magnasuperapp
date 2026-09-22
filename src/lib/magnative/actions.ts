@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activity/log";
 import { addEventExpense, deleteEventExpense, updateEventExpense } from "@/lib/event-expenses/actions";
 import type { ExpenseCategory } from "@/lib/event-expenses/types";
 import type {
+  AssetComment,
   Client,
   ContentPost,
   ContentRequest,
@@ -15,7 +16,12 @@ import type {
   CreativeAssetCategory,
   Project,
   ProjectCost,
+  ProjectTask,
+  ProjectTaskStatus,
+  ProjectVendor,
+  Vendor,
 } from "./types";
+import { rowToAssetComment, type AssetCommentRow } from "./mappers";
 
 const MODULE_PATH = "/dashboard/magnative";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
@@ -896,5 +902,305 @@ export async function deleteCreativeAsset(id: string): Promise<MutationResult> {
   }
   revalidatePath(MODULE_PATH);
   void logActivity({ module: "magnative", action: "delete", entityType: "aset kreatif", entityLabel: assetRow?.title });
+  return { ok: true };
+}
+
+/**
+ * Komentar/anotasi aset kreatif ("proofing ringan", Update Opsional 2) —
+ * lihat komentar `AssetComment` di types.ts. `getAssetComments` sengaja
+ * ada di file "use server" ini (bukan data.ts) supaya modal komentar bisa
+ * memanggilnya langsung sebagai Server Action saat dibuka per aset, tanpa
+ * membebani MagnativeDataProvider dengan komentar SEMUA aset sekaligus
+ * (kebanyakan aset tidak pernah dibuka untuk direview).
+ */
+export async function getAssetComments(assetId: string): Promise<AssetComment[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("magnative_asset_comments")
+    .select("*")
+    .eq("asset_id", assetId)
+    .order("created_at", { ascending: true })
+    .returns<AssetCommentRow[]>();
+
+  if (error) {
+    console.error("[magnative] getAssetComments gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToAssetComment);
+}
+
+export async function addAssetComment(assetId: string, commentText: string): Promise<MutationResult> {
+  const text = commentText.trim();
+  if (!text) return { ok: false, error: "Komentar tidak boleh kosong." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let authorName = "Tidak diketahui";
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .maybeSingle<{ full_name: string }>();
+    authorName = profile?.full_name?.trim() || authorName;
+  }
+
+  const { error } = await supabase
+    .from("magnative_asset_comments")
+    .insert({ asset_id: assetId, author_name: authorName, comment_text: text });
+
+  if (error) {
+    console.error("[magnative] addAssetComment gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+export async function setAssetCommentResolved(id: string, isResolved: boolean): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnative_asset_comments").update({ is_resolved: isResolved }).eq("id", id);
+  if (error) {
+    console.error("[magnative] setAssetCommentResolved gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+export async function deleteAssetComment(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnative_asset_comments").delete().eq("id", id);
+  if (error) {
+    console.error("[magnative] deleteAssetComment gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+/**
+ * Basis data vendor/supplier (Update Opsional 2) — lihat komentar `Vendor`
+ * di types.ts. CRUD sederhana, sama pola dengan `Client`.
+ */
+function validateVendorInput(input: Omit<Vendor, "id">): string | null {
+  if (!input.name?.trim()) return "Nama vendor wajib diisi.";
+  return null;
+}
+
+export async function addVendor(input: Omit<Vendor, "id">): Promise<MutationResult> {
+  const validationError = validateVendorInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnative_vendors").insert({
+    name: input.name.trim(),
+    category: input.category,
+    contact_name: input.contactName?.trim() || null,
+    contact_phone: input.contactPhone?.trim() || null,
+    contact_email: input.contactEmail?.trim() || null,
+    catatan: input.catatan?.trim() || null,
+  });
+
+  if (error) {
+    console.error("[magnative] addVendor gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "create", entityType: "vendor", entityLabel: input.name });
+  return { ok: true };
+}
+
+export async function updateVendor(id: string, input: Omit<Vendor, "id">): Promise<MutationResult> {
+  const validationError = validateVendorInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("magnative_vendors")
+    .update({
+      name: input.name.trim(),
+      category: input.category,
+      contact_name: input.contactName?.trim() || null,
+      contact_phone: input.contactPhone?.trim() || null,
+      contact_email: input.contactEmail?.trim() || null,
+      catatan: input.catatan?.trim() || null,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[magnative] updateVendor gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "update", entityType: "vendor", entityLabel: input.name });
+  return { ok: true };
+}
+
+/** Cegah hapus vendor yang masih terkait ke proyek mana pun -- staf harus lepas kaitannya dulu di tiap proyek (lihat `deleteProjectVendor`). */
+export async function deleteVendor(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+
+  const { count, error: linkError } = await supabase
+    .from("magnative_project_vendors")
+    .select("id", { count: "exact", head: true })
+    .eq("vendor_id", id);
+
+  if (linkError) {
+    console.error("[magnative] Cek kaitan vendor sebelum hapus gagal:", linkError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  if ((count ?? 0) > 0) {
+    return { ok: false, error: "Vendor ini masih dikaitkan ke proyek. Lepas kaitannya dulu di tiap proyek sebelum menghapus." };
+  }
+
+  const { data: vendorRow } = await supabase.from("magnative_vendors").select("name").eq("id", id).maybeSingle();
+
+  const { error } = await supabase.from("magnative_vendors").delete().eq("id", id);
+  if (error) {
+    console.error("[magnative] deleteVendor gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "delete", entityType: "vendor", entityLabel: vendorRow?.name });
+  return { ok: true };
+}
+
+/** Kaitkan/lepas vendor ke satu proyek tertentu -- lihat komentar `ProjectVendor` di types.ts. */
+export async function addProjectVendor(input: Omit<ProjectVendor, "id">): Promise<MutationResult> {
+  if (!input.vendorId) return { ok: false, error: "Vendor wajib dipilih." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnative_project_vendors").insert({
+    project_id: input.projectId,
+    vendor_id: input.vendorId,
+    keterangan: input.keterangan?.trim() || null,
+    biaya_estimasi: input.biayaEstimasi || 0,
+  });
+
+  if (error) {
+    console.error("[magnative] addProjectVendor gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+export async function updateProjectVendor(id: string, input: Omit<ProjectVendor, "id">): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("magnative_project_vendors")
+    .update({
+      vendor_id: input.vendorId,
+      keterangan: input.keterangan?.trim() || null,
+      biaya_estimasi: input.biayaEstimasi || 0,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[magnative] updateProjectVendor gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+export async function deleteProjectVendor(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnative_project_vendors").delete().eq("id", id);
+  if (error) {
+    console.error("[magnative] deleteProjectVendor gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+/**
+ * Task/sub-pekerjaan per proyek (Update Opsional 2) -- lihat komentar
+ * `ProjectTask` di types.ts. `updateProjectTaskStatus` terpisah dari
+ * `updateProjectTask` (pola sama seperti `updateContentStatus`) supaya
+ * tombol ganti status cepat di daftar tidak perlu mengirim ulang seluruh
+ * field yang tidak berubah.
+ */
+function validateProjectTaskInput(input: Omit<ProjectTask, "id" | "picName">): string | null {
+  if (!input.title?.trim()) return "Judul task wajib diisi.";
+  return null;
+}
+
+export async function addProjectTask(input: Omit<ProjectTask, "id" | "picName">): Promise<MutationResult> {
+  const validationError = validateProjectTaskInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnative_project_tasks").insert({
+    project_id: input.projectId,
+    title: input.title.trim(),
+    detail: input.detail?.trim() || null,
+    status: input.status,
+    due_date: input.dueDate || null,
+    pic: input.pic || null,
+    sort_order: input.sortOrder ?? 0,
+  });
+
+  if (error) {
+    console.error("[magnative] addProjectTask gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "create", entityType: "task proyek", entityLabel: input.title });
+  return { ok: true };
+}
+
+export async function updateProjectTask(id: string, input: Omit<ProjectTask, "id" | "picName">): Promise<MutationResult> {
+  const validationError = validateProjectTaskInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("magnative_project_tasks")
+    .update({
+      title: input.title.trim(),
+      detail: input.detail?.trim() || null,
+      status: input.status,
+      due_date: input.dueDate || null,
+      pic: input.pic || null,
+      sort_order: input.sortOrder ?? 0,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[magnative] updateProjectTask gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+export async function updateProjectTaskStatus(id: string, status: ProjectTaskStatus): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnative_project_tasks").update({ status }).eq("id", id);
+  if (error) {
+    console.error("[magnative] updateProjectTaskStatus gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+export async function deleteProjectTask(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: taskRow } = await supabase.from("magnative_project_tasks").select("title").eq("id", id).maybeSingle();
+
+  const { error } = await supabase.from("magnative_project_tasks").delete().eq("id", id);
+  if (error) {
+    console.error("[magnative] deleteProjectTask gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "delete", entityType: "task proyek", entityLabel: taskRow?.title });
   return { ok: true };
 }

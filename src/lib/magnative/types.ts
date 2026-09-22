@@ -171,3 +171,80 @@ export type CreativeAsset = {
   fileType: CreativeAssetFileType;
   caption?: string;
 };
+
+/**
+ * Komentar/feedback per aset kreatif — "proofing ringan" (Update Opsional
+ * 2, hasil gap analysis vs aplikasi kreatif luar seperti Wrike/Productive
+ * yang punya fitur komentar/anotasi langsung di atas file). `authorName`
+ * DISNAPSHOT saat komentar dibuat (bukan join live ke profiles), pola sama
+ * seperti `picName` di modul lain — supaya nama penulis tetap tampil apa
+ * adanya meski akun staf berubah/dihapus nanti.
+ */
+export type AssetComment = {
+  id: string;
+  assetId: string;
+  authorName: string;
+  commentText: string;
+  isResolved: boolean;
+  createdAt: string;
+};
+
+/**
+ * Basis data vendor/supplier eksternal (Update Opsional 2) — terpisah dari
+ * `ProjectCost` supaya kontak vendor (venue, katering, dekorasi, dst) bisa
+ * dipakai ulang lintas proyek tanpa diketik ulang tiap kali ada biaya baru.
+ */
+export type VendorCategory =
+  | "Venue"
+  | "Katering"
+  | "Dekorasi"
+  | "Sound System & Lighting"
+  | "Fotografi/Videografi"
+  | "Percetakan"
+  | "Lainnya";
+
+export type Vendor = {
+  id: string;
+  name: string;
+  category: VendorCategory;
+  contactName?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  catatan?: string;
+};
+
+/**
+ * Kaitan satu vendor ke satu proyek — `biayaEstimasi` MURNI informatif
+ * (mis. dari quote/penawaran vendor), BUKAN sumber jurnal akuntansi. Biaya
+ * AKTUAL tetap dicatat lewat `ProjectCost` (event_expenses) seperti
+ * sebelumnya, supaya tidak ada dua sumber kebenaran untuk laporan keuangan.
+ */
+export type ProjectVendor = {
+  id: string;
+  projectId: string;
+  vendorId: string;
+  keterangan?: string;
+  biayaEstimasi: number;
+};
+
+/**
+ * Task/sub-pekerjaan di dalam satu proyek Magnativ (Update Opsional 2) —
+ * funnel status proyek (`ProjectStatus`) saja tidak cukup detail untuk
+ * proyek tipe Event Organizer yang biasanya punya banyak sub-pekerjaan
+ * paralel (venue, dekorasi, izin, dst). `pic` merujuk ke `auth.users.id`,
+ * sama pola dengan `pic` di `event_checklist_items` — daftar staf yang
+ * bisa ditunjuk dipakai ulang dari `getAssignablePics` (src/lib/events/data.ts).
+ */
+export type ProjectTaskStatus = "Belum Mulai" | "Berjalan" | "Selesai";
+
+export type ProjectTask = {
+  id: string;
+  projectId: string;
+  title: string;
+  detail?: string;
+  status: ProjectTaskStatus;
+  dueDate?: string;
+  pic?: string;
+  picName?: string;
+  sortOrder: number;
+};

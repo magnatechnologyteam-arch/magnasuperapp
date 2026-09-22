@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { Briefcase, Pencil, Plus, Search, Trash2, Wallet2 } from "lucide-react";
+import { Briefcase, Building2, ListChecks, Pencil, Plus, Search, Trash2, Wallet2 } from "lucide-react";
 import { useMagnativeData } from "./MagnativeDataProvider";
 import { ProjectCostModal } from "./ProjectCostModal";
+import { ProjectTaskModal } from "./ProjectTaskModal";
+import { ProjectVendorModal } from "./ProjectVendorModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -66,6 +68,8 @@ export function ProjectManager() {
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
   const [costTarget, setCostTarget] = useState<Project | null>(null);
+  const [taskTarget, setTaskTarget] = useState<Project | null>(null);
+  const [vendorTarget, setVendorTarget] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
 
@@ -313,6 +317,24 @@ export function ProjectManager() {
                       </button>
                       <button
                         type="button"
+                        onClick={() => setTaskTarget(p)}
+                        title="Task proyek"
+                        aria-label="Task proyek"
+                        className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-sky-500/10 dark:hover:text-sky-300"
+                      >
+                        <ListChecks className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setVendorTarget(p)}
+                        title="Vendor proyek"
+                        aria-label="Vendor proyek"
+                        className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10 dark:hover:text-amber-300"
+                      >
+                        <Building2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => openEditModal(p)}
                         title="Edit proyek"
                         aria-label="Edit proyek"
@@ -545,6 +567,8 @@ export function ProjectManager() {
       />
 
       {costTarget && <ProjectCostModal project={costTarget} onClose={() => setCostTarget(null)} />}
+      {taskTarget && <ProjectTaskModal project={taskTarget} onClose={() => setTaskTarget(null)} />}
+      {vendorTarget && <ProjectVendorModal project={vendorTarget} onClose={() => setVendorTarget(null)} />}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type {
+  AssetComment,
   Client,
   ClientStatus,
   ContentPost,
@@ -16,7 +17,12 @@ import type {
   Project,
   ProjectCost,
   ProjectStatus,
+  ProjectTask,
+  ProjectTaskStatus,
   ProjectType,
+  ProjectVendor,
+  Vendor,
+  VendorCategory,
 } from "./types";
 
 /**
@@ -254,5 +260,100 @@ export function rowToPortfolioFolder(folder: PortfolioFolderRow, photoRows: Port
       .slice()
       .sort((a, b) => a.position - b.position)
       .map(rowToPortfolioPhotoOnly),
+  };
+}
+
+/** Baris `magnative_vendors` (Update Opsional 2, migrasi 0060). */
+export type VendorRow = {
+  id: string;
+  name: string;
+  category: VendorCategory;
+  contact_name: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  catatan: string | null;
+};
+
+export function rowToVendor(row: VendorRow): Vendor {
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    contactName: row.contact_name ?? undefined,
+    contactPhone: row.contact_phone ?? undefined,
+    contactEmail: row.contact_email ?? undefined,
+    catatan: row.catatan ?? undefined,
+  };
+}
+
+/** Baris `magnative_project_vendors` (Update Opsional 2, migrasi 0060). */
+export type ProjectVendorRow = {
+  id: string;
+  project_id: string;
+  vendor_id: string;
+  keterangan: string | null;
+  biaya_estimasi: number;
+};
+
+export function rowToProjectVendor(row: ProjectVendorRow): ProjectVendor {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    vendorId: row.vendor_id,
+    keterangan: row.keterangan ?? undefined,
+    biayaEstimasi: row.biaya_estimasi,
+  };
+}
+
+/** Baris `magnative_project_tasks` (Update Opsional 2, migrasi 0060). */
+export type ProjectTaskRow = {
+  id: string;
+  project_id: string;
+  title: string;
+  detail: string | null;
+  status: ProjectTaskStatus;
+  due_date: string | null;
+  pic: string | null;
+  sort_order: number;
+};
+
+/**
+ * `picNameMap` diisi dari `getAssignablePics()` (src/lib/events/data.ts,
+ * dipakai ulang) — pola sama seperti `resolvePicNames` di modul Events:
+ * query nama staf dipisah dari baris task-nya sendiri karena `pic` sengaja
+ * tidak diberi FK literal ke `profiles`.
+ */
+export function rowToProjectTask(row: ProjectTaskRow, picNameMap: Map<string, string>): ProjectTask {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    title: row.title,
+    detail: row.detail ?? undefined,
+    status: row.status,
+    dueDate: row.due_date ?? undefined,
+    pic: row.pic ?? undefined,
+    picName: row.pic ? picNameMap.get(row.pic) : undefined,
+    sortOrder: row.sort_order,
+  };
+}
+
+/** Baris `magnative_asset_comments` (Update Opsional 2, migrasi 0060). */
+export type AssetCommentRow = {
+  id: string;
+  asset_id: string;
+  author_name: string;
+  comment_text: string;
+  is_resolved: boolean;
+  created_at: string;
+};
+
+export function rowToAssetComment(row: AssetCommentRow): AssetComment {
+  return {
+    id: row.id,
+    assetId: row.asset_id,
+    authorName: row.author_name,
+    commentText: row.comment_text,
+    isResolved: row.is_resolved,
+    createdAt: row.created_at,
   };
 }

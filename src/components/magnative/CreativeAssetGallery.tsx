@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useRef, useState, type FormEvent } from "react";
-import { File as FileIcon, FolderOpen, Plus, Trash2 } from "lucide-react";
+import { File as FileIcon, FolderOpen, MessageSquare, Plus, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastProvider";
 import { addCreativeAsset, deleteCreativeAsset } from "@/lib/magnative/actions";
+import { AssetCommentModal } from "./AssetCommentModal";
 import { cn } from "@/lib/cn";
 import type { CreativeAsset, CreativeAssetCategory } from "@/lib/magnative/types";
 
@@ -45,6 +46,7 @@ export function CreativeAssetGallery({ assets }: { assets: CreativeAsset[] }) {
 
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL_FILTER);
   const [deleteTarget, setDeleteTarget] = useState<CreativeAsset | null>(null);
+  const [commentTarget, setCommentTarget] = useState<CreativeAsset | null>(null);
 
   const filteredAssets = useMemo(
     () => (categoryFilter === ALL_FILTER ? assets : assets.filter((a) => a.category === categoryFilter)),
@@ -188,15 +190,26 @@ export function CreativeAssetGallery({ assets }: { assets: CreativeAsset[] }) {
                 ) : (
                   <FileIcon className="h-10 w-10 text-zinc-400 dark:text-zinc-600" />
                 )}
-                <button
-                  type="button"
-                  onClick={() => setDeleteTarget(asset)}
-                  title="Hapus aset"
-                  aria-label="Hapus aset"
-                  className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 text-zinc-600 opacity-0 shadow-sm backdrop-blur transition-opacity hover:bg-white hover:text-rose-600 group-hover:opacity-100 dark:bg-zinc-900/90 dark:text-zinc-300"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                  <button
+                    type="button"
+                    onClick={() => setCommentTarget(asset)}
+                    title="Komentar aset"
+                    aria-label="Komentar aset"
+                    className="rounded-full bg-white/90 p-1.5 text-zinc-600 shadow-sm backdrop-blur hover:bg-white hover:text-violet-600 dark:bg-zinc-900/90 dark:text-zinc-300"
+                  >
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget(asset)}
+                    title="Hapus aset"
+                    aria-label="Hapus aset"
+                    className="rounded-full bg-white/90 p-1.5 text-zinc-600 shadow-sm backdrop-blur hover:bg-white hover:text-rose-600 dark:bg-zinc-900/90 dark:text-zinc-300"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
               <figcaption className="p-3">
                 <span className={cn("mb-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold", CATEGORY_STYLES[asset.category])}>
@@ -319,6 +332,8 @@ export function CreativeAssetGallery({ assets }: { assets: CreativeAsset[] }) {
           )
         }
       />
+
+      {commentTarget && <AssetCommentModal asset={commentTarget} onClose={() => setCommentTarget(null)} />}
     </div>
   );
 }
