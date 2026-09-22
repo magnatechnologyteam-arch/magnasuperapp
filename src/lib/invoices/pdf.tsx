@@ -100,8 +100,8 @@ function readSignatureImage(picName: string | undefined): Buffer | null {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 40, fontSize: 9.5, fontFamily: "Helvetica", color: "#18181b" },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 22 },
+  page: { padding: 36, fontSize: 9.5, fontFamily: "Helvetica", color: "#18181b" },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 },
   // Logo per divisi (public/brand/*.png) SUDAH memuat wordmark lengkap
   // (mis. "magnativ"/"magnarent" ikut tergambar di file-nya sendiri) — jadi
   // logo di sini SENGAJA berdiri sendiri, diperbesar, tanpa nama divisi
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   invoiceDocLabel: { fontSize: 8.5, fontWeight: 700, color: "#dc2626", textAlign: "right", marginTop: 2 },
   invoiceSubtitle: { fontSize: 9, color: "#71717a", textAlign: "right", marginTop: 2 },
 
-  metaRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 16 },
+  metaRow: { flexDirection: "row", justifyContent: "space-between", marginBottom: 13 },
   metaBlock: { flex: 1, paddingRight: 10 },
   metaLabel: { fontSize: 7.5, color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
   metaValue: { fontSize: 10, fontWeight: 700 },
@@ -129,8 +129,8 @@ const styles = StyleSheet.create({
     borderLeftColor: "#dc2626",
     borderLeftStyle: "solid",
     borderRadius: 3,
-    padding: 9,
-    marginBottom: 16,
+    padding: 8,
+    marginBottom: 13,
   },
   noteLabel: { fontWeight: 700 },
   noteText: { fontSize: 8.5, color: "#3f3f46", lineHeight: 1.4 },
@@ -139,13 +139,13 @@ const styles = StyleSheet.create({
   // backgroundColor TIDAK ditaruh di sini lagi — sekarang per-divisi lewat
   // ACCENT_INFO, di-override inline saat dipakai (lihat komentar di atas
   // ACCENT_INFO).
-  tableHeadRow: { flexDirection: "row", paddingVertical: 6, paddingHorizontal: 4 },
+  tableHeadRow: { flexDirection: "row", paddingVertical: 5, paddingHorizontal: 4 },
   tableRow: {
     flexDirection: "row",
     borderBottomWidth: 1,
     borderBottomColor: "#f4f4f5",
     borderBottomStyle: "solid",
-    paddingVertical: 7,
+    paddingVertical: 6,
     paddingHorizontal: 4,
   },
   // color TIDAK ditaruh di sini lagi — ikut ACCENT_INFO.onBar (putih atau
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   itemNote: { fontSize: 7.5, color: "#a1a1aa", marginTop: 2 },
   priceUnitLabel: { fontSize: 7, color: "#a1a1aa" },
 
-  totalsBlock: { marginTop: 16, alignItems: "flex-end" },
+  totalsBlock: { marginTop: 13, alignItems: "flex-end" },
   totalsRow: { flexDirection: "row", width: 240, justifyContent: "space-between", marginTop: 4 },
   totalsLabel: { fontSize: 9.5, color: "#71717a" },
   totalsValue: { fontSize: 9.5 },
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
   grandTotalLabel: { fontSize: 10.5, fontWeight: 700 },
   grandTotalValue: { fontSize: 10.5, fontWeight: 700 },
 
-  paymentRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 18, gap: 14 },
+  paymentRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 14, gap: 14 },
   // borderLeftColor TIDAK ditaruh di sini lagi — ikut ACCENT_INFO.bar,
   // di-override inline.
   paymentBox: {
@@ -188,9 +188,9 @@ const styles = StyleSheet.create({
     borderLeftStyle: "solid",
     backgroundColor: "#fafafa",
     borderRadius: 3,
-    padding: 10,
+    padding: 8,
   },
-  paymentBoxLabel: { fontSize: 7.5, color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 },
+  paymentBoxLabel: { fontSize: 7.5, color: "#a1a1aa", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
   paymentBankName: { fontSize: 10, fontWeight: 700 },
   paymentLine: { fontSize: 8.5, color: "#3f3f46", marginTop: 2 },
   warnBox: {
@@ -200,27 +200,33 @@ const styles = StyleSheet.create({
     borderLeftColor: "#d97706",
     borderLeftStyle: "solid",
     borderRadius: 3,
-    padding: 10,
+    padding: 8,
   },
   warnText: { fontSize: 8, color: "#78350f", lineHeight: 1.4 },
 
-  signatureBlock: { marginTop: 26, alignItems: "flex-end" },
+  // Diperkecil (dulu marginTop 26, gambar 70x109, teks skrip 24pt) — di
+  // invoice dengan Syarat & Ketentuan yang sekarang otomatis terisi
+  // (DEFAULT_INVOICE_TERMS di InvoiceManager.tsx), blok tanda tangan yang
+  // sebelumnya kebesaran ini bikin invoice yang tadinya pas 1 halaman jadi
+  // meluber ke halaman ke-2. Diperkecil supaya tetap muat 1 lembar.
+  signatureBlock: { marginTop: 14, alignItems: "flex-end" },
   signatureLabel: { fontSize: 9, color: "#71717a" },
-  signatureDivision: { fontSize: 9.5, fontWeight: 700, marginTop: 4 },
+  signatureDivision: { fontSize: 9.5, fontWeight: 700, marginTop: 3 },
   // "Tanda tangan" — tanpa file gambar tanda tangan asli, dipakai nama PIC
   // digambar besar & miring ala tulisan tangan (font standar PDF, tanpa
   // perlu registrasi font baru), lalu nama cetak tebal kecil di bawahnya
   // sebagai konfirmasi — pola sama seperti tanda tangan + nama di bawahnya
   // pada template referensi.
-  signatureScript: { fontSize: 24, fontStyle: "italic", marginTop: 16, marginBottom: 2 },
+  signatureScript: { fontSize: 17, fontStyle: "italic", marginTop: 8, marginBottom: 2 },
   // Dipakai kalau readSignatureImage() berhasil menemukan file gambar
   // tanda tangan asli (saat ini: Angellie) — aspect ratio gambar aslinya
-  // 349:543 (dari crop PDF contoh), lebar dikunci 70pt supaya proporsional.
-  signatureImage: { width: 70, height: 109, marginTop: 6, marginBottom: -6, objectFit: "contain" },
+  // 349:543 (dari crop PDF contoh) dipertahankan di ukuran yang lebih
+  // kecil (dulu 70pt lebar/109pt tinggi).
+  signatureImage: { width: 52, height: 81, marginTop: 4, marginBottom: -4, objectFit: "contain" },
   signaturePic: { fontSize: 9, fontWeight: 700, marginTop: 2 },
-  signatureBlank: { height: 30 },
+  signatureBlank: { height: 18 },
 
-  termsBlock: { marginTop: 18 },
+  termsBlock: { marginTop: 14 },
   termsTitle: { fontSize: 8.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 5 },
   termsRow: { flexDirection: "row", marginTop: 3 },
   termsNo: { fontSize: 8, color: "#71717a", width: 14 },
@@ -408,6 +414,27 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
           </View>
         )}
 
+        {/* Syarat & Ketentuan SEBELUM tanda tangan (urutan dokumen resmi yang
+            wajar — pihak menandatangani SETELAH membaca ketentuan, bukan
+            sebaliknya). Dulu urutannya terbalik (tanda tangan dulu baru
+            syarat), ditukar sekalian dengan pengecilan blok tanda tangan di
+            atas supaya invoice tetap muat 1 halaman. */}
+        {invoice.termsConditions && (
+          <View style={styles.termsBlock}>
+            <Text style={styles.termsTitle}>Syarat &amp; Ketentuan</Text>
+            {invoice.termsConditions
+              .split("\n")
+              .map((line) => line.trim())
+              .filter(Boolean)
+              .map((line, i) => (
+                <View style={styles.termsRow} key={i}>
+                  <Text style={styles.termsNo}>{i + 1}.</Text>
+                  <Text style={styles.termsText}>{line}</Text>
+                </View>
+              ))}
+          </View>
+        )}
+
         <View style={styles.signatureBlock}>
           <Text style={styles.signatureLabel}>Hormat Kami,</Text>
           <Text style={styles.signatureDivision}>{division.label}</Text>
@@ -425,22 +452,6 @@ function InvoiceDocument({ invoice }: { invoice: Invoice }) {
             <View style={styles.signatureBlank} />
           )}
         </View>
-
-        {invoice.termsConditions && (
-          <View style={styles.termsBlock}>
-            <Text style={styles.termsTitle}>Syarat &amp; Ketentuan</Text>
-            {invoice.termsConditions
-              .split("\n")
-              .map((line) => line.trim())
-              .filter(Boolean)
-              .map((line, i) => (
-                <View style={styles.termsRow} key={i}>
-                  <Text style={styles.termsNo}>{i + 1}.</Text>
-                  <Text style={styles.termsText}>{line}</Text>
-                </View>
-              ))}
-          </View>
-        )}
 
         <Text style={styles.footer}>
           {division.label.toUpperCase()} · {division.tagline}

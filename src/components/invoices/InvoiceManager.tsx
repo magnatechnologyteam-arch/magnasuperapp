@@ -40,6 +40,25 @@ const ALL_STATUS_FILTER = "Semua Status";
 const DIVISION_OPTIONS: InvoiceDivision[] = ["magnarent", "magnative", "production"];
 const STATUS_OPTIONS: InvoiceStatus[] = ["Draft", "Terkirim", "Lunas"];
 
+/**
+ * Syarat & Ketentuan baku (Owner) — sebelumnya field ini kosong secara
+ * default dan textarea-nya cuma menampilkan contoh abu-abu (placeholder)
+ * yang TIDAK pernah ikut ke PDF kalau staf tidak mengetik ulang sendiri.
+ * Sekarang nilainya SUNGGUH dipra-isi di sini supaya otomatis muncul di
+ * PDF invoice baru tanpa staf perlu mengetik manual tiap kali — tapi
+ * tetap teks biasa di textarea, jadi masih bisa diubah/dihapus per
+ * invoice kalau memang perlu (bukan dipaksa dari PDF template seperti
+ * DEFAULT_TERMS di lib/magnarent/contract-pdf.tsx, karena field ini
+ * sudah lama didesain sebagai per-invoice, bukan per-dokumen tetap).
+ */
+const DEFAULT_INVOICE_TERMS = [
+  "Masa sewa dihitung per hari. Keterlambatan pengembalian dikenakan biaya sewa tambahan per hari.",
+  "Deposit akan dikembalikan H+7 hari kerja setelah barang dikembalikan dan seluruh unit dicek lengkap serta dalam kondisi baik.",
+  "Kerusakan atau kehilangan unit selama masa sewa menjadi tanggung jawab penyewa dan ditagihkan sesuai nilai penggantian.",
+  "Pembayaran dilakukan pelunasan penuh di awal sebelum barang dikirim.",
+  "Ongkos kirim bersifat pulang-pergi (PP) sesuai lokasi pengiriman yang tertera.",
+].join("\n");
+
 type ItemForm = { description: string; qty: string; unitPrice: string; qtyLabel: string; unitLabel: string; note: string };
 
 type FormState = {
@@ -98,7 +117,7 @@ function emptyForm(): FormState {
     paymentNote: "",
     dueDate: "",
     catatan: "",
-    termsConditions: "",
+    termsConditions: DEFAULT_INVOICE_TERMS,
   };
 }
 
@@ -981,8 +1000,8 @@ export function InvoiceManager({
               id="invoice-terms"
               value={form.termsConditions}
               onChange={(e) => setForm((f) => ({ ...f, termsConditions: e.target.value }))}
-              placeholder={"Masa sewa dihitung per hari...\nDeposit akan dikembalikan H+3 hari kerja..."}
-              rows={4}
+              placeholder={"Masa sewa dihitung per hari...\nDeposit akan dikembalikan H+7 hari kerja..."}
+              rows={5}
               className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
             />
           </div>
