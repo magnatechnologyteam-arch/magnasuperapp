@@ -7,6 +7,7 @@ import {
   Calendar,
   Check,
   ClipboardCheck,
+  FileSignature,
   Pencil,
   Plus,
   Search,
@@ -451,6 +452,16 @@ export function BookingScheduler() {
                         >
                           <Truck className="h-4 w-4" />
                         </button>
+                        <a
+                          href={`/api/magnarent/bookings/${b.id}/contract`}
+                          target="_blank"
+                          rel="noreferrer"
+                          title="Ekspor Kontrak Sewa"
+                          aria-label="Ekspor Kontrak Sewa"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-500/10 dark:hover:text-violet-300"
+                        >
+                          <FileSignature className="h-4 w-4" />
+                        </a>
                         <button
                           type="button"
                           onClick={() => openEditModal(b)}
