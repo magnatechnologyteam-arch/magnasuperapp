@@ -8,6 +8,7 @@ import {
   rowToCrewTimelog,
   rowToEquipment,
   rowToEquipmentUsage,
+  rowToMaterialTransfer,
   rowToProjectCheck,
   rowToProjectCrew,
   rowToProjectDocument,
@@ -27,6 +28,8 @@ import {
   type EquipmentRow,
   type EquipmentUsage,
   type EquipmentUsageRow,
+  type MaterialTransfer,
+  type MaterialTransferRow,
   type ProjectCheck,
   type ProjectCheckRow,
   type ProjectCrew,
@@ -826,4 +829,64 @@ export async function deleteProjectDocument(id: string): Promise<MutationResult>
   if (docRow?.storage_path) await supabase.storage.from(DRAWINGS_BUCKET).remove([docRow.storage_path]);
   revalidatePath(PROYEK_PATH);
   return { ok: true };
+}
+
+
+/**
+ * Transfer stok material antar gudang/lokasi (Tahap 45 — gap #8
+ * analisis-gap-production.md). Panggil RPC atomik `transfer_material_stock`
+ * (migrasi 0060): kurangi stok baris asal, tambah/insert baris tujuan, DAN
+ * catat riwayat — semua satu transaksi database, bukan tiga panggilan
+ * terpisah dari app (lihat komentar receive_purchase_order di migrasi 0018
+ * untuk pola yang sama persis). Revalidate seluruh "/dashboard/production"
+ * (bukan cuma halaman Material) karena Pemakaian & MRP juga menampilkan
+ * data material yang sama lewat ProductionDataProvider.
+ */
+export async function transferMaterialStock(
+  materialId: string,
+  input: { qty: number; toLocation: string; catatan?: string }
+): Promise<MutationResult> {
+  if (!Number.isFinite(input.qty) || input.qty <= 0) {
+    return { ok: false, error: "Jumlah transfer harus lebih dari 0." };
+  }
+  if (!input.toLocation?.trim()) {
+    return { ok: false, error: "Lokasi tujuan wajib diisi." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("transfer_material_stock", {
+    p_material_id: materialId,
+    p_qty: input.qty,
+    p_to_location: input.toLocation.trim(),
+    p_catatan: input.catatan?.trim() || null,
+  });
+
+  if (error) {
+    console.error("[production] transferMaterialStock gagal:", error.message);
+    return { ok: false, error: error.message || GENERIC_ERROR };
+  }
+  revalidatePath("/dashboard/production");
+  void logActivity({
+    module: "production",
+    action: "update",
+    entityType: "material",
+    detail: `Transfer ${input.qty} unit ke ${input.toLocation.trim()}`,
+  });
+  return { ok: true };
+}
+
+export async function getMaterialTransfers(materialId: string): Promise<MaterialTransfer[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("production_material_transfers")
+    .select("*")
+    .eq("material_id", materialId)
+    .order("created_at", { ascending: false })
+    .returns<MaterialTransferRow[]>();
+
+  if (error) {
+    console.error("[production] getMaterialTransfers gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToMaterialTransfer);
 }

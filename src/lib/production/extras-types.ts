@@ -313,3 +313,46 @@ export function rowToProjectDocument(row: ProjectDocumentRow): ProjectDocument {
     createdAt: row.created_at,
   };
 }
+
+/**
+ * Transfer stok material antar gudang/lokasi (Tahap 45 — gap #8
+ * analisis-gap-production.md) — riwayat baca-saja, ditulis lewat RPC
+ * atomik `transfer_material_stock` (migrasi 0060). Tidak ada
+ * add/update/delete manual dari sini supaya jejak riwayat selalu akurat
+ * (mirror pola production_purchase_orders yang statusnya diubah lewat
+ * fungsi database, bukan UPDATE langsung dari app).
+ */
+export type MaterialTransfer = {
+  id: string;
+  materialId: string | null;
+  materialName: string;
+  qty: number;
+  fromLocation: string;
+  toLocation: string;
+  catatan: string | null;
+  createdAt: string;
+};
+
+export type MaterialTransferRow = {
+  id: string;
+  material_id: string | null;
+  material_name: string;
+  qty: number;
+  from_location: string;
+  to_location: string;
+  catatan: string | null;
+  created_at: string;
+};
+
+export function rowToMaterialTransfer(row: MaterialTransferRow): MaterialTransfer {
+  return {
+    id: row.id,
+    materialId: row.material_id,
+    materialName: row.material_name,
+    qty: row.qty,
+    fromLocation: row.from_location,
+    toLocation: row.to_location,
+    catatan: row.catatan,
+    createdAt: row.created_at,
+  };
+}

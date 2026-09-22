@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { AlertTriangle, Boxes, MapPin, Pencil, Plus, QrCode, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeftRight, Boxes, MapPin, Pencil, Plus, QrCode, Search, Trash2 } from "lucide-react";
 import { useProductionData } from "./ProductionDataProvider";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -12,6 +12,7 @@ import { isLowStock } from "@/lib/production/availability";
 import { cn } from "@/lib/cn";
 import type { MaterialCategory, MaterialItem, MaterialUnit } from "@/lib/production/types";
 import { QrPrintModal } from "./QrPrintModal";
+import { TransferStockModal } from "./TransferStockModal";
 
 const GRADIENT = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
 
@@ -68,6 +69,7 @@ export function MaterialManager() {
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MaterialItem | null>(null);
   const [qrTarget, setQrTarget] = useState<MaterialItem | null>(null);
+  const [transferTarget, setTransferTarget] = useState<MaterialItem | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>(CATEGORY_FILTER_ALL);
   const [lowStockOnly, setLowStockOnly] = useState(false);
@@ -301,6 +303,15 @@ export function MaterialManager() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => setTransferTarget(m)}
+                          title="Transfer stok"
+                          aria-label="Transfer stok"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-sky-500/10 dark:hover:text-sky-300"
+                        >
+                          <ArrowLeftRight className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openEditModal(m)}
                           title="Edit material"
                           aria-label="Edit material"
@@ -469,6 +480,14 @@ export function MaterialManager() {
           value={qrTarget.id}
           title={qrTarget.name}
           subtitle={qrTarget.category}
+        />
+      )}
+
+      {transferTarget && (
+        <TransferStockModal
+          material={transferTarget}
+          open={transferTarget !== null}
+          onClose={() => setTransferTarget(null)}
         />
       )}
 
