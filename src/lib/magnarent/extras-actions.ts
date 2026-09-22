@@ -27,8 +27,10 @@ import type { InventoryUnit, InventoryUnitStatus } from "./types";
 
 const MODULE_PATH = "/dashboard/magnarent/booking";
 const INVENTORY_PATH = "/dashboard/magnarent/inventaris";
+const GALLERY_PATH = INVENTORY_PATH;
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
 const CHECKS_BUCKET = "magnarent-checks";
+const GALLERY_BUCKET = "magnarent-gallery";
 
 export type MutationResult = { ok: true } | { ok: false; error: string };
 
@@ -417,5 +419,210 @@ export async function saveDelivery(
   }
 
   revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+/**
+ * Galeri Kategori Alat — model folder/album, meniru fungsi-fungsi
+ * portofolio di `src/lib/magnative/actions.ts` (migrasi 0057). Satu folder
+ * = satu kategori alat (mis. "Tenda & Struktur"), bisa diisi banyak foto
+ * sekaligus. Menggantikan `PlaceholderGallery` statis yang tadinya
+ * nangkring di halaman Inventaris — lihat `getGalleryFolders` di
+ * `gallery-data.ts` untuk query baca gabungan folder+foto.
+ */
+function extractGalleryFiles(formData: FormData): File[] {
+  return formData.getAll("photos").filter((entry): entry is File => entry instanceof File && entry.size > 0);
+}
+
+async function uploadGalleryPhotos(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  files: File[]
+): Promise<{ ok: true; storagePaths: string[] } | { ok: false; error: string; uploadedPaths: string[] }> {
+  const uploadedPaths: string[] = [];
+
+  for (const file of files) {
+    if (!file.type.startsWith("image/")) {
+      return { ok: false, error: "Semua file yang dipilih harus berupa gambar.", uploadedPaths };
+    }
+    const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "jpg";
+    const storagePath = `${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(GALLERY_BUCKET)
+      .upload(storagePath, file, { contentType: file.type || undefined });
+
+    if (uploadError) {
+      console.error("[magnarent] Upload foto galeri gagal:", uploadError.message);
+      return { ok: false, error: GENERIC_ERROR, uploadedPaths };
+    }
+    uploadedPaths.push(storagePath);
+  }
+
+  return { ok: true, storagePaths: uploadedPaths };
+}
+
+export async function createGalleryFolder(formData: FormData): Promise<MutationResult> {
+  const supabase = await createClient();
+  const title = String(formData.get("title") ?? "").trim();
+  const caption = String(formData.get("caption") ?? "").trim();
+  const files = extractGalleryFiles(formData);
+
+  if (!title) return { ok: false, error: "Nama kategori wajib diisi." };
+  if (files.length === 0) return { ok: false, error: "Pilih minimal satu foto terlebih dahulu." };
+
+  const uploadResult = await uploadGalleryPhotos(supabase, files);
+  if (!uploadResult.ok) {
+    if (uploadResult.uploadedPaths.length > 0) {
+      await supabase.storage.from(GALLERY_BUCKET).remove(uploadResult.uploadedPaths);
+    }
+    return { ok: false, error: uploadResult.error };
+  }
+
+  const { data: folderRow, error: folderError } = await supabase
+    .from("magnarent_gallery_folders")
+    .insert({ title, caption: caption || null })
+    .select("id")
+    .single();
+
+  if (folderError || !folderRow) {
+    console.error("[magnarent] Buat folder galeri gagal:", folderError?.message);
+    await supabase.storage.from(GALLERY_BUCKET).remove(uploadResult.storagePaths);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const photoRows = uploadResult.storagePaths.map((storagePath, index) => ({
+    folder_id: folderRow.id,
+    storage_path: storagePath,
+    photo_url: supabase.storage.from(GALLERY_BUCKET).getPublicUrl(storagePath).data.publicUrl,
+    position: index,
+  }));
+
+  const { error: insertError } = await supabase.from("magnarent_gallery_photos").insert(photoRows);
+  if (insertError) {
+    console.error("[magnarent] Simpan data foto galeri gagal:", insertError.message);
+    await supabase.storage.from(GALLERY_BUCKET).remove(uploadResult.storagePaths);
+    await supabase.from("magnarent_gallery_folders").delete().eq("id", folderRow.id);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(GALLERY_PATH);
+  void logActivity({ module: "magnarent", action: "create", entityType: "galeri kategori", entityLabel: title });
+  return { ok: true };
+}
+
+export async function addPhotosToGalleryFolder(folderId: string, formData: FormData): Promise<MutationResult> {
+  const supabase = await createClient();
+  const files = extractGalleryFiles(formData);
+  if (files.length === 0) return { ok: false, error: "Pilih minimal satu foto terlebih dahulu." };
+
+  const { data: lastPhoto } = await supabase
+    .from("magnarent_gallery_photos")
+    .select("position")
+    .eq("folder_id", folderId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ position: number }>();
+
+  const uploadResult = await uploadGalleryPhotos(supabase, files);
+  if (!uploadResult.ok) {
+    if (uploadResult.uploadedPaths.length > 0) {
+      await supabase.storage.from(GALLERY_BUCKET).remove(uploadResult.uploadedPaths);
+    }
+    return { ok: false, error: uploadResult.error };
+  }
+
+  const startPosition = (lastPhoto?.position ?? -1) + 1;
+  const photoRows = uploadResult.storagePaths.map((storagePath, index) => ({
+    folder_id: folderId,
+    storage_path: storagePath,
+    photo_url: supabase.storage.from(GALLERY_BUCKET).getPublicUrl(storagePath).data.publicUrl,
+    position: startPosition + index,
+  }));
+
+  const { error: insertError } = await supabase.from("magnarent_gallery_photos").insert(photoRows);
+  if (insertError) {
+    console.error("[magnarent] Tambah foto ke folder galeri gagal:", insertError.message);
+    await supabase.storage.from(GALLERY_BUCKET).remove(uploadResult.storagePaths);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(GALLERY_PATH);
+  void logActivity({
+    module: "magnarent",
+    action: "update",
+    entityType: "galeri kategori",
+    entityLabel: `+${files.length} foto`,
+  });
+  return { ok: true };
+}
+
+export async function updateGalleryFolder(
+  id: string,
+  input: { title: string; caption?: string }
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const title = input.title.trim();
+  if (!title) return { ok: false, error: "Nama kategori wajib diisi." };
+
+  const { error } = await supabase
+    .from("magnarent_gallery_folders")
+    .update({ title, caption: input.caption?.trim() || null, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[magnarent] updateGalleryFolder gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(GALLERY_PATH);
+  void logActivity({ module: "magnarent", action: "update", entityType: "galeri kategori", entityLabel: title });
+  return { ok: true };
+}
+
+/** Hapus satu foto DI DALAM folder (folder & foto lainnya tetap ada) - lihat `deleteGalleryFolder` untuk hapus seluruh folder sekaligus. */
+export async function deleteGalleryPhoto(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: photoRow } = await supabase
+    .from("magnarent_gallery_photos")
+    .select("storage_path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("magnarent_gallery_photos").delete().eq("id", id);
+  if (error) {
+    console.error("[magnarent] deleteGalleryPhoto gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  if (photoRow?.storage_path) {
+    await supabase.storage.from(GALLERY_BUCKET).remove([photoRow.storage_path]);
+  }
+  revalidatePath(GALLERY_PATH);
+  void logActivity({ module: "magnarent", action: "delete", entityType: "galeri kategori" });
+  return { ok: true };
+}
+
+/**
+ * Hapus seluruh folder sekaligus semua fotonya — baris `magnarent_gallery_photos`
+ * ikut terhapus otomatis lewat `on delete cascade`, tapi file di Supabase
+ * Storage TIDAK ikut terhapus otomatis oleh cascade itu (cascade cuma
+ * untuk baris database) - path-nya makanya diambil dulu di sini sebelum
+ * folder (dan foto-fotonya) dihapus.
+ */
+export async function deleteGalleryFolder(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: folderRow } = await supabase.from("magnarent_gallery_folders").select("title").eq("id", id).maybeSingle();
+  const { data: photoRows } = await supabase.from("magnarent_gallery_photos").select("storage_path").eq("folder_id", id);
+
+  const { error } = await supabase.from("magnarent_gallery_folders").delete().eq("id", id);
+  if (error) {
+    console.error("[magnarent] deleteGalleryFolder gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const storagePaths = (photoRows ?? []).map((row) => row.storage_path).filter(Boolean);
+  if (storagePaths.length > 0) {
+    await supabase.storage.from(GALLERY_BUCKET).remove(storagePaths);
+  }
+  revalidatePath(GALLERY_PATH);
+  void logActivity({ module: "magnarent", action: "delete", entityType: "galeri kategori", entityLabel: folderRow?.title });
   return { ok: true };
 }

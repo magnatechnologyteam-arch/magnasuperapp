@@ -149,3 +149,66 @@ export function rowToMaintenanceLog(row: MaintenanceLogRow): MaintenanceLog {
     biaya: row.biaya,
   };
 }
+
+/**
+ * Galeri Kategori Alat — model folder/album, meniru `PortfolioFolder` di
+ * `src/lib/magnative/types.ts` (migrasi 0057): satu folder = satu kategori
+ * alat (mis. "Tenda & Struktur"), bisa memuat banyak foto sekaligus
+ * (ditampilkan sebagai slide lewat `PhotoCarousel`), menggantikan
+ * `PlaceholderGallery` statis yang tadinya nangkring di halaman Inventaris
+ * (lihat migrasi magnarent_gallery_kategori_alat). `storagePath` disimpan
+ * terpisah dari `photoUrl` supaya file di Supabase Storage bisa dihapus
+ * lewat path-nya saat foto dihapus, tanpa perlu parsing URL publik.
+ */
+export type GalleryPhoto = {
+  id: string;
+  photoUrl: string;
+  storagePath: string;
+  position: number;
+};
+
+export type GalleryFolder = {
+  id: string;
+  title: string;
+  caption?: string;
+  photos: GalleryPhoto[];
+  createdAt: string;
+};
+
+export type GalleryFolderRow = {
+  id: string;
+  title: string;
+  caption: string | null;
+  created_at: string;
+};
+
+export type GalleryPhotoRow = {
+  id: string;
+  folder_id: string;
+  photo_url: string;
+  storage_path: string;
+  position: number;
+};
+
+function rowToGalleryPhotoOnly(row: GalleryPhotoRow): GalleryPhoto {
+  return {
+    id: row.id,
+    photoUrl: row.photo_url,
+    storagePath: row.storage_path,
+    position: row.position,
+  };
+}
+
+/** Folder tanpa foto dibiarkan tetap tampil dengan `photos: []` (mis. upload sempat gagal di tengah jalan) daripada disembunyikan seluruhnya. */
+export function rowToGalleryFolder(folder: GalleryFolderRow, photoRows: GalleryPhotoRow[]): GalleryFolder {
+  return {
+    id: folder.id,
+    title: folder.title,
+    caption: folder.caption ?? undefined,
+    createdAt: folder.created_at,
+    photos: photoRows
+      .slice()
+      .sort((a, b) => a.position - b.position)
+      .map(rowToGalleryPhotoOnly),
+  };
+}
