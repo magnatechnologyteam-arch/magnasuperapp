@@ -12,6 +12,22 @@ export type InventoryItem = {
   totalUnit: number;
   /** Unit yang sedang rusak/servis — otomatis mengurangi unit yang bisa disewa. */
   unitMaintenance: number;
+  /** Harga sewa per minggu (opsional) — kalau diisi, dipakai untuk blok 7 hari penuh saat hitung total booking (lebih murah dari 7× harga/hari). */
+  pricePerWeek?: number;
+  /** Harga sewa per bulan (opsional) — kalau diisi, dipakai untuk blok 30 hari penuh saat hitung total booking. */
+  pricePerMonth?: number;
+};
+
+/** Status satu unit fisik individual (Gap #2/#3 analisis Magnarent) — dipakai buat pelacakan per-unit + label QR, TIDAK memengaruhi hitungan kapasitas booking (itu tetap berbasis jumlah, lihat availability.ts). */
+export type InventoryUnitStatus = "Tersedia" | "Dipinjam" | "Maintenance" | "Hilang";
+
+export type InventoryUnit = {
+  id: string;
+  itemId: string;
+  /** Kode unik per unit fisik, mis. "KAM-01" — dipakai jadi isi QR label. */
+  kodeUnit: string;
+  status: InventoryUnitStatus;
+  catatan?: string;
 };
 
 export type BookingStatus = "Menunggu" | "Dikonfirmasi" | "Selesai" | "Dibatalkan";

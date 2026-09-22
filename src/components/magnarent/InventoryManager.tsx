@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { MapPin, Package, Pencil, Plus, Search, Trash2, Wrench } from "lucide-react";
+import { MapPin, Package, Pencil, Plus, QrCode, Search, Trash2, Wrench } from "lucide-react";
 import { useMagnarentData } from "./MagnarentDataProvider";
 import { MaintenanceLogModal } from "./MaintenanceLogModal";
+import { InventoryUnitsModal } from "./InventoryUnitsModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -19,7 +20,16 @@ const GRADIENT = "linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)";
 
 const ALL_CATEGORIES = "Semua Kategori";
 
-const EMPTY_FORM = { name: "", category: "", location: "", pricePerDay: "0", totalUnit: "1", unitMaintenance: "0" };
+const EMPTY_FORM = {
+  name: "",
+  category: "",
+  location: "",
+  pricePerDay: "0",
+  totalUnit: "1",
+  unitMaintenance: "0",
+  pricePerWeek: "",
+  pricePerMonth: "",
+};
 
 function itemToForm(item: InventoryItem) {
   return {
@@ -29,6 +39,8 @@ function itemToForm(item: InventoryItem) {
     pricePerDay: String(item.pricePerDay),
     totalUnit: String(item.totalUnit),
     unitMaintenance: String(item.unitMaintenance),
+    pricePerWeek: item.pricePerWeek !== undefined ? String(item.pricePerWeek) : "",
+    pricePerMonth: item.pricePerMonth !== undefined ? String(item.pricePerMonth) : "",
   };
 }
 
@@ -54,6 +66,8 @@ export function InventoryManager() {
   const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORIES);
   // Tahap 28a: riwayat servis alat — dibuka lewat tombol kunci pas di baris.
   const [maintenanceTarget, setMaintenanceTarget] = useState<InventoryItem | null>(null);
+  // Gap #2/#3 analisis Magnarent: unit individual + QR — dibuka lewat tombol QR di baris.
+  const [unitsTarget, setUnitsTarget] = useState<InventoryItem | null>(null);
 
   const categories = useMemo(
     () => Array.from(new Set(inventory.map((i) => i.category))),
@@ -115,6 +129,16 @@ export function InventoryManager() {
       setError("Unit maintenance tidak valid (tidak boleh melebihi total unit).");
       return;
     }
+    const pricePerWeek = form.pricePerWeek.trim() === "" ? undefined : Number(form.pricePerWeek);
+    const pricePerMonth = form.pricePerMonth.trim() === "" ? undefined : Number(form.pricePerMonth);
+    if (pricePerWeek !== undefined && (!Number.isFinite(pricePerWeek) || pricePerWeek < 0)) {
+      setError("Harga per minggu tidak valid.");
+      return;
+    }
+    if (pricePerMonth !== undefined && (!Number.isFinite(pricePerMonth) || pricePerMonth < 0)) {
+      setError("Harga per bulan tidak valid.");
+      return;
+    }
 
     const payload = {
       name: form.name.trim(),
@@ -123,6 +147,8 @@ export function InventoryManager() {
       pricePerDay,
       totalUnit,
       unitMaintenance,
+      pricePerWeek,
+      pricePerMonth,
     };
 
     setSubmitting(true);
@@ -270,6 +296,15 @@ export function InventoryManager() {
                       <div className="flex justify-end gap-1">
                         <button
                           type="button"
+                          onClick={() => setUnitsTarget(item)}
+                          title="Unit individual & QR"
+                          aria-label="Unit individual & QR"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-violet-50 hover:text-violet-600 dark:hover:bg-violet-500/10 dark:hover:text-violet-300"
+                        >
+                          <QrCode className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setMaintenanceTarget(item)}
                           title="Riwayat servis alat"
                           aria-label="Riwayat servis alat"
@@ -394,6 +429,48 @@ export function InventoryManager() {
             </div>
           </div>
 
+          <div>
+            <p className="mb-1.5 text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Harga Bertingkat (opsional)
+            </p>
+            <p className="mb-2 text-[11px] text-zinc-400">
+              Kalau diisi, dipakai otomatis untuk sewa panjang (7 hari+/30 hari+) supaya lebih murah dari harga
+              harian × jumlah hari.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="inventory-price-per-week" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                  Harga / Minggu (Rp)
+                </label>
+                <input
+                  id="inventory-price-per-week"
+                  type="number"
+                  min={0}
+                  step={1000}
+                  placeholder="Kosongkan kalau tidak ada"
+                  value={form.pricePerWeek}
+                  onChange={(e) => setForm((f) => ({ ...f, pricePerWeek: e.target.value }))}
+                  className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-blue-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+                />
+              </div>
+              <div>
+                <label htmlFor="inventory-price-per-month" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                  Harga / Bulan (Rp)
+                </label>
+                <input
+                  id="inventory-price-per-month"
+                  type="number"
+                  min={0}
+                  step={1000}
+                  placeholder="Kosongkan kalau tidak ada"
+                  value={form.pricePerMonth}
+                  onChange={(e) => setForm((f) => ({ ...f, pricePerMonth: e.target.value }))}
+                  className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-blue-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+                />
+              </div>
+            </div>
+          </div>
+
           {error && (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
               {error}
@@ -458,6 +535,10 @@ export function InventoryManager() {
           open={maintenanceTarget !== null}
           onClose={() => setMaintenanceTarget(null)}
         />
+      )}
+
+      {unitsTarget && (
+        <InventoryUnitsModal item={unitsTarget} onClose={() => setUnitsTarget(null)} />
       )}
     </div>
   );

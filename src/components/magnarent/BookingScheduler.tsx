@@ -11,10 +11,12 @@ import {
   Plus,
   Search,
   Trash2,
+  Truck,
   X as XIcon,
 } from "lucide-react";
 import { useMagnarentData, type BookingConflict } from "./MagnarentDataProvider";
 import { BookingConditionModal } from "./BookingConditionModal";
+import { DeliveryScheduleModal } from "./DeliveryScheduleModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -114,6 +116,8 @@ export function BookingScheduler() {
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
   // Tahap 28a: checklist kondisi alat + jaminan — dibuka lewat tombol baru di baris.
   const [conditionTarget, setConditionTarget] = useState<Booking | null>(null);
+  // Gap #7 analisis Magnarent: penjadwalan pengiriman/pengambilan — dibuka lewat tombol baru di baris.
+  const [deliveryTarget, setDeliveryTarget] = useState<Booking | null>(null);
 
   const itemName = (id: string) => inventory.find((i) => i.id === id)?.name ?? "—";
   const clientById = (id?: string) => (id ? clients.find((c) => c.id === id) : undefined);
@@ -440,6 +444,15 @@ export function BookingScheduler() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => setDeliveryTarget(b)}
+                          title="Jadwal pengiriman & pengambilan"
+                          aria-label="Jadwal pengiriman & pengambilan"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-500/10 dark:hover:text-orange-300"
+                        >
+                          <Truck className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openEditModal(b)}
                           title="Edit pesanan"
                           aria-label="Edit pesanan"
@@ -718,6 +731,14 @@ export function BookingScheduler() {
           clientName={conditionTarget.namaKlien}
           open={conditionTarget !== null}
           onClose={() => setConditionTarget(null)}
+        />
+      )}
+
+      {deliveryTarget && (
+        <DeliveryScheduleModal
+          bookingId={deliveryTarget.id}
+          clientName={deliveryTarget.namaKlien}
+          onClose={() => setDeliveryTarget(null)}
         />
       )}
     </div>

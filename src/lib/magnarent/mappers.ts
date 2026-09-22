@@ -1,4 +1,4 @@
-import type { Booking, BookingStatus, InventoryItem, PaymentStatus } from "./types";
+import type { Booking, BookingStatus, InventoryItem, InventoryUnit, InventoryUnitStatus, PaymentStatus } from "./types";
 
 /**
  * Bentuk baris mentah dari Supabase (snake_case, sesuai kolom tabel di
@@ -16,7 +16,27 @@ export type InventoryRow = {
   price_per_day: number;
   total_unit: number;
   unit_maintenance: number;
+  price_per_week: number | null;
+  price_per_month: number | null;
 };
+
+export type InventoryUnitRow = {
+  id: string;
+  item_id: string;
+  kode_unit: string;
+  status: InventoryUnitStatus;
+  catatan: string | null;
+};
+
+export function rowToInventoryUnit(row: InventoryUnitRow): InventoryUnit {
+  return {
+    id: row.id,
+    itemId: row.item_id,
+    kodeUnit: row.kode_unit,
+    status: row.status,
+    catatan: row.catatan ?? undefined,
+  };
+}
 
 export type BookingRow = {
   id: string;
@@ -42,6 +62,8 @@ export function rowToInventory(row: InventoryRow): InventoryItem {
     pricePerDay: row.price_per_day,
     totalUnit: row.total_unit,
     unitMaintenance: row.unit_maintenance,
+    pricePerWeek: row.price_per_week ?? undefined,
+    pricePerMonth: row.price_per_month ?? undefined,
   };
 }
 

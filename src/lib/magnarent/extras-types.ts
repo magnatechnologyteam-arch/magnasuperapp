@@ -71,6 +71,53 @@ export function rowToBookingDeposit(row: BookingDepositRow): BookingDeposit {
   };
 }
 
+/**
+ * Penjadwalan pengiriman/pengambilan alat per booking (Gap #7 analisis
+ * Magnarent) — 2 tahap (pengiriman keluar, pengambilan kembali), sama pola
+ * dengan BookingCheck di atas: unique(booking_id, stage) supaya bisa
+ * di-upsert berulang tanpa duplikat baris. Sengaja versi ringan (belum ada
+ * optimasi rute otomatis) — cukup untuk menjadwalkan sopir & jam per
+ * booking, lihat migrasi 0061.
+ */
+export type DeliveryStage = "pengiriman" | "pengambilan";
+export const DELIVERY_STATUS = ["Belum Dijadwalkan", "Dijadwalkan", "Selesai"] as const;
+export type DeliveryStatus = (typeof DELIVERY_STATUS)[number];
+
+export type Delivery = {
+  id: string;
+  bookingId: string;
+  stage: DeliveryStage;
+  driverName: string | null;
+  jadwalTanggal: string | null;
+  jadwalJam: string | null;
+  status: DeliveryStatus;
+  catatan: string | null;
+};
+
+export type DeliveryRow = {
+  id: string;
+  booking_id: string;
+  stage: DeliveryStage;
+  driver_name: string | null;
+  jadwal_tanggal: string | null;
+  jadwal_jam: string | null;
+  status: DeliveryStatus;
+  catatan: string | null;
+};
+
+export function rowToDelivery(row: DeliveryRow): Delivery {
+  return {
+    id: row.id,
+    bookingId: row.booking_id,
+    stage: row.stage,
+    driverName: row.driver_name,
+    jadwalTanggal: row.jadwal_tanggal,
+    jadwalJam: row.jadwal_jam,
+    status: row.status,
+    catatan: row.catatan,
+  };
+}
+
 export const MAINTENANCE_JENIS = ["Servis Rutin", "Perbaikan", "Lainnya"] as const;
 export type MaintenanceJenis = (typeof MAINTENANCE_JENIS)[number];
 

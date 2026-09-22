@@ -6,17 +6,24 @@ import { logActivity } from "@/lib/activity/log";
 import {
   rowToBookingCheck,
   rowToBookingDeposit,
+  rowToDelivery,
   rowToMaintenanceLog,
   type BookingCheck,
   type BookingCheckRow,
   type BookingDeposit,
   type BookingDepositRow,
   type CheckStage,
+  type Delivery,
+  type DeliveryRow,
+  type DeliveryStage,
+  type DeliveryStatus,
   type DepositJenis,
   type MaintenanceJenis,
   type MaintenanceLog,
   type MaintenanceLogRow,
 } from "./extras-types";
+import { rowToInventoryUnit, type InventoryUnitRow } from "./mappers";
+import type { InventoryUnit, InventoryUnitStatus } from "./types";
 
 const MODULE_PATH = "/dashboard/magnarent/booking";
 const INVENTORY_PATH = "/dashboard/magnarent/inventaris";
@@ -270,5 +277,145 @@ export async function deleteMaintenanceLog(id: string): Promise<MutationResult> 
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(INVENTORY_PATH);
+  return { ok: true };
+}
+
+
+/**
+ * Unit individual per alat + kode untuk QR (Gap #2/#3 analisis Magnarent) —
+ * banyak baris per alat, TIDAK dipakai untuk hitung kapasitas booking (itu
+ * tetap murni berbasis JUMLAH di magnarent_inventory.total_unit/availability.ts).
+ * Ini murni lapisan identifikasi fisik: staf gudang scan QR untuk tahu unit
+ * mana yang mana & status kasarnya, dibuka dari InventoryManager.tsx.
+ */
+export async function getInventoryUnits(itemId: string): Promise<InventoryUnit[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("magnarent_inventory_units")
+    .select("*")
+    .eq("item_id", itemId)
+    .order("kode_unit", { ascending: true })
+    .returns<InventoryUnitRow[]>();
+
+  if (error) {
+    console.error("[magnarent] getInventoryUnits gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToInventoryUnit);
+}
+
+export async function addInventoryUnit(
+  itemId: string,
+  input: { kodeUnit: string; status: InventoryUnitStatus; catatan?: string }
+): Promise<MutationResult> {
+  if (!input.kodeUnit?.trim()) return { ok: false, error: "Kode unit wajib diisi." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_inventory_units").insert({
+    item_id: itemId,
+    kode_unit: input.kodeUnit.trim(),
+    status: input.status,
+    catatan: input.catatan?.trim() || null,
+  });
+
+  if (error) {
+    if (error.message.includes("duplicate key")) {
+      return { ok: false, error: "Kode unit ini sudah dipakai di alat yang sama." };
+    }
+    console.error("[magnarent] addInventoryUnit gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(INVENTORY_PATH);
+  void logActivity({ module: "magnarent", action: "create", entityType: "unit alat", entityLabel: input.kodeUnit });
+  return { ok: true };
+}
+
+export async function updateInventoryUnit(
+  id: string,
+  input: { kodeUnit: string; status: InventoryUnitStatus; catatan?: string }
+): Promise<MutationResult> {
+  if (!input.kodeUnit?.trim()) return { ok: false, error: "Kode unit wajib diisi." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("magnarent_inventory_units")
+    .update({
+      kode_unit: input.kodeUnit.trim(),
+      status: input.status,
+      catatan: input.catatan?.trim() || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+
+  if (error) {
+    if (error.message.includes("duplicate key")) {
+      return { ok: false, error: "Kode unit ini sudah dipakai di alat yang sama." };
+    }
+    console.error("[magnarent] updateInventoryUnit gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(INVENTORY_PATH);
+  return { ok: true };
+}
+
+export async function deleteInventoryUnit(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_inventory_units").delete().eq("id", id);
+  if (error) {
+    console.error("[magnarent] deleteInventoryUnit gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(INVENTORY_PATH);
+  return { ok: true };
+}
+
+/**
+ * Penjadwalan pengiriman/pengambilan (Gap #7 analisis Magnarent) — satu
+ * baris per (booking, stage), di-upsert lewat unique(booking_id, stage) di
+ * migrasi 0061, dibuka dari BookingScheduler.tsx.
+ */
+export async function getDeliveries(bookingId: string): Promise<Delivery[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("magnarent_deliveries")
+    .select("*")
+    .eq("booking_id", bookingId)
+    .returns<DeliveryRow[]>();
+
+  if (error) {
+    console.error("[magnarent] getDeliveries gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToDelivery);
+}
+
+export async function saveDelivery(
+  bookingId: string,
+  stage: DeliveryStage,
+  input: { driverName?: string; jadwalTanggal?: string; jadwalJam?: string; status: DeliveryStatus; catatan?: string }
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_deliveries").upsert(
+    {
+      booking_id: bookingId,
+      stage,
+      driver_name: input.driverName?.trim() || null,
+      jadwal_tanggal: input.jadwalTanggal || null,
+      jadwal_jam: input.jadwalJam || null,
+      status: input.status,
+      catatan: input.catatan?.trim() || null,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "booking_id,stage" }
+  );
+
+  if (error) {
+    console.error("[magnarent] saveDelivery gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
   return { ok: true };
 }

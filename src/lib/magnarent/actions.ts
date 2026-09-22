@@ -63,6 +63,12 @@ function validateInventoryInput(input: Omit<InventoryItem, "id">): string | null
   if (!Number.isFinite(input.pricePerDay) || input.pricePerDay < 0) {
     return "Harga per hari tidak valid.";
   }
+  if (input.pricePerWeek !== undefined && (!Number.isFinite(input.pricePerWeek) || input.pricePerWeek < 0)) {
+    return "Harga per minggu tidak valid.";
+  }
+  if (input.pricePerMonth !== undefined && (!Number.isFinite(input.pricePerMonth) || input.pricePerMonth < 0)) {
+    return "Harga per bulan tidak valid.";
+  }
   return null;
 }
 
@@ -78,6 +84,8 @@ export async function addInventoryItem(input: Omit<InventoryItem, "id">): Promis
     price_per_day: input.pricePerDay,
     total_unit: input.totalUnit,
     unit_maintenance: input.unitMaintenance,
+    price_per_week: input.pricePerWeek ?? null,
+    price_per_month: input.pricePerMonth ?? null,
   });
 
   if (error) {
@@ -122,6 +130,8 @@ export async function updateInventoryItem(
       price_per_day: input.pricePerDay,
       total_unit: input.totalUnit,
       unit_maintenance: input.unitMaintenance,
+      price_per_week: input.pricePerWeek ?? null,
+      price_per_month: input.pricePerMonth ?? null,
     })
     .eq("id", id);
 
