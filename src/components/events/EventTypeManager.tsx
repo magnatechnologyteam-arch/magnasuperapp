@@ -22,6 +22,7 @@ import {
   addTemplateItem,
   bulkImportTemplateItems,
   createEventType,
+  deleteEventType,
   deleteTemplateItem,
   setEventTypeActive,
   updateEventType,
@@ -95,6 +96,8 @@ export function EventTypeManager({
   const [typeError, setTypeError] = useState<string | null>(null);
   const [typeSubmitting, setTypeSubmitting] = useState(false);
   const [togglingTypeId, setTogglingTypeId] = useState<string | null>(null);
+  const [deleteTypeTarget, setDeleteTypeTarget] = useState<EventType | null>(null);
+  const [deletingType, setDeletingType] = useState(false);
 
   function openAddType() {
     setEditingType(null);
@@ -141,6 +144,23 @@ export function EventTypeManager({
     }
     setEventTypes((prev) => prev.map((x) => (x.id === t.id ? { ...x, isActive: !x.isActive } : x)));
     showToast(t.isActive ? "Jenis event dinonaktifkan." : "Jenis event diaktifkan kembali.");
+  }
+
+  async function confirmDeleteType() {
+    if (!deleteTypeTarget) return;
+    setDeletingType(true);
+    const result = await deleteEventType(deleteTypeTarget.id);
+    setDeletingType(false);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      setDeleteTypeTarget(null);
+      return;
+    }
+    setEventTypes((prev) => prev.filter((x) => x.id !== deleteTypeTarget.id));
+    setTemplateItems((prev) => prev.filter((i) => i.eventTypeId !== deleteTypeTarget.id));
+    setSelectedTypeId((prev) => (prev === deleteTypeTarget.id ? null : prev));
+    showToast("Jenis event dihapus.");
+    setDeleteTypeTarget(null);
   }
 
   // --- Modal: tambah/edit item template ---
@@ -374,6 +394,14 @@ export function EventTypeManager({
                     ) : (
                       <Ban className="h-3 w-3" />
                     )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTypeTarget(t)}
+                    title="Hapus permanen"
+                    className="rounded-full p-1 text-current opacity-60 hover:bg-rose-50 hover:text-rose-600 hover:opacity-100 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+                  >
+                    <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
               );
@@ -617,6 +645,15 @@ export function EventTypeManager({
         title="Hapus Item Template"
         description={`Hapus item "${deleteItemTarget?.itemName}" dari template ini?`}
         confirmLabel="Hapus"
+      />
+
+      <ConfirmDialog
+        open={!!deleteTypeTarget}
+        onClose={() => setDeleteTypeTarget(null)}
+        onConfirm={confirmDeleteType}
+        title="Hapus Jenis Event"
+        description={`Hapus permanen jenis event "${deleteTypeTarget?.name}" beserta seluruh template checklist-nya? Hanya bisa dilakukan kalau belum pernah dipakai event manapun -- kalau sudah pernah dipakai, nonaktifkan saja.`}
+        confirmLabel={deletingType ? "Menghapus…" : "Hapus"}
       />
 
       {/* Modal import Excel/CSV */}

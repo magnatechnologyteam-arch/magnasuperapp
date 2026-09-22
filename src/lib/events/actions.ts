@@ -108,6 +108,51 @@ export async function setEventTypeActive(id: string, isActive: boolean): Promise
   return { ok: true };
 }
 
+/**
+ * Hapus jenis event PERMANEN -- HANYA diizinkan kalau belum ada satu pun
+ * event yang memakai jenis ini (`events.event_type_id`). Kalau sudah
+ * pernah dipakai, tolak dan arahkan ke nonaktifkan (`setEventTypeActive`)
+ * saja -- lihat komentar di fungsi itu kenapa hapus paksa berbahaya untuk
+ * riwayat event lama. Template checklist-nya (`event_type_template_items`)
+ * ikut terhapus otomatis lewat ON DELETE CASCADE kalau memang lolos cek.
+ */
+export async function deleteEventType(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("event_types")
+    .select("name")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError || !existing) return { ok: false, error: "Jenis event tidak ditemukan." };
+
+  const { count, error: countError } = await supabase
+    .from("events")
+    .select("id", { count: "exact", head: true })
+    .eq("event_type_id", id);
+
+  if (countError) {
+    console.error("[events] deleteEventType: gagal cek pemakaian:", countError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  if ((count ?? 0) > 0) {
+    return {
+      ok: false,
+      error: `Jenis event "${existing.name}" sudah dipakai ${count} event. Tidak bisa dihapus permanen -- nonaktifkan saja supaya tidak muncul lagi di pilihan baru.`,
+    };
+  }
+
+  const { error } = await supabase.from("event_types").delete().eq("id", id);
+  if (error) {
+    console.error("[events] deleteEventType gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "admin", action: "delete", entityType: "jenis event", entityLabel: existing.name });
+  return { ok: true };
+}
+
 export async function addTemplateItem(eventTypeId: string, input: TemplateItemInput, sortOrder: number): Promise<MutationResult> {
   const category = input.category.trim();
   const itemName = input.itemName.trim();
@@ -376,6 +421,71 @@ export async function updateEventStatus(id: string, status: EventStatus): Promis
     entityType: "event",
     entityLabel: `${existing.name} (status → ${status})`,
   });
+  return { ok: true };
+}
+
+/**
+ * Hapus event PERMANEN -- beda dari `updateEventStatus(id, "Dibatalkan")`
+ * yang cuma mengubah status (dipakai kalau event batal tapi datanya tetap
+ * mau disimpan sebagai riwayat). Ini untuk kasus event salah input/dibuat
+ * coba-coba yang belum ada progres nyata.
+ *
+ * Checklist (`event_checklist_items`) dan kaitan booking/proyek
+ * (`event_links`) ikut terhapus otomatis lewat ON DELETE CASCADE. TAPI
+ * kalau salah satu booking/proyek yang dikaitkan ke event ini SUDAH punya
+ * pengeluaran Realisasi Event tercatat (`event_expenses`, yang juga sudah
+ * kepost ke jurnal akuntansi), hapus permanen DITOLAK -- supaya jejak
+ * "pengeluaran ini untuk event apa" tidak hilang diam-diam. Untuk kasus
+ * itu pakai ubah status ke "Dibatalkan" saja.
+ */
+export async function deleteEvent(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("events")
+    .select("name")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError || !existing) return { ok: false, error: "Event tidak ditemukan." };
+
+  const { data: links, error: linksError } = await supabase
+    .from("event_links")
+    .select("source_type, source_id")
+    .eq("event_id", id);
+
+  if (linksError) {
+    console.error("[events] deleteEvent: gagal cek kaitan:", linksError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  for (const link of links ?? []) {
+    const { count, error: expenseError } = await supabase
+      .from("event_expenses")
+      .select("id", { count: "exact", head: true })
+      .eq("source_type", link.source_type)
+      .eq("source_id", link.source_id);
+
+    if (expenseError) {
+      console.error("[events] deleteEvent: gagal cek pengeluaran:", expenseError.message);
+      return { ok: false, error: GENERIC_ERROR };
+    }
+    if ((count ?? 0) > 0) {
+      return {
+        ok: false,
+        error:
+          'Event ini sudah punya pengeluaran Realisasi Event yang tercatat (sudah masuk jurnal akuntansi). Tidak bisa dihapus permanen -- pakai ubah status ke "Dibatalkan" saja supaya riwayatnya tetap ada.',
+      };
+    }
+  }
+
+  const { error } = await supabase.from("events").delete().eq("id", id);
+  if (error) {
+    console.error("[events] deleteEvent gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(EVENTS_PATH);
+  void logActivity({ module: "admin", action: "delete", entityType: "event", entityLabel: existing.name });
   return { ok: true };
 }
 

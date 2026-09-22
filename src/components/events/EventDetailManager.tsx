@@ -22,6 +22,7 @@ import {
   addEventChecklistItem,
   addEventLink,
   bulkImportEventChecklistItems,
+  deleteEvent,
   deleteEventChecklistItem,
   removeEventLink,
   searchLinkableSources,
@@ -78,6 +79,8 @@ export function EventDetailManager({
   const [links, setLinks] = useState(initialLinks);
   useEffect(() => setLinks(initialLinks), [initialLinks]);
   const [statusUpdating, setStatusUpdating] = useState(false);
+  const [deleteEventConfirmOpen, setDeleteEventConfirmOpen] = useState(false);
+  const [deletingEvent, setDeletingEvent] = useState(false);
 
   const groupedItems = useMemo(() => {
     const map = new Map<string, EventChecklistItem[]>();
@@ -99,6 +102,19 @@ export function EventDetailManager({
     }
     showToast(`Status event diubah ke "${status}".`);
     router.refresh();
+  }
+
+  async function handleDeleteEvent() {
+    setDeletingEvent(true);
+    const result = await deleteEvent(event.id);
+    setDeletingEvent(false);
+    setDeleteEventConfirmOpen(false);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    showToast("Event dihapus.");
+    router.push("/dashboard/admin/events");
   }
 
   // --- Modal: tambah/edit item checklist ---
@@ -342,6 +358,14 @@ export function EventDetailManager({
                 </option>
               ))}
             </select>
+            <button
+              type="button"
+              onClick={() => setDeleteEventConfirmOpen(true)}
+              title="Hapus event permanen"
+              className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </section>
@@ -624,6 +648,15 @@ export function EventDetailManager({
         title="Hapus Item Checklist"
         description={`Hapus item "${deleteItemTarget?.itemName}" dari checklist event ini?`}
         confirmLabel="Hapus"
+      />
+
+      <ConfirmDialog
+        open={deleteEventConfirmOpen}
+        onClose={() => setDeleteEventConfirmOpen(false)}
+        onConfirm={handleDeleteEvent}
+        title="Hapus Event"
+        description={`Hapus permanen event "${event.name}" beserta seluruh checklist dan kaitan booking/proyeknya? Hanya bisa dilakukan kalau belum ada pengeluaran Realisasi Event tercatat -- kalau sudah ada, ubah status ke "Dibatalkan" saja supaya riwayatnya tetap ada.`}
+        confirmLabel={deletingEvent ? "Menghapus…" : "Hapus"}
       />
 
       <ConfirmDialog

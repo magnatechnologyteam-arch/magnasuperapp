@@ -346,3 +346,63 @@ export async function setAccountActive(id: string, isActive: boolean): Promise<M
   });
   return { ok: true };
 }
+
+/**
+ * Hapus akun PERMANEN -- HANYA diizinkan kalau akun ini belum pernah
+ * dipakai di satu baris jurnal pun (`journal_entry_lines.account_id`, FK
+ * "NO ACTION" jadi database sendiri sebenarnya sudah menolak kalau masih
+ * dipakai -- cek manual di sini cuma supaya pesan errornya jelas dalam
+ * Bahasa Indonesia, bukan kode error Postgres mentah). Kalau sudah pernah
+ * dipakai, tolak dan arahkan ke nonaktifkan (`setAccountActive`) saja --
+ * lihat komentar di fungsi itu kenapa hapus paksa berbahaya untuk riwayat
+ * laporan lama.
+ */
+export async function deleteAccount(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("chart_of_accounts")
+    .select("account_code, account_name")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError || !existing) {
+    return { ok: false, error: "Akun tidak ditemukan." };
+  }
+
+  const { count, error: countError } = await supabase
+    .from("journal_entry_lines")
+    .select("id", { count: "exact", head: true })
+    .eq("account_id", id);
+
+  if (countError) {
+    console.error("[accounting] deleteAccount: gagal cek pemakaian:", countError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  if ((count ?? 0) > 0) {
+    return {
+      ok: false,
+      error: `Akun "${existing.account_code} — ${existing.account_name}" sudah dipakai di ${count} baris jurnal. Tidak bisa dihapus permanen -- nonaktifkan saja.`,
+    };
+  }
+
+  const { error } = await supabase.from("chart_of_accounts").delete().eq("id", id);
+  if (error) {
+    console.error("[accounting] deleteAccount gagal:", error.message);
+    if (error.code === "23503") {
+      return {
+        ok: false,
+        error: `Akun "${existing.account_code} — ${existing.account_name}" masih dipakai di data lain. Tidak bisa dihapus permanen -- nonaktifkan saja.`,
+      };
+    }
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  void logActivity({
+    module: "admin",
+    action: "delete",
+    entityType: "daftar akun",
+    entityLabel: `${existing.account_code} — ${existing.account_name}`,
+  });
+  return { ok: true };
+}

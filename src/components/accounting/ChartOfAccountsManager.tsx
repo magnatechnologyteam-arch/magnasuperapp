@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, CheckCircle2, Landmark, Loader2, Plus } from "lucide-react";
+import { Ban, CheckCircle2, Landmark, Loader2, Plus, Trash2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastProvider";
-import { createAccount, setAccountActive } from "@/lib/accounting/actions";
+import { createAccount, deleteAccount, setAccountActive } from "@/lib/accounting/actions";
 import type { Account, AccountType, NormalBalance } from "@/lib/accounting/types";
 import { cn } from "@/lib/cn";
 
@@ -31,10 +32,11 @@ function emptyForm() {
  * "Tambah Akun" di sini untuk situasi akun baru dibutuhkan (rekening bank
  * baru, kategori beban baru, dst) tanpa perlu migrasi database tiap kali.
  *
- * Tidak ada tombol hapus akun -- lihat komentar `setAccountActive` di
- * actions.ts: akun lama bisa saja sudah dipakai baris jurnal historis,
- * jadi cuma bisa dinonaktifkan (disembunyikan dari pilihan akun BARU),
- * tidak pernah dihapus permanen.
+ * Tombol hapus permanen HANYA aktif untuk akun yang belum pernah dipakai
+ * satu baris jurnal pun -- lihat komentar `deleteAccount` di actions.ts.
+ * Akun yang sudah pernah dipakai baris jurnal historis cuma bisa
+ * dinonaktifkan (disembunyikan dari pilihan akun BARU), tidak bisa
+ * dihapus permanen, supaya laporan lama tidak rusak.
  */
 export function ChartOfAccountsManager({ initialAccounts }: { initialAccounts: Account[] }) {
   const router = useRouter();
@@ -48,6 +50,8 @@ export function ChartOfAccountsManager({ initialAccounts }: { initialAccounts: A
   const [submitting, setSubmitting] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [showInactive, setShowInactive] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const grouped = useMemo(() => {
     const visible = accounts.filter((a) => showInactive || a.isActive);
@@ -109,6 +113,21 @@ export function ChartOfAccountsManager({ initialAccounts }: { initialAccounts: A
     }
     setAccounts((prev) => prev.map((a) => (a.id === account.id ? { ...a, isActive: !a.isActive } : a)));
     showToast(account.isActive ? "Akun dinonaktifkan." : "Akun diaktifkan kembali.");
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const result = await deleteAccount(deleteTarget.id);
+    setDeleting(false);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      setDeleteTarget(null);
+      return;
+    }
+    setAccounts((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+    showToast("Akun dihapus.");
+    setDeleteTarget(null);
   }
 
   return (
@@ -174,27 +193,37 @@ export function ChartOfAccountsManager({ initialAccounts }: { initialAccounts: A
                         <td className="px-3 py-2 text-zinc-700 dark:text-zinc-200">{a.name}</td>
                         <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">{a.subtype || "—"}</td>
                         <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">{a.normalBalance}</td>
-                        <td className="px-3 py-2 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleActive(a)}
-                            disabled={togglingId === a.id}
-                            className={cn(
-                              "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50",
-                              a.isActive
-                                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300"
-                                : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-white/5 dark:text-zinc-400"
-                            )}
-                          >
-                            {togglingId === a.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : a.isActive ? (
-                              <CheckCircle2 className="h-3 w-3" />
-                            ) : (
-                              <Ban className="h-3 w-3" />
-                            )}
-                            {a.isActive ? "Aktif" : "Nonaktif"}
-                          </button>
+                        <td className="px-3 py-2">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActive(a)}
+                              disabled={togglingId === a.id}
+                              className={cn(
+                                "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50",
+                                a.isActive
+                                  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300"
+                                  : "bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-white/5 dark:text-zinc-400"
+                              )}
+                            >
+                              {togglingId === a.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : a.isActive ? (
+                                <CheckCircle2 className="h-3 w-3" />
+                              ) : (
+                                <Ban className="h-3 w-3" />
+                              )}
+                              {a.isActive ? "Aktif" : "Nonaktif"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteTarget(a)}
+                              title="Hapus permanen (hanya kalau belum pernah dipakai jurnal)"
+                              className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -311,6 +340,15 @@ export function ChartOfAccountsManager({ initialAccounts }: { initialAccounts: A
           </div>
         </form>
       </Modal>
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title="Hapus Akun"
+        description={`Hapus permanen akun "${deleteTarget?.code} — ${deleteTarget?.name}"? Hanya bisa dilakukan kalau akun ini belum pernah dipakai di baris jurnal manapun -- kalau sudah pernah, nonaktifkan saja.`}
+        confirmLabel={deleting ? "Menghapus…" : "Hapus"}
+      />
     </section>
   );
 }
