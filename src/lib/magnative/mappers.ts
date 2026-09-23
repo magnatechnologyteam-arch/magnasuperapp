@@ -59,6 +59,8 @@ export type ProjectRow = {
   alasan_kalah: string | null;
   /** Rekomendasi 2 laporan gap-event vs SOP, migrasi 0064. */
   pipeline_stage: PipelineStage | null;
+  /** Migrasi 0065 -- sumber/channel undangan pitching (Client/Brand). */
+  sumber_undangan: string | null;
 };
 
 export type ContentPostRow = {
@@ -103,6 +105,7 @@ export function rowToProject(row: ProjectRow): Project {
     catatan: row.catatan ?? undefined,
     alasanKalah: row.alasan_kalah ?? undefined,
     pipelineStage: row.pipeline_stage ?? undefined,
+    sumberUndangan: row.sumber_undangan ?? undefined,
   };
 }
 
@@ -338,7 +341,8 @@ export function rowToPipelineFile(row: PipelineFileRow): PipelineFile {
   };
 }
 
-/** Baris `magnative_project_tasks` (Update Opsional 2, migrasi 0060). */
+/** Baris `magnative_project_tasks` (Update Opsional 2, migrasi 0060;
+ * `vendor_id`/`biaya_estimasi` migrasi 0065). */
 export type ProjectTaskRow = {
   id: string;
   project_id: string;
@@ -348,6 +352,8 @@ export type ProjectTaskRow = {
   due_date: string | null;
   pic: string | null;
   sort_order: number;
+  vendor_id: string | null;
+  biaya_estimasi: number | null;
 };
 
 /**
@@ -367,6 +373,8 @@ export function rowToProjectTask(row: ProjectTaskRow, picNameMap: Map<string, st
     pic: row.pic ?? undefined,
     picName: row.pic ? picNameMap.get(row.pic) : undefined,
     sortOrder: row.sort_order,
+    vendorId: row.vendor_id ?? undefined,
+    biayaEstimasi: row.biaya_estimasi ?? undefined,
   };
 }
 

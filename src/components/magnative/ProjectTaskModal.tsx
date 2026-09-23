@@ -6,7 +6,7 @@ import { useMagnativeData } from "./MagnativeDataProvider";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { formatDateID } from "@/lib/shared/utils";
+import { formatDateID, formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { Project, ProjectTaskStatus } from "@/lib/magnative/types";
 
@@ -28,7 +28,7 @@ const NEXT_STATUS: Record<ProjectTaskStatus, ProjectTaskStatus | null> = {
 };
 
 function emptyForm() {
-  return { title: "", detail: "", dueDate: "", pic: "" };
+  return { title: "", detail: "", dueDate: "", pic: "", vendorId: "", biayaEstimasi: "" };
 }
 
 /**
@@ -39,8 +39,15 @@ function emptyForm() {
  * PIC dipakai ulang dari `picOptions` yang sama dengan Papan Tracking.
  */
 export function ProjectTaskModal({ project, onClose }: { project: Project; onClose: () => void }) {
-  const { getTasksForProject, picOptions, addProjectTask, updateProjectTask, updateProjectTaskStatus, deleteProjectTask } =
-    useMagnativeData();
+  const {
+    getTasksForProject,
+    picOptions,
+    vendors,
+    addProjectTask,
+    updateProjectTask,
+    updateProjectTaskStatus,
+    deleteProjectTask,
+  } = useMagnativeData();
   const { showToast } = useToast();
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -58,7 +65,14 @@ export function ProjectTaskModal({ project, onClose }: { project: Project; onClo
     const target = tasks.find((t) => t.id === id);
     if (!target) return;
     setEditingId(id);
-    setForm({ title: target.title, detail: target.detail ?? "", dueDate: target.dueDate ?? "", pic: target.pic ?? "" });
+    setForm({
+      title: target.title,
+      detail: target.detail ?? "",
+      dueDate: target.dueDate ?? "",
+      pic: target.pic ?? "",
+      vendorId: target.vendorId ?? "",
+      biayaEstimasi: target.biayaEstimasi ? String(target.biayaEstimasi) : "",
+    });
     setError(null);
   }
 
@@ -85,6 +99,8 @@ export function ProjectTaskModal({ project, onClose }: { project: Project; onClo
       dueDate: form.dueDate || undefined,
       pic: form.pic || undefined,
       sortOrder: existing?.sortOrder ?? tasks.length,
+      vendorId: form.vendorId || undefined,
+      biayaEstimasi: form.biayaEstimasi ? Number(form.biayaEstimasi) : undefined,
     };
     const result = editingId ? await updateProjectTask(editingId, payload) : await addProjectTask(payload);
     setSubmitting(false);
@@ -191,6 +207,41 @@ export function ProjectTaskModal({ project, onClose }: { project: Project; onClo
               </select>
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="task-vendor" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Vendor/Sourcing (opsional)
+              </label>
+              <select
+                id="task-vendor"
+                value={form.vendorId}
+                onChange={(e) => setForm((f) => ({ ...f, vendorId: e.target.value }))}
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
+              >
+                <option value="">— Tidak dikaitkan —</option>
+                {vendors.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.category})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="task-harga" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Estimasi Harga (Rp, opsional)
+              </label>
+              <input
+                id="task-harga"
+                type="number"
+                min={0}
+                step={1000}
+                value={form.biayaEstimasi}
+                onChange={(e) => setForm((f) => ({ ...f, biayaEstimasi: e.target.value }))}
+                placeholder="mis. 40000"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+            </div>
+          </div>
 
           {error && (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
@@ -233,6 +284,12 @@ export function ProjectTaskModal({ project, onClose }: { project: Project; onClo
                       {t.picName ?? "Belum ditunjuk"}
                       {t.dueDate ? ` · Deadline ${formatDateID(t.dueDate)}` : ""}
                     </p>
+                    {(t.vendorId || t.biayaEstimasi) && (
+                      <p className="truncate text-[11px] text-violet-500 dark:text-violet-300">
+                        {t.vendorId ? (vendors.find((v) => v.id === t.vendorId)?.name ?? "(vendor dihapus)") : "Sourcing internal"}
+                        {t.biayaEstimasi ? ` · ${formatRupiah(t.biayaEstimasi)}` : ""}
+                      </p>
+                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
                     <button

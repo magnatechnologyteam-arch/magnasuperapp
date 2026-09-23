@@ -176,6 +176,7 @@ export async function addProject(input: Omit<Project, "id">): Promise<MutationRe
     catatan: input.catatan ?? null,
     alasan_kalah: input.alasanKalah?.trim() || null,
     pipeline_stage: input.pipelineStage ?? null,
+    sumber_undangan: input.sumberUndangan?.trim() || null,
   });
 
   if (error) {
@@ -223,6 +224,7 @@ export async function updateProject(id: string, input: Omit<Project, "id">): Pro
       catatan: input.catatan ?? null,
       alasan_kalah: input.alasanKalah?.trim() || null,
       pipeline_stage: input.pipelineStage ?? null,
+      sumber_undangan: input.sumberUndangan?.trim() || null,
     })
     .eq("id", id);
 
@@ -1158,6 +1160,8 @@ export async function addProjectTask(input: Omit<ProjectTask, "id" | "picName">)
     due_date: input.dueDate || null,
     pic: input.pic || null,
     sort_order: input.sortOrder ?? 0,
+    vendor_id: input.vendorId || null,
+    biaya_estimasi: input.biayaEstimasi ?? null,
   });
 
   if (error) {
@@ -1183,6 +1187,8 @@ export async function updateProjectTask(id: string, input: Omit<ProjectTask, "id
       due_date: input.dueDate || null,
       pic: input.pic || null,
       sort_order: input.sortOrder ?? 0,
+      vendor_id: input.vendorId || null,
+      biaya_estimasi: input.biayaEstimasi ?? null,
     })
     .eq("id", id);
 

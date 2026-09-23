@@ -229,3 +229,19 @@ export type UpdateChecklistProgressInput = {
   status: EventChecklistStatus;
   picId: string | null;
 };
+
+/**
+ * Satu baris riwayat perubahan status/PIC (papan tulis Owner: "Preparation
+ * PIC", "Production PIC", "Finish PIC" ditulis terpisah -- `pic` di
+ * `EventChecklistItem` cuma satu nilai yang DITIMPA tiap kali status
+ * berubah, tidak ada histori siapa yang pegang di tahap apa). Tabel
+ * `event_checklist_status_log` APPEND-ONLY -- satu baris baru ditulis tiap
+ * kali `updateEventChecklistProgress` dipanggil (migrasi 0065). */
+export type ChecklistStatusLogEntry = {
+  id: string;
+  checklistItemId: string;
+  status: EventChecklistStatus;
+  picId?: string;
+  picName?: string;
+  changedAt: string;
+};

@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatDateID, formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { PaymentStatus, Project, ProjectStatus, ProjectType } from "@/lib/magnative/types";
+import { SUMBER_UNDANGAN_PRESETS } from "@/lib/magnative/types";
 import { PROJECT_STATUS_STYLES as STATUS_STYLES, PAYMENT_STYLES } from "@/lib/status-styles";
 
 const GRADIENT = "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)";
@@ -35,6 +36,7 @@ function emptyForm() {
     dpAmount: "0",
     catatan: "",
     alasanKalah: "",
+    sumberUndangan: "",
   };
 }
 
@@ -51,6 +53,7 @@ function projectToForm(p: Project) {
     dpAmount: String(p.dpAmount ?? 0),
     catatan: p.catatan ?? "",
     alasanKalah: p.alasanKalah ?? "",
+    sumberUndangan: p.sumberUndangan ?? "",
   };
 }
 
@@ -174,6 +177,7 @@ export function ProjectManager() {
       dpAmount,
       catatan: form.catatan.trim() || undefined,
       alasanKalah: form.alasanKalah.trim() || undefined,
+      sumberUndangan: form.sumberUndangan.trim() || undefined,
       // Form edit proyek ini TIDAK punya field pipelineStage sendiri (itu
       // dikelola lewat ProjectPipelineModal terpisah). Tanpa baris ini,
       // updateProject akan mengirim pipelineStage=undefined setiap kali --
@@ -297,7 +301,12 @@ export function ProjectManager() {
                     </span>
                   </td>
                   <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">{clientName(p.clientId)}</td>
-                  <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">{p.type}</td>
+                  <td className="px-5 py-3 text-zinc-500 dark:text-zinc-400">
+                    {p.type}
+                    {p.sumberUndangan && (
+                      <p className="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">via {p.sumberUndangan}</p>
+                    )}
+                  </td>
                   <td className="px-5 py-3 whitespace-nowrap text-zinc-500 dark:text-zinc-400">
                     {formatDateID(p.tanggalMulai)}
                   </td>
@@ -466,6 +475,28 @@ export function ProjectManager() {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="project-sumber-undangan" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Sumber Undangan (opsional)
+            </label>
+            <input
+              id="project-sumber-undangan"
+              list="sumber-undangan-presets"
+              value={form.sumberUndangan}
+              onChange={(e) => setForm((f) => ({ ...f, sumberUndangan: e.target.value }))}
+              placeholder="mis. Client, Brand"
+              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+            />
+            <datalist id="sumber-undangan-presets">
+              {SUMBER_UNDANGAN_PRESETS.map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+            <p className="mt-1 text-[11px] text-zinc-400 dark:text-zinc-500">
+              Undangan pitching datang dari mana -- langsung dari klien, atau lewat brand/Admin.
+            </p>
           </div>
 
           {form.status === "Dibatalkan" && (

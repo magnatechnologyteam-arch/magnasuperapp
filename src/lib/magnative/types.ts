@@ -54,7 +54,17 @@ export type Project = {
    * selama `status` "Pitching", tapi nilainya TETAP disimpan sebagai
    * riwayat walau status sudah berubah (migrasi 0064, rekomendasi 2). */
   pipelineStage?: PipelineStage;
+  /** Sumber/channel undangan pitching masuk (mis. "Client" langsung vs
+   * lewat "Brand"/Jaron-Admin) -- papan tulis SOP Owner bedain dua ini di
+   * tahap paling awal. Bebas teks (lihat `SUMBER_UNDANGAN_PRESETS` di
+   * bawah), migrasi 0065. */
+  sumberUndangan?: string;
 };
+
+/** Preset dropdown `sumberUndangan` di atas -- staf tetap bisa isi sumber
+ * lain lewat opsi "Lainnya", field-nya sendiri bebas teks di DB (migrasi
+ * 0065). */
+export const SUMBER_UNDANGAN_PRESETS = ["Client", "Brand"] as const;
 
 /**
  * Tahapan pipeline proposal SEBELUM keputusan menang/kalah (papan tulis
@@ -286,4 +296,18 @@ export type ProjectTask = {
   pic?: string;
   picName?: string;
   sortOrder: number;
+  /** Kaitan opsional ke `magnative_vendors` -- sourcing per task proyek
+   * (papan tulis SOP Owner cabang WIN: "Checklist Project & Sourcing",
+   * contoh "Tollebag + DTF 30x30cm, Harga: 40.000"). Beda dari
+   * `ProjectVendor.vendorId` (satu link per vendor untuk SELURUH proyek)
+   * -- ini per TASK, jadi tiap sub-pekerjaan bisa sourcing vendor sendiri.
+   * Migrasi 0065. Resolusi nama dilakukan di UI dari `vendors` (context
+   * Magnative sudah punya daftar lengkap), bukan di server seperti modul
+   * Events -- modul ini tidak perlu berdiri sendiri dari tipe Vendor-nya
+   * sendiri. */
+  vendorId?: string;
+  /** Estimasi harga/biaya task ini (Rupiah) -- MURNI informatif seperti
+   * `ProjectVendor.biayaEstimasi`, bukan sumber jurnal akuntansi (biaya
+   * AKTUAL tetap lewat `ProjectCost`). Migrasi 0065. */
+  biayaEstimasi?: number;
 };

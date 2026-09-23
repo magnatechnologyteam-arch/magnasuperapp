@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity/log";
 import { notifyDivision } from "@/lib/push/notify";
 import type {
   ChecklistItemExtraInput,
+  ChecklistStatusLogEntry,
   CreateEventInput,
   CreateEventTypeInput,
   EventSourceType,
@@ -590,9 +591,76 @@ export async function updateEventChecklistProgress(
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  // Riwayat PIC per tahap (papan tulis Owner: "Preparation PIC",
+  // "Production PIC", "Finish PIC" ditulis terpisah) -- baris log
+  // APPEND-ONLY ditulis SETELAH update utama berhasil, migrasi 0065. Gagal
+  // tulis log TIDAK membatalkan update status/PIC di atas (sudah berhasil
+  // & sudah dilihat user) -- cukup dicatat ke console, konsisten dengan
+  // pola `void logActivity(...)` di tempat lain di file ini.
+  const { error: logError } = await supabase
+    .from("event_checklist_status_log")
+    .insert({ checklist_item_id: id, status: input.status, pic: input.picId });
+  if (logError) {
+    console.error("[events] gagal tulis riwayat status checklist:", logError.message);
+  }
+
   revalidatePath(`${TRACKING_PATH}/${eventId}`);
   revalidatePath(`${EVENTS_PATH}/${eventId}`);
   return { ok: true };
+}
+
+type ChecklistStatusLogRow = {
+  id: string;
+  checklist_item_id: string;
+  status: ChecklistStatusLogEntry["status"];
+  pic: string | null;
+  changed_at: string;
+};
+
+/**
+ * Riwayat lengkap satu item checklist, terbaru dulu -- dipanggil ON-DEMAND
+ * dari `ChecklistHistoryModal` (bukan di-preload lewat `getEventById`)
+ * supaya halaman Papan Tracking tidak perlu tarik histori SEMUA item
+ * sekaligus tiap kali dibuka. Resolusi nama PIC pola sama persis dengan
+ * `resolvePicNames` di data.ts, cuma tidak diekspor dari sana jadi ditulis
+ * ulang ringkas di sini (migrasi 0065).
+ */
+export async function getChecklistStatusLog(checklistItemId: string): Promise<ChecklistStatusLogEntry[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("event_checklist_status_log")
+    .select("id, checklist_item_id, status, pic, changed_at")
+    .eq("checklist_item_id", checklistItemId)
+    .order("changed_at", { ascending: false })
+    .returns<ChecklistStatusLogRow[]>();
+
+  if (error) {
+    console.error("[events] getChecklistStatusLog gagal:", error.message);
+    return [];
+  }
+
+  const picIds = Array.from(new Set((data ?? []).map((r) => r.pic).filter((v): v is string => !!v)));
+  let picNameById = new Map<string, string>();
+  if (picIds.length > 0) {
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", picIds);
+    if (profilesError) {
+      console.error("[events] getChecklistStatusLog: gagal ambil nama PIC:", profilesError.message);
+    } else {
+      picNameById = new Map((profiles ?? []).map((r) => [r.id as string, r.full_name as string]));
+    }
+  }
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    checklistItemId: row.checklist_item_id,
+    status: row.status,
+    picId: row.pic ?? undefined,
+    picName: row.pic ? picNameById.get(row.pic) : undefined,
+    changedAt: row.changed_at,
+  }));
 }
 
 export async function deleteEventChecklistItem(id: string, eventId: string): Promise<MutationResult> {
