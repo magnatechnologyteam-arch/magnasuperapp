@@ -12,6 +12,8 @@ import type {
   CreativeAssetFileType,
   Platform,
   PaymentStatus,
+  PipelineFile,
+  PipelineStage,
   PortfolioFolder,
   PortfolioPhoto,
   Project,
@@ -53,6 +55,10 @@ export type ProjectRow = {
   status_pembayaran: PaymentStatus;
   dp_amount: number;
   catatan: string | null;
+  /** Rekomendasi 1 laporan gap-event vs SOP, migrasi 0063. */
+  alasan_kalah: string | null;
+  /** Rekomendasi 2 laporan gap-event vs SOP, migrasi 0064. */
+  pipeline_stage: PipelineStage | null;
 };
 
 export type ContentPostRow = {
@@ -95,6 +101,8 @@ export function rowToProject(row: ProjectRow): Project {
     statusPembayaran: row.status_pembayaran,
     dpAmount: row.dp_amount ?? 0,
     catatan: row.catatan ?? undefined,
+    alasanKalah: row.alasan_kalah ?? undefined,
+    pipelineStage: row.pipeline_stage ?? undefined,
   };
 }
 
@@ -302,6 +310,31 @@ export function rowToProjectVendor(row: ProjectVendorRow): ProjectVendor {
     vendorId: row.vendor_id,
     keterangan: row.keterangan ?? undefined,
     biayaEstimasi: row.biaya_estimasi,
+  };
+}
+
+/** Baris `magnative_pipeline_files` (rekomendasi 2 laporan gap-event vs SOP, migrasi 0064). */
+export type PipelineFileRow = {
+  id: string;
+  project_id: string;
+  stage: PipelineStage;
+  file_name: string;
+  file_url: string;
+  storage_path: string;
+  notes: string | null;
+  created_at: string;
+};
+
+export function rowToPipelineFile(row: PipelineFileRow): PipelineFile {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    stage: row.stage,
+    fileName: row.file_name,
+    fileUrl: row.file_url,
+    storagePath: row.storage_path,
+    notes: row.notes ?? undefined,
+    createdAt: row.created_at,
   };
 }
 

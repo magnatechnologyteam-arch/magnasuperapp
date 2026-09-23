@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { Briefcase, Building2, ListChecks, Pencil, Plus, Search, Trash2, Wallet2 } from "lucide-react";
+import { Briefcase, Building2, ListChecks, Pencil, Plus, Search, Trash2, Wallet2, Workflow } from "lucide-react";
 import { useMagnativeData } from "./MagnativeDataProvider";
 import { ProjectCostModal } from "./ProjectCostModal";
 import { ProjectTaskModal } from "./ProjectTaskModal";
 import { ProjectVendorModal } from "./ProjectVendorModal";
+import { ProjectPipelineModal } from "./ProjectPipelineModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -33,6 +34,7 @@ function emptyForm() {
     statusPembayaran: "Belum Bayar" as PaymentStatus,
     dpAmount: "0",
     catatan: "",
+    alasanKalah: "",
   };
 }
 
@@ -48,6 +50,7 @@ function projectToForm(p: Project) {
     statusPembayaran: p.statusPembayaran,
     dpAmount: String(p.dpAmount ?? 0),
     catatan: p.catatan ?? "",
+    alasanKalah: p.alasanKalah ?? "",
   };
 }
 
@@ -70,6 +73,7 @@ export function ProjectManager() {
   const [costTarget, setCostTarget] = useState<Project | null>(null);
   const [taskTarget, setTaskTarget] = useState<Project | null>(null);
   const [vendorTarget, setVendorTarget] = useState<Project | null>(null);
+  const [pipelineTarget, setPipelineTarget] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
 
@@ -149,6 +153,15 @@ export function ProjectManager() {
       }
     }
 
+    // Rekomendasi 1 laporan gap-event vs SOP (migrasi 0063) -- Owner minta
+    // alasan kalah/batal WAJIB diisi begitu status diubah ke "Dibatalkan".
+    // Dicek ulang juga di server (validateMagnativeProjectInput) -- form ini
+    // hanya memberi umpan balik lebih cepat sebelum request dikirim.
+    if (form.status === "Dibatalkan" && !form.alasanKalah.trim()) {
+      setError('Alasan kalah/batal wajib diisi saat status diubah ke "Dibatalkan".');
+      return;
+    }
+
     const payload = {
       clientId: form.clientId,
       name: form.name.trim(),
@@ -160,6 +173,16 @@ export function ProjectManager() {
       statusPembayaran: form.statusPembayaran,
       dpAmount,
       catatan: form.catatan.trim() || undefined,
+      alasanKalah: form.alasanKalah.trim() || undefined,
+      // Form edit proyek ini TIDAK punya field pipelineStage sendiri (itu
+      // dikelola lewat ProjectPipelineModal terpisah). Tanpa baris ini,
+      // updateProject akan mengirim pipelineStage=undefined setiap kali --
+      // dan actions.ts menulis `pipeline_stage: input.pipelineStage ?? null`
+      // tanpa syarat, jadi SETIAP edit proyek biasa (ganti nama, budget,
+      // dll) diam-diam menghapus tahap pipeline yang sudah diisi. Ambil
+      // nilai pipelineStage proyek yang sedang diedit dari context supaya
+      // ikut terkirim balik tanpa berubah.
+      pipelineStage: editingId ? projects.find((p) => p.id === editingId)?.pipelineStage : undefined,
     };
 
     setSubmitting(true);
@@ -288,6 +311,11 @@ export function ProjectManager() {
                     <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", STATUS_STYLES[p.status])}>
                       {p.status}
                     </span>
+                    {p.status === "Dibatalkan" && p.alasanKalah && (
+                      <p className="mt-1 max-w-[160px] truncate text-[11px] text-zinc-400 dark:text-zinc-500" title={p.alasanKalah}>
+                        {p.alasanKalah}
+                      </p>
+                    )}
                   </td>
                   <td className="px-5 py-3">
                     <span
@@ -332,6 +360,15 @@ export function ProjectManager() {
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10 dark:hover:text-amber-300"
                       >
                         <Building2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPipelineTarget(p)}
+                        title="Pipeline proposal"
+                        aria-label="Pipeline proposal"
+                        className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-500/10 dark:hover:text-indigo-300"
+                      >
+                        <Workflow className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
@@ -430,6 +467,23 @@ export function ProjectManager() {
               </select>
             </div>
           </div>
+
+          {form.status === "Dibatalkan" && (
+            <div>
+              <label htmlFor="project-alasan-kalah" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Alasan Kalah/Batal
+              </label>
+              <textarea
+                id="project-alasan-kalah"
+                required
+                rows={2}
+                value={form.alasanKalah}
+                onChange={(e) => setForm((f) => ({ ...f, alasanKalah: e.target.value }))}
+                placeholder="mis. budget klien tidak sesuai, kalah dari kompetitor lain"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-fuchsia-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -569,6 +623,7 @@ export function ProjectManager() {
       {costTarget && <ProjectCostModal project={costTarget} onClose={() => setCostTarget(null)} />}
       {taskTarget && <ProjectTaskModal project={taskTarget} onClose={() => setTaskTarget(null)} />}
       {vendorTarget && <ProjectVendorModal project={vendorTarget} onClose={() => setVendorTarget(null)} />}
+      {pipelineTarget && <ProjectPipelineModal project={pipelineTarget} onClose={() => setPipelineTarget(null)} />}
     </div>
   );
 }

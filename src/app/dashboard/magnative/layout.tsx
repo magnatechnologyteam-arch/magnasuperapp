@@ -8,6 +8,7 @@ import { getAssignablePics } from "@/lib/events/data";
 import {
   rowToClient,
   rowToContentPost,
+  rowToPipelineFile,
   rowToProject,
   rowToProjectCostFromExpense,
   rowToProjectTask,
@@ -15,6 +16,7 @@ import {
   rowToVendor,
   type ClientRow,
   type ContentPostRow,
+  type PipelineFileRow,
   type ProjectRow,
   type MagnativeProjectCostExpenseRow,
   type ProjectTaskRow,
@@ -34,8 +36,17 @@ const mod = MODULES.find((m) => m.id === "magnative")!;
  */
 export default async function MagnativeLayout({ children }: { children: ReactNode }) {
   const supabase = await createClient();
-  const [clientsResult, projectsResult, postsResult, costsResult, vendorsResult, projectVendorsResult, tasksResult, picOptions] =
-    await Promise.all([
+  const [
+    clientsResult,
+    projectsResult,
+    postsResult,
+    costsResult,
+    vendorsResult,
+    projectVendorsResult,
+    tasksResult,
+    pipelineFilesResult,
+    picOptions,
+  ] = await Promise.all([
       supabase.from("magnative_clients").select("*").order("created_at", { ascending: true }).returns<ClientRow[]>(),
       supabase
         .from("magnative_projects")
@@ -65,6 +76,13 @@ export default async function MagnativeLayout({ children }: { children: ReactNod
         .select("*")
         .order("sort_order", { ascending: true })
         .returns<ProjectTaskRow[]>(),
+      // Rekomendasi 2 laporan gap-event vs SOP (migrasi 0064) -- file
+      // pendukung tiap tahap pipeline proposal (MOM/rekaman/draft).
+      supabase
+        .from("magnative_pipeline_files")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .returns<PipelineFileRow[]>(),
       // Dipakai ulang dari Papan Tracking (Tahap D) -- RLS `profiles` sudah
       // dibuka lintas 3 divisi operasional + akses penuh khusus untuk
       // penunjukan PIC, lihat migrasi `event_tracking_board_pic_visibility`.
@@ -78,6 +96,8 @@ export default async function MagnativeLayout({ children }: { children: ReactNod
   if (vendorsResult.error) console.error("[magnative] Gagal memuat vendor:", vendorsResult.error.message);
   if (projectVendorsResult.error) console.error("[magnative] Gagal memuat kaitan vendor:", projectVendorsResult.error.message);
   if (tasksResult.error) console.error("[magnative] Gagal memuat task proyek:", tasksResult.error.message);
+  if (pipelineFilesResult.error)
+    console.error("[magnative] Gagal memuat file pipeline proposal:", pipelineFilesResult.error.message);
 
   const clients = (clientsResult.data ?? []).map(rowToClient);
   const projects = (projectsResult.data ?? []).map(rowToProject);
@@ -87,6 +107,7 @@ export default async function MagnativeLayout({ children }: { children: ReactNod
   const projectVendors = (projectVendorsResult.data ?? []).map(rowToProjectVendor);
   const picNameMap = new Map(picOptions.map((p) => [p.id, p.fullName]));
   const projectTasks = (tasksResult.data ?? []).map((row) => rowToProjectTask(row, picNameMap));
+  const pipelineFiles = (pipelineFilesResult.data ?? []).map(rowToPipelineFile);
 
   return (
     <ToastProvider>
@@ -98,6 +119,7 @@ export default async function MagnativeLayout({ children }: { children: ReactNod
         vendors={vendors}
         projectVendors={projectVendors}
         projectTasks={projectTasks}
+        pipelineFiles={pipelineFiles}
         picOptions={picOptions}
       >
         <div>

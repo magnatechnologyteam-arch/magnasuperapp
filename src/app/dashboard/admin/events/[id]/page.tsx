@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { CalendarClock } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/server";
-import { getEventById } from "@/lib/events/data";
+import { getEventById, getVendorOptions } from "@/lib/events/data";
 import { EventDetailManager } from "@/components/events/EventDetailManager";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 
@@ -18,7 +18,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
   }
 
   const { id } = await params;
-  const detail = await getEventById(id);
+  const [detail, vendorOptions] = await Promise.all([getEventById(id), getVendorOptions()]);
   if (!detail) {
     redirect("/dashboard/admin/events");
   }
@@ -54,6 +54,7 @@ export default async function EventDetailPage({ params }: { params: Promise<{ id
             event={detail.event}
             initialChecklistItems={detail.checklistItems}
             initialLinks={detail.links}
+            vendorOptions={vendorOptions}
           />
         </ToastProvider>
       </div>

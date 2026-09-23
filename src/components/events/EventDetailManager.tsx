@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Building2,
+  CalendarClock,
   FileSpreadsheet,
   Link2,
   Loader2,
@@ -11,6 +13,7 @@ import {
   Plus,
   Trash2,
   UploadCloud,
+  Users,
   X,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -18,6 +21,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/cn";
+import { formatDateID } from "@/lib/shared/utils";
 import {
   addEventChecklistItem,
   addEventLink,
@@ -31,6 +35,7 @@ import {
 } from "@/lib/events/actions";
 import { parseChecklistSheet } from "@/lib/events/importParser";
 import {
+  CHECKLIST_TEAM_PRESETS,
   EVENT_SOURCE_LABELS,
   EVENT_STATUSES,
   type EventChecklistItem,
@@ -40,10 +45,11 @@ import {
   type EventSummary,
   type LinkableSource,
   type TemplateImportRow,
+  type VendorOption,
 } from "@/lib/events/types";
 
 function emptyItemForm() {
-  return { category: "", itemName: "", detail: "", qtyInfo: "", notes: "" };
+  return { category: "", itemName: "", detail: "", qtyInfo: "", notes: "", vendorId: "", team: "", dueDate: "" };
 }
 
 const STATUS_BADGE: Record<EventStatus, string> = {
@@ -66,10 +72,15 @@ export function EventDetailManager({
   event,
   initialChecklistItems,
   initialLinks,
+  vendorOptions,
 }: {
   event: EventSummary;
   initialChecklistItems: EventChecklistItem[];
   initialLinks: EventLink[];
+  /** Dropdown "Kaitkan Vendor" di form checklist item -- basis data
+   * `magnative_vendors`, lihat komentar `VendorOption` di types.ts
+   * (rekomendasi 3 laporan gap-event vs SOP, migrasi 0063). */
+  vendorOptions: VendorOption[];
 }) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -140,6 +151,9 @@ export function EventDetailManager({
       detail: item.detail ?? "",
       qtyInfo: item.qtyInfo ?? "",
       notes: item.notes ?? "",
+      vendorId: item.vendorId ?? "",
+      team: item.team ?? "",
+      dueDate: item.dueDate ?? "",
     });
     setItemError(null);
     setItemFormOpen(true);
@@ -425,7 +439,31 @@ export function EventDetailManager({
                     <tbody>
                       {list.map((item) => (
                         <tr key={item.id} className="border-t border-zinc-100 dark:border-zinc-800">
-                          <td className="px-3 py-2 font-medium text-zinc-700 dark:text-zinc-200">{item.itemName}</td>
+                          <td className="px-3 py-2 font-medium text-zinc-700 dark:text-zinc-200">
+                            {item.itemName}
+                            {(item.vendorName || item.team || item.dueDate) && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {item.vendorName && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                                    <Building2 className="h-2.5 w-2.5" />
+                                    {item.vendorName}
+                                  </span>
+                                )}
+                                {item.team && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">
+                                    <Users className="h-2.5 w-2.5" />
+                                    {item.team}
+                                  </span>
+                                )}
+                                {item.dueDate && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
+                                    <CalendarClock className="h-2.5 w-2.5" />
+                                    {formatDateID(item.dueDate)}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </td>
                           <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">{item.detail || "—"}</td>
                           <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">{item.qtyInfo || "—"}</td>
                           <td className="px-3 py-2">
@@ -615,6 +653,53 @@ export function EventDetailManager({
               onChange={(e) => setItemForm((f) => ({ ...f, notes: e.target.value }))}
               className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Vendor <span className="font-normal text-zinc-400">(opsional)</span>
+              </label>
+              <select
+                value={itemForm.vendorId}
+                onChange={(e) => setItemForm((f) => ({ ...f, vendorId: e.target.value }))}
+                className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+              >
+                <option value="">-- Tidak dikaitkan --</option>
+                {vendorOptions.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Tanggal Target <span className="font-normal text-zinc-400">(opsional)</span>
+              </label>
+              <input
+                type="date"
+                value={itemForm.dueDate}
+                onChange={(e) => setItemForm((f) => ({ ...f, dueDate: e.target.value }))}
+                className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Tim <span className="font-normal text-zinc-400">(opsional)</span>
+            </label>
+            <input
+              list="checklist-team-presets"
+              value={itemForm.team}
+              onChange={(e) => setItemForm((f) => ({ ...f, team: e.target.value }))}
+              placeholder="mis. Tim Creative"
+              className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
+            />
+            <datalist id="checklist-team-presets">
+              {CHECKLIST_TEAM_PRESETS.map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
           </div>
           {itemError && (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">

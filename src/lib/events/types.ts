@@ -41,6 +41,16 @@ export type TemplateItemInput = {
   notes?: string;
 };
 
+/** Field TAMBAHAN khusus checklist event AKTUAL (Tahap C) -- vendor/tim/
+ * deadline TIDAK berlaku untuk template jenis event (`TemplateItemInput`
+ * di atas dipakai bersama), karena vendor & deadline baru masuk akal
+ * begitu event sungguhan sudah dibuat. Migrasi 0063, rekomendasi 3/4/5. */
+export type ChecklistItemExtraInput = {
+  vendorId?: string | null;
+  team?: string;
+  dueDate?: string;
+};
+
 /**
  * Satu baris hasil parsing Excel/CSV di client (lihat EventTypeManager.tsx)
  * SEBELUM disimpan -- parser mendukung DUA bentuk file sumber:
@@ -134,6 +144,21 @@ export type EventChecklistItem = {
    * dipisah dari `pic` (uuid) supaya UI tidak perlu query profiles sendiri. */
   picName?: string;
   sortOrder: number;
+  /** Kaitan opsional ke `magnative_vendors` (rekomendasi 3 laporan gap-
+   * event vs SOP, migrasi 0063) -- sourcing (harga/kategori vendor)
+   * langsung terlihat dari checklist. Diisi/diubah di halaman detail
+   * Admin (Tahap C), sama seperti category/itemName. */
+  vendorId?: string;
+  /** Nama tampilan untuk `vendorId` di atas, diresolusi di data.ts --
+   * dipisah dari `vendorId` (uuid) sama pola dengan `picName`. */
+  vendorName?: string;
+  /** Nama tim penanggung jawab item (mis. "Tim Creative"/"Tim Project"),
+   * bebas teks -- rekomendasi 4 laporan gap-event vs SOP, migrasi 0063. */
+  team?: string;
+  /** Tanggal target/deadline BARIS INI (beda dari tanggal mulai/selesai
+   * event secara keseluruhan) -- rekomendasi 5 laporan gap-event vs SOP,
+   * migrasi 0063. */
+  dueDate?: string;
 };
 
 export type EventLink = {
@@ -184,6 +209,21 @@ export type PicOption = {
   fullName: string;
   division: Division;
 };
+
+/** Opsi dropdown vendor Magnativ untuk dikaitkan ke checklist item (Tahap
+ * C, migrasi 0063, rekomendasi 3) -- dipakai `EventDetailManager.tsx`.
+ * Cuma id+name (bukan seluruh `Vendor` dari lib/magnative/types) supaya
+ * modul Events tidak perlu import tipe modul Magnative secara langsung,
+ * konsisten dengan semangat "tiap modul berdiri sendiri". */
+export type VendorOption = {
+  id: string;
+  name: string;
+};
+
+/** Preset nama tim untuk dropdown `team` di form checklist item -- staf
+ * tetap bisa isi nama tim lain lewat opsi "Lainnya" (lihat
+ * EventDetailManager.tsx), field-nya sendiri bebas teks di DB. */
+export const CHECKLIST_TEAM_PRESETS = ["Tim Creative", "Tim Project"] as const;
 
 export type UpdateChecklistProgressInput = {
   status: EventChecklistStatus;

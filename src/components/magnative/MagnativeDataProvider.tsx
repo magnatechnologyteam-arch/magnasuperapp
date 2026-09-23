@@ -1,7 +1,17 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, type ReactNode } from "react";
-import type { Client, ContentPost, Project, ProjectCost, ProjectTask, ProjectVendor, Vendor } from "@/lib/magnative/types";
+import type {
+  Client,
+  ContentPost,
+  PipelineFile,
+  PipelineStage,
+  Project,
+  ProjectCost,
+  ProjectTask,
+  ProjectVendor,
+  Vendor,
+} from "@/lib/magnative/types";
 import type { PicOption } from "@/lib/events/types";
 import * as actions from "@/lib/magnative/actions";
 import type { MutationResult } from "@/lib/magnative/actions";
@@ -19,6 +29,7 @@ type MagnativeDataContextValue = {
   vendors: Vendor[];
   projectVendors: ProjectVendor[];
   projectTasks: ProjectTask[];
+  pipelineFiles: PipelineFile[];
   picOptions: PicOption[];
 
   addClient: (input: Omit<Client, "id">) => Promise<MutationResult>;
@@ -53,6 +64,11 @@ type MagnativeDataContextValue = {
   updateProjectTask: (id: string, input: Omit<ProjectTask, "id" | "picName">) => Promise<MutationResult>;
   updateProjectTaskStatus: (id: string, status: ProjectTask["status"]) => Promise<MutationResult>;
   deleteProjectTask: (id: string) => Promise<MutationResult>;
+
+  getPipelineFilesForProject: (projectId: string) => PipelineFile[];
+  updateProjectPipelineStage: (projectId: string, stage: PipelineStage | null) => Promise<MutationResult>;
+  uploadPipelineFile: (formData: FormData) => Promise<MutationResult>;
+  deletePipelineFile: (id: string) => Promise<MutationResult>;
 };
 
 const MagnativeDataContext = createContext<MagnativeDataContextValue | null>(null);
@@ -75,6 +91,7 @@ export function MagnativeDataProvider({
   vendors,
   projectVendors,
   projectTasks,
+  pipelineFiles,
   picOptions,
   children,
 }: {
@@ -85,6 +102,7 @@ export function MagnativeDataProvider({
   vendors: Vendor[];
   projectVendors: ProjectVendor[];
   projectTasks: ProjectTask[];
+  pipelineFiles: PipelineFile[];
   picOptions: PicOption[];
   children: ReactNode;
 }) {
@@ -138,6 +156,13 @@ export function MagnativeDataProvider({
   );
   const deleteProjectTask = useCallback((id: string) => actions.deleteProjectTask(id), []);
 
+  const updateProjectPipelineStage = useCallback(
+    (projectId: string, stage: PipelineStage | null) => actions.updateProjectPipelineStage(projectId, stage),
+    []
+  );
+  const uploadPipelineFile = useCallback((formData: FormData) => actions.uploadPipelineFile(formData), []);
+  const deletePipelineFile = useCallback((id: string) => actions.deletePipelineFile(id), []);
+
   /** Dipakai UI untuk memblokir hapus klien yang masih punya proyek aktif. */
   const getActiveProjectsForClient = useCallback(
     (clientId: string) =>
@@ -164,6 +189,12 @@ export function MagnativeDataProvider({
     [projectTasks]
   );
 
+  /** Dipakai modal Pipeline Proposal per proyek (rekomendasi 2 laporan gap-event vs SOP, migrasi 0064). */
+  const getPipelineFilesForProject = useCallback(
+    (projectId: string) => pipelineFiles.filter((f) => f.projectId === projectId),
+    [pipelineFiles]
+  );
+
   const value = useMemo<MagnativeDataContextValue>(
     () => ({
       clients,
@@ -173,6 +204,7 @@ export function MagnativeDataProvider({
       vendors,
       projectVendors,
       projectTasks,
+      pipelineFiles,
       picOptions,
       addClient,
       updateClient,
@@ -200,6 +232,10 @@ export function MagnativeDataProvider({
       updateProjectTask,
       updateProjectTaskStatus,
       deleteProjectTask,
+      getPipelineFilesForProject,
+      updateProjectPipelineStage,
+      uploadPipelineFile,
+      deletePipelineFile,
     }),
     [
       clients,
@@ -209,6 +245,7 @@ export function MagnativeDataProvider({
       vendors,
       projectVendors,
       projectTasks,
+      pipelineFiles,
       picOptions,
       addClient,
       updateClient,
@@ -236,6 +273,10 @@ export function MagnativeDataProvider({
       updateProjectTask,
       updateProjectTaskStatus,
       deleteProjectTask,
+      getPipelineFilesForProject,
+      updateProjectPipelineStage,
+      uploadPipelineFile,
+      deletePipelineFile,
     ]
   );
 

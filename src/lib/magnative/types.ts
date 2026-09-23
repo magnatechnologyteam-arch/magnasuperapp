@@ -43,6 +43,45 @@ export type Project = {
   /** Nominal DP yang SUDAH diterima (Rupiah) — cuma relevan kalau statusPembayaran "DP", 0 selain itu. Migrasi 0015. */
   dpAmount: number;
   catatan?: string;
+  /** Alasan proyek batal/kalah pitching -- WAJIB diisi (ditegakkan di
+   * `validateMagnativeProjectInput`, actions.ts) begitu `status` diubah ke
+   * "Dibatalkan" (permintaan Owner, rekomendasi 1 laporan gap-event vs
+   * SOP). Nullable di DB supaya proyek lama yang sudah "Dibatalkan"
+   * sebelum kolom ini ada tidak jadi tidak valid. Migrasi 0063. */
+  alasanKalah?: string;
+  /** Tahap pipeline proposal SEBELUM menang/kalah -- lihat `PipelineStage`
+   * di bawah. undefined/null = belum ada tahap dimulai. Hanya relevan
+   * selama `status` "Pitching", tapi nilainya TETAP disimpan sebagai
+   * riwayat walau status sudah berubah (migrasi 0064, rekomendasi 2). */
+  pipelineStage?: PipelineStage;
+};
+
+/**
+ * Tahapan pipeline proposal SEBELUM keputusan menang/kalah (papan tulis
+ * Owner: Invitation/Briefing -> Client/Brand -> Admin -> Briefing -> MOM ->
+ * Submit Proposal -> Present Proposal & Budget) -- disederhanakan jadi 4
+ * tahap berjenjang, migrasi 0064 (rekomendasi 2 laporan gap-event vs SOP).
+ * Modul "Pipeline Proposal" ini SENGAJA terpisah dari modul "Event"/
+ * "Tracking Progress Event" (lihat src/lib/events/) -- yang itu untuk
+ * SETELAH menang (checklist & sourcing), ini untuk SEBELUM keputusan.
+ */
+export type PipelineStage = "Invitation" | "Briefing" | "Submit" | "Present";
+export const PIPELINE_STAGES: PipelineStage[] = ["Invitation", "Briefing", "Submit", "Present"];
+
+/**
+ * Satu file pendukung tahap pipeline (MOM, rekaman audio, draft proposal/
+ * budget) -- Owner memilih bentuk UPLOAD FILE BEBAS FORMAT + catatan
+ * singkat (bukan field terstruktur per jenis dokumen), migrasi 0064.
+ */
+export type PipelineFile = {
+  id: string;
+  projectId: string;
+  stage: PipelineStage;
+  fileName: string;
+  fileUrl: string;
+  storagePath: string;
+  notes?: string;
+  createdAt: string;
 };
 
 /**

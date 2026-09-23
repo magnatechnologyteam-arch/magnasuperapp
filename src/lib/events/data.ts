@@ -9,6 +9,7 @@ import type {
   EventType,
   EventTypeTemplateItem,
   PicOption,
+  VendorOption,
 } from "./types";
 
 type EventTypeRow = {
@@ -198,6 +199,9 @@ type ChecklistItemRow = {
   status: string;
   pic: string | null;
   sort_order: number;
+  vendor_id: string | null;
+  team: string | null;
+  due_date: string | null;
 };
 
 function mapChecklistItem(row: ChecklistItemRow): EventChecklistItem {
@@ -212,6 +216,9 @@ function mapChecklistItem(row: ChecklistItemRow): EventChecklistItem {
     status: row.status as EventChecklistItem["status"],
     pic: row.pic ?? undefined,
     sortOrder: row.sort_order,
+    vendorId: row.vendor_id ?? undefined,
+    team: row.team ?? undefined,
+    dueDate: row.due_date ?? undefined,
   };
 }
 
@@ -264,7 +271,7 @@ export async function getEventById(id: string): Promise<EventDetail | null> {
   const [{ data: itemRows, error: itemsError }, { data: linkRows, error: linksError }] = await Promise.all([
     supabase
       .from("event_checklist_items")
-      .select("id, event_id, category, item_name, detail, qty_info, notes, status, pic, sort_order")
+      .select("id, event_id, category, item_name, detail, qty_info, notes, status, pic, sort_order, vendor_id, team, due_date")
       .eq("event_id", id)
       .order("sort_order", { ascending: true })
       .returns<ChecklistItemRow[]>(),
@@ -304,10 +311,15 @@ export async function getEventById(id: string): Promise<EventDetail | null> {
   }));
 
   const picIds = Array.from(new Set((itemRows ?? []).map((r) => r.pic).filter((v): v is string => !!v)));
-  const picNameById = await resolvePicNames(supabase, picIds);
+  const vendorIds = Array.from(new Set((itemRows ?? []).map((r) => r.vendor_id).filter((v): v is string => !!v)));
+  const [picNameById, vendorNameById] = await Promise.all([
+    resolvePicNames(supabase, picIds),
+    resolveVendorNames(supabase, vendorIds),
+  ]);
   const checklistItems: EventChecklistItem[] = (itemRows ?? []).map((row) => ({
     ...mapChecklistItem(row),
     picName: row.pic ? picNameById.get(row.pic) : undefined,
+    vendorName: row.vendor_id ? vendorNameById.get(row.vendor_id) : undefined,
   }));
 
   return {
@@ -332,6 +344,38 @@ async function resolvePicNames(
     return new Map();
   }
   return new Map((data ?? []).map((r) => [r.id as string, r.full_name as string]));
+}
+
+/** Nama tampilan untuk `vendor_id` (uuid) tiap item checklist -- pola sama
+ * persis dengan `resolvePicNames` di atas (rekomendasi 3 laporan gap-event
+ * vs SOP, migrasi 0063). Query ke `magnative_vendors`, bukan modul Events
+ * sendiri -- konsisten dengan cara `resolveSourceLabels` membaca tabel
+ * divisi lain. */
+async function resolveVendorNames(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  vendorIds: string[]
+): Promise<Map<string, string>> {
+  if (vendorIds.length === 0) return new Map();
+  const { data, error } = await supabase.from("magnative_vendors").select("id, name").in("id", vendorIds);
+  if (error) {
+    console.error("[events] resolveVendorNames gagal:", error.message);
+    return new Map();
+  }
+  return new Map((data ?? []).map((r) => [r.id as string, r.name as string]));
+}
+
+/** Semua vendor Magnativ, buat dropdown "Kaitkan Vendor" di form checklist
+ * item halaman detail Admin (Tahap C) -- lihat `VendorOption` di types.ts.
+ * Cuma id+name (bukan `getVendorsForMagnative` penuh, yang tidak ada di
+ * modul ini) supaya query tetap ringan dan tidak bergantung tipe Magnative. */
+export async function getVendorOptions(): Promise<VendorOption[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("magnative_vendors").select("id, name").order("name", { ascending: true });
+  if (error) {
+    console.error("[events] getVendorOptions gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map((r) => ({ id: r.id as string, name: r.name as string }));
 }
 
 type PicProfileRow = { id: string; full_name: string; division: PicOption["division"] };

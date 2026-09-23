@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity/log";
 import { notifyDivision } from "@/lib/push/notify";
 import type {
+  ChecklistItemExtraInput,
   CreateEventInput,
   CreateEventTypeInput,
   EventSourceType,
@@ -496,7 +497,7 @@ export async function deleteEvent(id: string): Promise<MutationResult> {
 
 export async function addEventChecklistItem(
   eventId: string,
-  input: TemplateItemInput,
+  input: TemplateItemInput & ChecklistItemExtraInput,
   sortOrder: number
 ): Promise<MutationResult> {
   const category = input.category.trim();
@@ -513,6 +514,12 @@ export async function addEventChecklistItem(
     qty_info: input.qtyInfo?.trim() || null,
     notes: input.notes?.trim() || null,
     sort_order: sortOrder,
+    // Vendor/tim/deadline (rekomendasi 3/4/5, migrasi 0063) -- opsional,
+    // TIDAK berlaku untuk template jenis event (lihat komentar
+    // `ChecklistItemExtraInput` di types.ts).
+    vendor_id: input.vendorId || null,
+    team: input.team?.trim() || null,
+    due_date: input.dueDate || null,
   });
 
   if (error) {
@@ -527,7 +534,7 @@ export async function addEventChecklistItem(
 export async function updateEventChecklistItem(
   id: string,
   eventId: string,
-  input: TemplateItemInput
+  input: TemplateItemInput & ChecklistItemExtraInput
 ): Promise<MutationResult> {
   const category = input.category.trim();
   const itemName = input.itemName.trim();
@@ -543,6 +550,9 @@ export async function updateEventChecklistItem(
       detail: input.detail?.trim() || null,
       qty_info: input.qtyInfo?.trim() || null,
       notes: input.notes?.trim() || null,
+      vendor_id: input.vendorId || null,
+      team: input.team?.trim() || null,
+      due_date: input.dueDate || null,
     })
     .eq("id", id);
 

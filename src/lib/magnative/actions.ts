@@ -14,6 +14,7 @@ import type {
   ContentRequestStatus,
   ContentStatus,
   CreativeAssetCategory,
+  PipelineStage,
   Project,
   ProjectCost,
   ProjectTask,
@@ -27,6 +28,8 @@ const MODULE_PATH = "/dashboard/magnative";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
 const PORTFOLIO_BUCKET = "magnative-portfolio";
 const CREATIVE_ASSETS_BUCKET = "magnative-assets";
+/** Rekomendasi 2 laporan gap-event vs SOP (migrasi 0064) -- lihat komentar `PipelineFile` di types.ts. */
+const PIPELINE_FILES_BUCKET = "magnative-pipeline-files";
 
 export type MutationResult = { ok: true } | { ok: false; error: string };
 
@@ -145,6 +148,13 @@ function validateMagnativeProjectInput(input: Omit<Project, "id">): string | nul
   if (input.dpAmount !== undefined && (!Number.isFinite(input.dpAmount) || input.dpAmount < 0)) {
     return "Nominal DP tidak valid.";
   }
+  // Rekomendasi 1 laporan gap-event vs SOP (migrasi 0063) -- Owner minta
+  // alasan kalah/batal WAJIB diisi begitu status proyek diubah ke
+  // "Dibatalkan", ditegakkan di sini (bukan CHECK constraint DB) supaya
+  // konsisten dengan pola validasi lain di fungsi ini.
+  if (input.status === "Dibatalkan" && !input.alasanKalah?.trim()) {
+    return 'Alasan kalah/batal wajib diisi saat status diubah ke "Dibatalkan".';
+  }
   return null;
 }
 
@@ -164,6 +174,8 @@ export async function addProject(input: Omit<Project, "id">): Promise<MutationRe
     status_pembayaran: input.statusPembayaran,
     dp_amount: input.dpAmount ?? 0,
     catatan: input.catatan ?? null,
+    alasan_kalah: input.alasanKalah?.trim() || null,
+    pipeline_stage: input.pipelineStage ?? null,
   });
 
   if (error) {
@@ -209,6 +221,8 @@ export async function updateProject(id: string, input: Omit<Project, "id">): Pro
       status_pembayaran: input.statusPembayaran,
       dp_amount: input.dpAmount ?? 0,
       catatan: input.catatan ?? null,
+      alasan_kalah: input.alasanKalah?.trim() || null,
+      pipeline_stage: input.pipelineStage ?? null,
     })
     .eq("id", id);
 
@@ -1202,5 +1216,114 @@ export async function deleteProjectTask(id: string): Promise<MutationResult> {
   }
   revalidatePath(MODULE_PATH);
   void logActivity({ module: "magnative", action: "delete", entityType: "task proyek", entityLabel: taskRow?.title });
+  return { ok: true };
+}
+
+/**
+ * Modul "Pipeline Proposal" (rekomendasi 2 laporan gap-event vs SOP,
+ * migrasi 0064) -- mendigitalkan tahap SEBELUM menang/kalah (papan tulis
+ * Owner: Invitation -> Briefing -> Submit -> Present). `updateProjectPipelineStage`
+ * terpisah dari `updateProject` (pola sama seperti `updateProjectTaskStatus`)
+ * supaya tombol "majukan tahap" di modal tidak perlu mengirim ulang seluruh
+ * field proyek yang tidak berubah.
+ */
+export async function updateProjectPipelineStage(
+  projectId: string,
+  stage: PipelineStage | null
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnative_projects").update({ pipeline_stage: stage }).eq("id", projectId);
+  if (error) {
+    console.error("[magnative] updateProjectPipelineStage gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+/**
+ * Upload file pendukung tiap tahap pipeline (MOM/rekaman/draft proposal) --
+ * pola upload sama persis dengan `addCreativeAsset`: FormData supaya bisa
+ * membawa `File`, upload-lalu-insert supaya file yatim piatu dibersihkan
+ * kalau insert metadatanya gagal. Bebas format (PDF/Word/PPT/audio/dll),
+ * disetujui Owner lewat pertanyaan klarifikasi -- lihat komentar migrasi 0064.
+ */
+export async function uploadPipelineFile(formData: FormData): Promise<MutationResult> {
+  const supabase = await createClient();
+  const file = formData.get("file");
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const stage = String(formData.get("stage") ?? "") as PipelineStage;
+  const notes = String(formData.get("notes") ?? "").trim();
+
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Pilih file terlebih dahulu." };
+  }
+  if (!projectId) {
+    return { ok: false, error: "Proyek tidak ditemukan." };
+  }
+  if (!["Invitation", "Briefing", "Submit", "Present"].includes(stage)) {
+    return { ok: false, error: "Tahap pipeline tidak valid." };
+  }
+
+  const ext = file.name.includes(".") ? file.name.split(".").pop()!.toLowerCase() : "bin";
+  const storagePath = `${projectId}/${stage}/${crypto.randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(PIPELINE_FILES_BUCKET)
+    .upload(storagePath, file, { contentType: file.type || undefined });
+
+  if (uploadError) {
+    console.error("[magnative] Upload file pipeline gagal:", uploadError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(PIPELINE_FILES_BUCKET).getPublicUrl(storagePath);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error: insertError } = await supabase.from("magnative_pipeline_files").insert({
+    project_id: projectId,
+    stage,
+    file_name: file.name,
+    file_url: publicUrl,
+    storage_path: storagePath,
+    notes: notes || null,
+    uploaded_by: user?.id ?? null,
+  });
+
+  if (insertError) {
+    console.error("[magnative] Simpan data file pipeline gagal:", insertError.message);
+    await supabase.storage.from(PIPELINE_FILES_BUCKET).remove([storagePath]);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "create", entityType: "file pipeline proposal", entityLabel: file.name });
+  return { ok: true };
+}
+
+export async function deletePipelineFile(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: fileRow } = await supabase
+    .from("magnative_pipeline_files")
+    .select("file_name, storage_path")
+    .eq("id", id)
+    .maybeSingle();
+
+  const { error } = await supabase.from("magnative_pipeline_files").delete().eq("id", id);
+  if (error) {
+    console.error("[magnative] deletePipelineFile gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  if (fileRow?.storage_path) {
+    await supabase.storage.from(PIPELINE_FILES_BUCKET).remove([fileRow.storage_path]);
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnative", action: "delete", entityType: "file pipeline proposal", entityLabel: fileRow?.file_name });
   return { ok: true };
 }
