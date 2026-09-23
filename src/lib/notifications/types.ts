@@ -12,4 +12,9 @@ export type AppNotification = {
   url: string | null;
   createdAt: string;
   isRead: boolean;
+  /** Flag generik "penting" (migrasi 0062) -- dipakai ImportantNotificationBanner
+   * di AppShell untuk menampilkan notifikasi ini sebagai banner mencolok,
+   * terpisah dari daftar biasa di NotificationInbox. Saat ini cuma dipakai
+   * notifikasi "Event Baru" (lihat createEvent di lib/events/actions.ts). */
+  isImportant: boolean;
 };

@@ -3,7 +3,19 @@ import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Division } from "@/lib/supabase/types";
 
-export type NotifyPayload = { title: string; body: string; url?: string };
+/**
+ * `important` (migrasi 0062) -- flag generik opsional, dibaca DUA tempat:
+ * (1) `persistNotification` di bawah, disimpan ke kolom `is_important`
+ * supaya `ImportantNotificationBanner` (AppShell) bisa menampilkannya
+ * sebagai banner mencolok, terpisah dari kotak masuk biasa; (2) ikut
+ * ke JSON yang dikirim ke browser lewat Web Push (lihat `sendPushToSubscriptionOwners`
+ * di bawah -- payload dikirim APA ADANYA, tidak perlu perubahan tambahan
+ * di sana), lalu dibaca `public/sw.js` untuk membuat notifikasi OS-nya
+ * `requireInteraction` (tidak hilang sendiri) & bergetar beda dari push
+ * biasa. Default-nya falsy (tidak usah diisi) untuk notifikasi biasa --
+ * saat ini cuma dipakai `createEvent` (lib/events/actions.ts).
+ */
+export type NotifyPayload = { title: string; body: string; url?: string; important?: boolean };
 
 /**
  * Konfigurasi VAPID sekali per pemanggilan — dipakai bersama oleh
@@ -151,6 +163,7 @@ async function persistNotification(
     title: payload.title,
     body: payload.body,
     url: payload.url ?? null,
+    is_important: payload.important ?? false,
     target_divisions: target.divisions ?? [],
     target_user_ids: target.userIds ?? [],
     created_by: createdBy ?? null,

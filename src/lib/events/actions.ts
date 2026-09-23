@@ -395,6 +395,11 @@ export async function createEvent(input: CreateEventInput): Promise<CreateEventR
     {
       title: "Event Baru",
       body: `${name}${input.clientName ? ` — ${input.clientName.trim()}` : ""} baru dibuat. Cek checklist & kaitkan booking/proyek yang relevan.`,
+      // Event baru sengaja ditandai "penting" (migrasi 0062) -- muncul
+      // sebagai banner mencolok di AppShell (ImportantNotificationBanner)
+      // dan push notification yang tidak hilang sendiri (lihat public/sw.js),
+      // beda dari notifikasi rutin lain seperti booking/stok menipis.
+      important: true,
     },
     user?.id
   );

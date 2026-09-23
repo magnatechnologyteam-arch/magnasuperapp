@@ -20,11 +20,20 @@ self.addEventListener("push", (event) => {
     }
   }
 
+  // `important` (migrasi 0062, lihat src/lib/push/notify.ts) -- notifikasi
+  // penting (mis. "Event Baru") dibuat `requireInteraction: true` supaya
+  // TIDAK hilang sendiri dari layar HP/desktop sebelum staf sempat lihat
+  // (perilaku default browser: notifikasi biasa hilang sendiri setelah
+  // beberapa detik), plus pola getar beda supaya kerasa beda saat HP di
+  // kantong. Notifikasi biasa (important falsy) tidak berubah sama sekali.
   const options = {
     body: payload.body,
     icon: payload.icon || "/favicon.ico",
     badge: payload.badge || "/favicon.ico",
     data: { url: payload.url || "/dashboard" },
+    requireInteraction: !!payload.important,
+    tag: payload.important ? "magnasuperapp-penting" : undefined,
+    vibrate: payload.important ? [250, 100, 250, 100, 250] : undefined,
   };
 
   event.waitUntil(self.registration.showNotification(payload.title, options));

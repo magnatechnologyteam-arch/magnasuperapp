@@ -3,6 +3,7 @@ import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
 import { Topbar } from "./Topbar";
 import { MaintenanceBanner } from "./MaintenanceBanner";
+import { ImportantNotificationBanner } from "@/components/notifications/ImportantNotificationBanner";
 import { PullToRefresh } from "./PullToRefresh";
 import { WelcomeSplash } from "./WelcomeSplash";
 import { LocaleProvider } from "@/lib/i18n/LocaleProvider";
@@ -47,6 +48,7 @@ export function AppShell({
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar user={user} />
           <MobileNav division={user?.division} />
+          <ImportantNotificationBanner />
           {maintenance?.active && <MaintenanceBanner message={maintenance.message} />}
           <main className="flex-1">
             <PullToRefresh>{children}</PullToRefresh>
