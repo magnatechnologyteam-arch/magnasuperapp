@@ -65,7 +65,7 @@ const MONTHS_BACK = 6;
  */
 export default async function KeuanganPage() {
   const profile = await getCurrentProfile();
-  if (!profile || profile.division !== "all") {
+  if (!profile || (profile.division !== "all" && profile.division !== "finance")) {
     redirect("/dashboard");
   }
 

@@ -9,8 +9,12 @@ const DIVISION_OPTIONS: Array<{ value: Division; hint: string }> = [
   { value: "production", hint: "Hanya modul Production" },
   { value: "magnarent", hint: "Hanya modul Magnarent" },
   { value: "magnative", hint: "Hanya modul Magnativ" },
-  { value: "all", hint: "Semua modul (Finance/Owner)" },
+  { value: "all", hint: "Semua modul (Owner)" },
   { value: "investor", hint: "Bisa lihat semua divisi (tanpa ubah data) + Approve/Reject Pengajuan Modal" },
+  {
+    value: "finance",
+    hint: "Hanya Piutang & Pendapatan, Akuntansi, Laba-Rugi, Neraca, Arus Kas & Faktur",
+  },
 ];
 
 function generatePassword() {

@@ -7,6 +7,7 @@ import {
   ADMIN_LINKS,
   CHAT_LINK,
   DIVISION_REPORT_LINKS,
+  FINANCE_LINKS,
   HUB_HREF,
   INVESTOR_LINKS,
   REALISASI_EVENT_LINK,
@@ -38,6 +39,7 @@ export function Sidebar({ division }: { division?: Division | null }) {
   const modules = getVisibleModules(division);
   const isFullAccess = division === "all";
   const isInvestor = division === "investor";
+  const isFinance = division === "finance";
   const isOperationalDivision =
     division === "magnarent" || division === "magnative" || division === "production";
   // Chat (Tahap 37) & Realisasi Event (Tahap B) — terbuka untuk semua divisi KECUALI investor.
@@ -187,6 +189,36 @@ export function Sidebar({ division }: { division?: Division | null }) {
                         "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
                         isActive
                           ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                          : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
+                      )}
+                    >
+                      <Icon className="h-[18px] w-[18px]" />
+                      {t(link.label)}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {isFinance && (
+          <div className="pt-5">
+            <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              {t("Finance")}
+            </p>
+            <ul className="space-y-1">
+              {FINANCE_LINKS.map((link) => {
+                const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                const Icon = link.icon;
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      className={cn(
+                        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
+                        isActive
+                          ? "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300"
                           : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-white"
                       )}
                     >

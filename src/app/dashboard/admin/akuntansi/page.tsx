@@ -24,7 +24,7 @@ import { ToastProvider } from "@/components/ui/ToastProvider";
  */
 export default async function AkuntansiPage() {
   const profile = await getCurrentProfile();
-  if (!profile || profile.division !== "all") {
+  if (!profile || (profile.division !== "all" && profile.division !== "finance")) {
     redirect("/dashboard");
   }
 

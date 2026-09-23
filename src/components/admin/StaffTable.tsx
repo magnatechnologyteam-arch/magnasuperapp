@@ -17,7 +17,7 @@ type StaffRow = {
   created_at: string;
 };
 
-const DIVISION_OPTIONS: Division[] = ["magnarent", "magnative", "production", "all", "investor"];
+const DIVISION_OPTIONS: Division[] = ["magnarent", "magnative", "production", "all", "investor", "finance"];
 
 // Warna solid untuk titik kecil di legenda — beda dari DIVISION_BADGE_CLASSES
 // (yang pastel, untuk latar pill) supaya titiknya tetap terlihat jelas di
@@ -28,6 +28,7 @@ const DIVISION_DOT_CLASSES: Record<Division, string> = {
   production: "bg-orange-500",
   all: "bg-amber-500",
   investor: "bg-emerald-500",
+  finance: "bg-violet-500",
 };
 
 /**
@@ -45,7 +46,7 @@ export function StaffTable({ staff, currentUserId }: { staff: StaffRow[]; curren
       {staff.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-black/5 px-4 py-2.5 text-[11px] text-zinc-400 dark:border-white/10 dark:text-zinc-500">
           <span className="font-semibold text-zinc-500 dark:text-zinc-400">Warna divisi:</span>
-          {(["all", "magnarent", "magnative", "production", "investor"] as Division[]).map((d) => (
+          {(["all", "finance", "magnarent", "magnative", "production", "investor"] as Division[]).map((d) => (
             <span key={d} className="inline-flex items-center gap-1.5">
               <span className={cn("h-2 w-2 rounded-full", DIVISION_DOT_CLASSES[d])} />
               {DIVISION_LABELS[d]}

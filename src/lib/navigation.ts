@@ -234,6 +234,25 @@ export const INVESTOR_LINKS: QuickLink[] = [
   },
 ];
 
+/**
+ * Tautan khusus division "finance" (migrasi 0061_finance_role.sql) — SUBSET
+ * dari ADMIN_LINKS, cuma 7 halaman keuangan. Sisanya (Kelola Pengguna,
+ * Kirim Notifikasi, Laporan, Aktivitas, Klien Terpadu, Jenis Event, Event,
+ * Katalog Produk, Pengajuan Modal, Status Sistem) TETAP tertutup untuk
+ * Finance -- itu urusan Owner/Admin. Array terpisah (bukan filter dari
+ * ADMIN_LINKS) sama alasannya dengan DIVISION_REPORT_LINKS/INVESTOR_LINKS:
+ * urutan/isinya independen dari menu akses penuh.
+ */
+export const FINANCE_LINKS: QuickLink[] = [
+  { href: "/dashboard/admin/keuangan", label: "Piutang & Pendapatan", shortLabel: "Piutang", icon: Wallet2 },
+  { href: "/dashboard/admin/akuntansi", label: "Akuntansi", shortLabel: "Akuntansi", icon: BookOpenText },
+  { href: "/dashboard/admin/laba-rugi", label: "Laba-Rugi", shortLabel: "Laba-Rugi", icon: TrendingUp },
+  { href: "/dashboard/admin/neraca", label: "Neraca", shortLabel: "Neraca", icon: Scale },
+  { href: "/dashboard/admin/arus-kas-akuntansi", label: "Arus Kas (Jurnal)", shortLabel: "Arus Kas Jurnal", icon: Wallet },
+  { href: "/dashboard/admin/faktur", label: "Faktur", shortLabel: "Faktur", icon: Receipt },
+  { href: "/dashboard/admin/arus-kas", label: "Arus Kas Proyek", shortLabel: "Arus Kas", icon: ArrowLeftRight },
+];
+
 export function getModuleByPath(pathname: string): ModuleConfig | undefined {
   return MODULES.find(
     (mod) => pathname === mod.href || pathname.startsWith(`${mod.href}/`)
@@ -252,6 +271,9 @@ export function getVisibleModules(division?: string | null): ModuleConfig[] {
   // divisi) — bukan modul operasional biasa, jadi sengaja tidak ditampilkan
   // di sini (lihat Sidebar.tsx untuk tautan investor).
   if (division === "investor") return [];
+  // Finance punya area sendiri juga (FINANCE_LINKS -- halaman keuangan),
+  // sama sekali bukan modul operasional Magnarent/Magnativ/Production.
+  if (division === "finance") return [];
   // Fail-closed: divisi tidak dikenali/kosong dianggap akses paling
   // terbatas, konsisten dengan default di getCurrentProfile().
   return MODULES.filter((mod) => mod.id === (division ?? "production"));

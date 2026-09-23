@@ -8,6 +8,7 @@ import {
   ADMIN_LINKS,
   CHAT_LINK,
   DIVISION_REPORT_LINKS,
+  FINANCE_LINKS,
   HUB_HREF,
   INVESTOR_LINKS,
   REALISASI_EVENT_LINK,
@@ -35,6 +36,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
   const modules = getVisibleModules(division);
   const isFullAccess = division === "all";
   const isInvestor = division === "investor";
+  const isFinance = division === "finance";
   const isOperationalDivision =
     division === "magnarent" || division === "magnative" || division === "production";
   // Chat (Tahap 37) — terbuka untuk semua divisi KECUALI investor.
@@ -72,6 +74,9 @@ export function MobileNav({ division }: { division?: Division | null }) {
   const activeReportLink = isOperationalDivision
     ? DIVISION_REPORT_LINKS.find((link) => pathname === link.href || pathname.startsWith(`${link.href}/`))
     : undefined;
+  const activeFinanceLink = isFinance
+    ? FINANCE_LINKS.find((link) => pathname === link.href || pathname.startsWith(`${link.href}/`))
+    : undefined;
   const isChatActive = showChat && (pathname === CHAT_LINK.href || pathname.startsWith(`${CHAT_LINK.href}/`));
   const ChatIcon = CHAT_LINK.icon;
   const isRealisasiEventActive =
@@ -90,6 +95,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
             activeAdminLink?.label ??
             activeInvestorLink?.label ??
             activeReportLink?.label ??
+            activeFinanceLink?.label ??
             (isChatActive ? CHAT_LINK.label : undefined) ??
             (isRealisasiEventActive ? REALISASI_EVENT_LINK.label : undefined) ??
             (isTrackingEventActive ? TRACKING_EVENT_LINK.label : undefined) ??
@@ -254,6 +260,34 @@ export function MobileNav({ division }: { division?: Division | null }) {
                             className={linkClass(
                               isActive,
                               "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                            )}
+                          >
+                            <Icon className="h-[18px] w-[18px]" />
+                            {t(link.label)}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+
+              {isFinance && (
+                <div className="pt-5">
+                  <p className="px-3 pb-2 text-[11px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+                    {t("Finance")}
+                  </p>
+                  <ul className="space-y-1">
+                    {FINANCE_LINKS.map((link) => {
+                      const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
+                      const Icon = link.icon;
+                      return (
+                        <li key={link.href}>
+                          <Link
+                            href={link.href}
+                            className={linkClass(
+                              isActive,
+                              "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300"
                             )}
                           >
                             <Icon className="h-[18px] w-[18px]" />

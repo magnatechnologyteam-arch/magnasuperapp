@@ -18,7 +18,7 @@ export default async function NeracaPage({
   searchParams: Promise<{ tanggal?: string }>;
 }) {
   const profile = await getCurrentProfile();
-  if (!profile || profile.division !== "all") {
+  if (!profile || (profile.division !== "all" && profile.division !== "finance")) {
     redirect("/dashboard");
   }
 

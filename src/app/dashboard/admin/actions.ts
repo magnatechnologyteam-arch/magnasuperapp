@@ -7,7 +7,7 @@ import { getCurrentProfile } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity/log";
 import type { Division } from "@/lib/supabase/types";
 
-const VALID_DIVISIONS: Division[] = ["magnarent", "magnative", "production", "all", "investor"];
+const VALID_DIVISIONS: Division[] = ["magnarent", "magnative", "production", "all", "investor", "finance"];
 const USERNAME_PATTERN = /^[a-z0-9._-]{3,20}$/;
 /** Konsisten dengan `GENERIC_ERROR` di modul lain (mis. capital-requests/actions.ts) —
  * pesan error Supabase Admin API mentah tidak pernah ditampilkan langsung ke

@@ -23,6 +23,20 @@ const ADMIN_PREFIX = "/dashboard/admin";
 // masing-masing + RLS (migrasi 0037 untuk activity_log) — daftar ini
 // cuma soal boleh/tidaknya rute ini di-render sama sekali.
 const ADMIN_ROUTES_OPEN_TO_DIVISIONS = ["/dashboard/admin/laporan", "/dashboard/admin/aktivitas"];
+// Peran baru "finance" (migrasi 0061) — akses HANYA ke halaman keuangan ini,
+// BUKAN seluruh prefix admin seperti division "all". Dicek terpisah dari
+// ADMIN_ROUTES_OPEN_TO_DIVISIONS di atas (yang khusus 3 divisi operasional)
+// supaya daftar keduanya independen -- finance tidak otomatis kebagian
+// Laporan/Aktivitas, dan operasional tidak otomatis kebagian halaman ini.
+const FINANCE_ROUTES = [
+  "/dashboard/admin/keuangan",
+  "/dashboard/admin/akuntansi",
+  "/dashboard/admin/laba-rugi",
+  "/dashboard/admin/neraca",
+  "/dashboard/admin/arus-kas-akuntansi",
+  "/dashboard/admin/faktur",
+  "/dashboard/admin/arus-kas",
+];
 // Area khusus akun investor (read only lintas divisi + Approve/Reject
 // Pengajuan Modal, lihat migrasi 0019) — akses penuh ("all") boleh ikut
 // mengintip halaman ini, staf divisi manapun TIDAK.
@@ -135,8 +149,9 @@ export async function middleware(request: NextRequest) {
 
     if (division !== "all") {
       const isOpenAdminRouteForDivision =
-        ["magnarent", "magnative", "production"].includes(division) &&
-        ADMIN_ROUTES_OPEN_TO_DIVISIONS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+        (["magnarent", "magnative", "production"].includes(division) &&
+          ADMIN_ROUTES_OPEN_TO_DIVISIONS.some((p) => pathname === p || pathname.startsWith(`${p}/`))) ||
+        (division === "finance" && FINANCE_ROUTES.some((p) => pathname === p || pathname.startsWith(`${p}/`)));
       const isAdminRoute =
         !isOpenAdminRouteForDivision && (pathname === ADMIN_PREFIX || pathname.startsWith(`${ADMIN_PREFIX}/`));
       const isBlockedModule = MODULE_DIVISION_PREFIXES.some(

@@ -1,4 +1,4 @@
-export type Division = "magnarent" | "magnative" | "production" | "all" | "investor";
+export type Division = "magnarent" | "magnative" | "production" | "all" | "investor" | "finance";
 
 export const DIVISION_LABELS: Record<Division, string> = {
   magnarent: "Magnarent",
@@ -6,6 +6,11 @@ export const DIVISION_LABELS: Record<Division, string> = {
   production: "Production",
   all: "Akses Penuh",
   investor: "Investor",
+  // Peran baru: akses HANYA ke halaman keuangan (Piutang & Pendapatan,
+  // Akuntansi, Laba-Rugi, Neraca, Arus Kas, Faktur) — beda dari "all" yang
+  // juga membuka Kelola Pengguna/Pengajuan Modal/Status Sistem. Lihat
+  // migrasi 0061_finance_role.sql untuk detail celah yang diperbaiki.
+  finance: "Finance",
 };
 
 /**
@@ -20,6 +25,9 @@ export const DIVISION_BADGE_CLASSES: Record<Division, string> = {
   production: "bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-300",
   all: "bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300",
   investor: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+  // Violet -- belum dipakai warna lain manapun (magnarent sky, magnative
+  // fuchsia, production orange, all amber, investor emerald).
+  finance: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
 };
 
 export type ThemePreference = "light" | "dark" | "system";

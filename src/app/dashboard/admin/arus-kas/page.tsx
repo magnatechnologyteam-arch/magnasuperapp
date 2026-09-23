@@ -36,7 +36,7 @@ import { ArusKasProyekView, type ArusKasEvent, type ProyekArusKas } from "@/comp
  */
 export default async function ArusKasProyekPage() {
   const profile = await getCurrentProfile();
-  if (!profile || profile.division !== "all") {
+  if (!profile || (profile.division !== "all" && profile.division !== "finance")) {
     redirect("/dashboard");
   }
 

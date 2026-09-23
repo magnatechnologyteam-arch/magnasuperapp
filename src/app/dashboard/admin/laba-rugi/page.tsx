@@ -25,7 +25,7 @@ export default async function LabaRugiPage({
   searchParams: Promise<{ start?: string; end?: string }>;
 }) {
   const profile = await getCurrentProfile();
-  if (!profile || profile.division !== "all") {
+  if (!profile || (profile.division !== "all" && profile.division !== "finance")) {
     redirect("/dashboard");
   }
 
