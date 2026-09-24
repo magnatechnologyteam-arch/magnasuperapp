@@ -1,7 +1,9 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { logActivity } from "@/lib/activity/log";
 import {
   rowToBookingCheck,
@@ -499,6 +501,83 @@ export async function saveDelivery(
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+/**
+ * Live location dispatch berbasis browser geolocation (Gap laporan Bagian
+ * 5-C) -- pelengkap ringan buat penjadwalan pengiriman/pengambilan di
+ * atas, BUKAN app terpisah buat sopir. Staf buat/ambil link lewat
+ * `getOrCreateTrackingLink` (RLS staf biasa), sopir buka link itu di HP
+ * (halaman publik `/lacak/[token]`) lalu browser kirim lat/lng berkala
+ * lewat `getDeliveryTrackingInfo` + `submitDriverLocation` pakai
+ * `createAdminClient` (bypass RLS) -- sama pola dengan check-in QR
+ * Magnativ, sopir TIDAK perlu login.
+ */
+export async function getOrCreateTrackingLink(deliveryId: string): Promise<MutationResult & { token?: string }> {
+  const supabase = await createClient();
+  const { data: existing, error: fetchError } = await supabase
+    .from("magnarent_deliveries")
+    .select("tracking_token")
+    .eq("id", deliveryId)
+    .maybeSingle<{ tracking_token: string | null }>();
+
+  if (fetchError) {
+    console.error("[magnarent] getOrCreateTrackingLink (fetch) gagal:", fetchError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  if (existing?.tracking_token) return { ok: true, token: existing.tracking_token };
+
+  const token = randomBytes(20).toString("hex");
+  const { error } = await supabase
+    .from("magnarent_deliveries")
+    .update({ tracking_token: token })
+    .eq("id", deliveryId);
+
+  if (error) {
+    console.error("[magnarent] getOrCreateTrackingLink (update) gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  return { ok: true, token };
+}
+
+export type DeliveryTrackingInfo = { clientName: string; stage: DeliveryStage } | null;
+
+export async function getDeliveryTrackingInfo(token: string): Promise<DeliveryTrackingInfo> {
+  const admin = createAdminClient();
+  const { data: delivery } = await admin
+    .from("magnarent_deliveries")
+    .select("booking_id, stage")
+    .eq("tracking_token", token)
+    .maybeSingle<{ booking_id: string; stage: DeliveryStage }>();
+
+  if (!delivery) return null;
+
+  const { data: booking } = await admin
+    .from("magnarent_bookings")
+    .select("nama_klien")
+    .eq("id", delivery.booking_id)
+    .maybeSingle<{ nama_klien: string }>();
+
+  if (!booking) return null;
+  return { clientName: booking.nama_klien, stage: delivery.stage };
+}
+
+export async function submitDriverLocation(token: string, lat: number, lng: number): Promise<MutationResult> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return { ok: false, error: "Koordinat tidak valid." };
+  }
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("magnarent_deliveries")
+    .update({ last_lat: lat, last_lng: lng, last_location_at: new Date().toISOString() })
+    .eq("tracking_token", token);
+
+  if (error) {
+    console.error("[magnarent] submitDriverLocation gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
   revalidatePath(MODULE_PATH);
   return { ok: true };
 }

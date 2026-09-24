@@ -92,6 +92,11 @@ export type Delivery = {
   jadwalJam: string | null;
   status: DeliveryStatus;
   catatan: string | null;
+  /** Token link publik buat sopir bagikan lokasi HP-nya (Gap laporan 5-C) — null kalau link belum pernah dibuat. */
+  trackingToken: string | null;
+  lastLat: number | null;
+  lastLng: number | null;
+  lastLocationAt: string | null;
 };
 
 export type DeliveryRow = {
@@ -103,6 +108,10 @@ export type DeliveryRow = {
   jadwal_jam: string | null;
   status: DeliveryStatus;
   catatan: string | null;
+  tracking_token: string | null;
+  last_lat: number | null;
+  last_lng: number | null;
+  last_location_at: string | null;
 };
 
 export function rowToDelivery(row: DeliveryRow): Delivery {
@@ -115,6 +124,10 @@ export function rowToDelivery(row: DeliveryRow): Delivery {
     jadwalJam: row.jadwal_jam,
     status: row.status,
     catatan: row.catatan,
+    trackingToken: row.tracking_token,
+    lastLat: row.last_lat,
+    lastLng: row.last_lng,
+    lastLocationAt: row.last_location_at,
   };
 }
 

@@ -1,12 +1,77 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Truck, Undo2 } from "lucide-react";
+import { MapPin, Share2, Truck, Undo2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/cn";
-import { getDeliveries, saveDelivery } from "@/lib/magnarent/extras-actions";
+import { getDeliveries, getOrCreateTrackingLink, saveDelivery } from "@/lib/magnarent/extras-actions";
 import { DELIVERY_STATUS, type Delivery, type DeliveryStage, type DeliveryStatus } from "@/lib/magnarent/extras-types";
+
+/** Format "X menit/jam lalu" sederhana, tanpa library eksternal. */
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "baru saja";
+  if (minutes < 60) return `${minutes} menit lalu`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  return `${Math.floor(hours / 24)} hari lalu`;
+}
+
+/**
+ * Panel live location dispatch (Gap laporan Bagian 5-C) -- tombol buat
+ * link `/lacak/[token]` buat dibagikan ke sopir via WhatsApp, plus
+ * tampilan lokasi terakhir (link Google Maps) kalau sopir sudah pernah
+ * kirim koordinat. Cuma muncul kalau baris delivery-nya sudah pernah
+ * disimpan (perlu id), jadi staf isi jadwal dulu baru bagikan link.
+ */
+function LiveLocationPanel({ delivery }: { delivery: Delivery }) {
+  const { showToast } = useToast();
+  const [creating, setCreating] = useState(false);
+
+  async function handleShareLink() {
+    setCreating(true);
+    const result = await getOrCreateTrackingLink(delivery.id);
+    setCreating(false);
+    if (!result.ok || !result.token) {
+      showToast(result.ok ? "Gagal membuat link." : result.error, "error");
+      return;
+    }
+    const url = `${window.location.origin}/lacak/${result.token}`;
+    const text = encodeURIComponent(`Halo, tolong bagikan lokasi selama perjalanan lewat link ini ya: ${url}`);
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-xs dark:bg-white/5">
+      <div className="min-w-0">
+        {delivery.lastLat != null && delivery.lastLng != null && delivery.lastLocationAt ? (
+          <a
+            href={`https://www.google.com/maps?q=${delivery.lastLat},${delivery.lastLng}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1 font-medium text-sky-600 hover:underline dark:text-sky-300"
+          >
+            <MapPin className="h-3.5 w-3.5 shrink-0" />
+            Lihat lokasi terakhir ({timeAgo(delivery.lastLocationAt)})
+          </a>
+        ) : (
+          <span className="text-zinc-400">Belum ada lokasi dikirim sopir.</span>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={handleShareLink}
+        disabled={creating}
+        className="inline-flex shrink-0 items-center gap-1 rounded-full border border-orange-300 px-2.5 py-1 font-semibold text-orange-600 disabled:opacity-60 dark:border-orange-500/40 dark:text-orange-300"
+      >
+        <Share2 className="h-3 w-3" />
+        {creating ? "…" : "Bagikan Link Lacak"}
+      </button>
+    </div>
+  );
+}
 
 const STAGE_LABEL: Record<DeliveryStage, string> = { pengiriman: "Pengiriman", pengambilan: "Pengambilan" };
 const STAGE_ICON: Record<DeliveryStage, typeof Truck> = { pengiriman: Truck, pengambilan: Undo2 };
@@ -120,6 +185,8 @@ function StagePanel({
         placeholder={`Catatan ${STAGE_LABEL[stage].toLowerCase()}… (mis. alamat tujuan, patokan lokasi)`}
         className="w-full resize-none rounded-lg border border-black/10 bg-transparent px-3 py-1.5 text-sm text-zinc-900 outline-none ring-blue-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
       />
+
+      {delivery && <LiveLocationPanel delivery={delivery} />}
 
       <div className="flex justify-end">
         <button
