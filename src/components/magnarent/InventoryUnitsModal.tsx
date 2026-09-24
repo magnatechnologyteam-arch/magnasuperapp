@@ -26,7 +26,7 @@ const STATUS_STYLE: Record<InventoryUnitStatus, string> = {
 };
 
 function emptyForm(nextCode: string) {
-  return { kodeUnit: nextCode, status: "Tersedia" as InventoryUnitStatus, catatan: "" };
+  return { kodeUnit: nextCode, status: "Tersedia" as InventoryUnitStatus, catatan: "", rfidTag: "" };
 }
 
 /** Saran kode unit berikutnya, mis. "TND-01", "TND-02" — murni bantuan pengisian, staf tetap bisa ganti manual. */
@@ -78,7 +78,7 @@ export function InventoryUnitsModal({ item, onClose }: { item: InventoryItem; on
 
   function openEditForm(unit: InventoryUnit) {
     setEditingId(unit.id);
-    setForm({ kodeUnit: unit.kodeUnit, status: unit.status, catatan: unit.catatan ?? "" });
+    setForm({ kodeUnit: unit.kodeUnit, status: unit.status, catatan: unit.catatan ?? "", rfidTag: unit.rfidTag ?? "" });
     setError(null);
     setFormOpen(true);
   }
@@ -90,7 +90,7 @@ export function InventoryUnitsModal({ item, onClose }: { item: InventoryItem; on
       return;
     }
     setSubmitting(true);
-    const payload = { kodeUnit: form.kodeUnit.trim(), status: form.status, catatan: form.catatan };
+    const payload = { kodeUnit: form.kodeUnit.trim(), status: form.status, catatan: form.catatan, rfidTag: form.rfidTag };
     const result = editingId
       ? await updateInventoryUnit(editingId, payload)
       : await addInventoryUnit(item.id, payload);
@@ -174,6 +174,18 @@ export function InventoryUnitsModal({ item, onClose }: { item: InventoryItem; on
               </div>
             </div>
             <div>
+              <label htmlFor="unit-rfid" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Tag RFID (opsional)
+              </label>
+              <input
+                id="unit-rfid"
+                value={form.rfidTag}
+                onChange={(e) => setForm((f) => ({ ...f, rfidTag: e.target.value }))}
+                placeholder="mis. E280 1160 6000... — pelengkap QR, isi kalau unit ditempel tag RFID"
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2 text-sm text-zinc-900 outline-none ring-violet-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+            </div>
+            <div>
               <label htmlFor="unit-catatan" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Catatan (opsional)
               </label>
@@ -232,7 +244,14 @@ export function InventoryUnitsModal({ item, onClose }: { item: InventoryItem; on
                 <QRCodeSVG value={unit.kodeUnit} size={36} />
               </button>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{unit.kodeUnit}</p>
+                <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">
+                  {unit.kodeUnit}
+                  {unit.rfidTag && (
+                    <span className="ml-1.5 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-600 dark:bg-violet-500/10 dark:text-violet-300">
+                      RFID
+                    </span>
+                  )}
+                </p>
                 {unit.catatan && <p className="truncate text-xs text-zinc-400">{unit.catatan}</p>}
               </div>
               <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold", STATUS_STYLE[unit.status])}>

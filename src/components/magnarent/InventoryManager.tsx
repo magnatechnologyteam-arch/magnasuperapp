@@ -1,10 +1,12 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { MapPin, Package, Pencil, Plus, QrCode, Search, Trash2, Wrench } from "lucide-react";
+import { CalendarRange, MapPin, Package, Pencil, Plus, QrCode, ScanLine, Search, Trash2, Wrench } from "lucide-react";
 import { useMagnarentData } from "./MagnarentDataProvider";
 import { MaintenanceLogModal } from "./MaintenanceLogModal";
 import { InventoryUnitsModal } from "./InventoryUnitsModal";
+import { SeasonalPricingModal } from "./SeasonalPricingModal";
+import { BulkScanModal } from "./BulkScanModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -68,6 +70,8 @@ export function InventoryManager() {
   const [maintenanceTarget, setMaintenanceTarget] = useState<InventoryItem | null>(null);
   // Gap #2/#3 analisis Magnarent: unit individual + QR — dibuka lewat tombol QR di baris.
   const [unitsTarget, setUnitsTarget] = useState<InventoryItem | null>(null);
+  const [seasonalOpen, setSeasonalOpen] = useState(false);
+  const [bulkScanOpen, setBulkScanOpen] = useState(false);
 
   const categories = useMemo(
     () => Array.from(new Set(inventory.map((i) => i.category))),
@@ -190,15 +194,33 @@ export function InventoryManager() {
             {filteredInventory.length} dari {inventory.length} jenis alat ditampilkan
           </p>
         </div>
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.02] active:scale-[0.98]"
-          style={{ background: GRADIENT }}
-        >
-          <Plus className="h-4 w-4" />
-          Tambah Alat
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setSeasonalOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 px-3.5 py-2 text-sm font-semibold text-amber-700 transition-colors hover:bg-amber-50 dark:border-amber-500/40 dark:text-amber-300 dark:hover:bg-amber-500/10"
+          >
+            <CalendarRange className="h-4 w-4" />
+            Musim Harga
+          </button>
+          <button
+            type="button"
+            onClick={() => setBulkScanOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-violet-300 px-3.5 py-2 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-50 dark:border-violet-500/40 dark:text-violet-300 dark:hover:bg-violet-500/10"
+          >
+            <ScanLine className="h-4 w-4" />
+            Scan Massal
+          </button>
+          <button
+            type="button"
+            onClick={openAddModal}
+            className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            style={{ background: GRADIENT }}
+          >
+            <Plus className="h-4 w-4" />
+            Tambah Alat
+          </button>
+        </div>
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2.5">
@@ -540,6 +562,8 @@ export function InventoryManager() {
       {unitsTarget && (
         <InventoryUnitsModal item={unitsTarget} onClose={() => setUnitsTarget(null)} />
       )}
+      {seasonalOpen && <SeasonalPricingModal inventory={inventory} onClose={() => setSeasonalOpen(false)} />}
+      {bulkScanOpen && <BulkScanModal onClose={() => setBulkScanOpen(false)} />}
     </div>
   );
 }

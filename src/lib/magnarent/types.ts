@@ -28,6 +28,8 @@ export type InventoryUnit = {
   kodeUnit: string;
   status: InventoryUnitStatus;
   catatan?: string;
+  /** Tag RFID opsional (pelengkap QR, laporan Bagian 5-C #17) — dipakai untuk bulk-scan gudang saat event besar. */
+  rfidTag?: string;
 };
 
 export type BookingStatus = "Menunggu" | "Dikonfirmasi" | "Selesai" | "Dibatalkan";

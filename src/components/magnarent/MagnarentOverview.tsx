@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Boxes, CalendarCheck2, CalendarX2, PackageCheck, PackageX, TrendingUp, Wrench } from "lucide-react";
+import { AlertTriangle, ArrowRight, Boxes, CalendarCheck2, CalendarX2, PackageCheck, PackageX, TrendingUp, Wrench } from "lucide-react";
 import { useMagnarentData } from "./MagnarentDataProvider";
 import { getInventoryStatus } from "@/lib/magnarent/availability";
 import { calculateBookingTotal, formatRupiah } from "@/lib/magnarent/pricing";
 import { formatDateID, todayISO } from "@/lib/magnarent/date";
 import { computeItemUtilization } from "@/lib/magnarent/utilization";
+import { computeProactiveAlerts, type ProactiveAlert } from "@/lib/magnarent/proactiveAlerts";
+import { getAllMaintenanceLogs } from "@/lib/magnarent/extras-actions";
 import { getAvatarColor, getInitials } from "@/lib/shared/utils";
 import { StatCard } from "@/components/ui/StatCard";
 import { DonutChart } from "@/components/ui/DonutChart";
@@ -30,6 +32,19 @@ const ACCENT_EMERALD = "linear-gradient(135deg, #10B981 0%, #22D3EE 100%)";
  */
 export function MagnarentOverview() {
   const { inventory, bookings } = useMagnarentData();
+
+  // Notifikasi proaktif (rekomendasi Bagian 5-C #12) -- maintenance logs
+  // TIDAK dipreload lewat MagnarentDataProvider (jarang dibutuhkan di luar
+  // modal maintenance per alat), jadi diambil sendiri di sini khusus untuk
+  // hitung tren biaya maintenance.
+  const [maintenanceLogs, setMaintenanceLogs] = useState<Awaited<ReturnType<typeof getAllMaintenanceLogs>>>([]);
+  useEffect(() => {
+    getAllMaintenanceLogs().then(setMaintenanceLogs);
+  }, []);
+  const proactiveAlerts = useMemo<ProactiveAlert[]>(
+    () => computeProactiveAlerts(inventory, bookings, maintenanceLogs),
+    [inventory, bookings, maintenanceLogs]
+  );
 
   const stats = useMemo(() => {
     const totalAlat = inventory.length;
@@ -101,6 +116,24 @@ export function MagnarentOverview() {
 
   return (
     <div className="space-y-6">
+      {proactiveAlerts.length > 0 && (
+        <div className="overflow-hidden rounded-2xl border border-amber-200 bg-amber-50/60 dark:border-amber-500/30 dark:bg-amber-500/10">
+          <div className="flex items-center gap-1.5 border-b border-amber-200/70 px-5 py-2.5 dark:border-amber-500/20">
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <h3 className="text-sm font-bold text-amber-800 dark:text-amber-300">
+              Notifikasi Proaktif ({proactiveAlerts.length})
+            </h3>
+          </div>
+          <ul className="divide-y divide-amber-200/60 dark:divide-amber-500/10">
+            {proactiveAlerts.slice(0, 6).map((a) => (
+              <li key={a.id} className="px-5 py-2 text-xs text-amber-800 dark:text-amber-200">
+                {a.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Total Alat"

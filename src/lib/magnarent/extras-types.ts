@@ -151,6 +151,60 @@ export function rowToMaintenanceLog(row: MaintenanceLogRow): MaintenanceLog {
 }
 
 /**
+ * Aturan pricing dinamis musiman (rekomendasi Bagian 5-C #16, migrasi
+ * 0069) -- SARAN penyesuaian harga (persen naik/turun) untuk rentang
+ * tanggal tertentu, di atas `pricePerDay`/`pricePerWeek`/`pricePerMonth`
+ * yang sudah ada. `itemId` undefined = berlaku untuk SEMUA alat. Dipisah
+ * dari `calculateBookingTotal` inti (pricing.ts) SENGAJA -- ini murni
+ * SARAN yang ditampilkan ke staf saat bikin booking di tanggal tsb, bukan
+ * otomatis mengubah nilai invoice final (harga final tetap keputusan staf).
+ */
+export type SeasonalPricingRule = {
+  id: string;
+  itemId?: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  multiplierPct: number;
+};
+
+export type SeasonalPricingRuleRow = {
+  id: string;
+  item_id: string | null;
+  label: string;
+  start_date: string;
+  end_date: string;
+  multiplier_pct: number;
+};
+
+export function rowToSeasonalPricingRule(row: SeasonalPricingRuleRow): SeasonalPricingRule {
+  return {
+    id: row.id,
+    itemId: row.item_id ?? undefined,
+    label: row.label,
+    startDate: row.start_date,
+    endDate: row.end_date,
+    multiplierPct: row.multiplier_pct,
+  };
+}
+
+/** Cari rule musiman yang berlaku untuk SATU alat pada satu tanggal (kalau
+ * beberapa rule overlap, ambil yang persen penyesuaiannya paling besar
+ * magnitude-nya). Dipakai di UI booking untuk menampilkan SARAN
+ * penyesuaian harga, bukan mengubah harga dasar. */
+export function findApplicableSeasonalRule(
+  rules: SeasonalPricingRule[],
+  itemId: string,
+  dateISO: string
+): SeasonalPricingRule | null {
+  const applicable = rules.filter(
+    (r) => (r.itemId === undefined || r.itemId === itemId) && dateISO >= r.startDate && dateISO <= r.endDate
+  );
+  if (applicable.length === 0) return null;
+  return applicable.reduce((best, r) => (Math.abs(r.multiplierPct) > Math.abs(best.multiplierPct) ? r : best));
+}
+
+/**
  * Galeri Kategori Alat — model folder/album, meniru `PortfolioFolder` di
  * `src/lib/magnative/types.ts` (migrasi 0057): satu folder = satu kategori
  * alat (mis. "Tenda & Struktur"), bisa memuat banyak foto sekaligus

@@ -21,6 +21,9 @@ import {
   type MaintenanceJenis,
   type MaintenanceLog,
   type MaintenanceLogRow,
+  rowToSeasonalPricingRule,
+  type SeasonalPricingRule,
+  type SeasonalPricingRuleRow,
 } from "./extras-types";
 import { rowToInventoryUnit, type InventoryUnitRow } from "./mappers";
 import type { InventoryUnit, InventoryUnitStatus } from "./types";
@@ -238,6 +241,27 @@ export async function getMaintenanceLogs(itemId: string): Promise<MaintenanceLog
   return (data ?? []).map(rowToMaintenanceLog);
 }
 
+/**
+ * Semua log maintenance LINTAS alat (bukan per-item seperti
+ * `getMaintenanceLogs` di atas) -- dipakai notifikasi proaktif (rekomendasi
+ * Bagian 5-C #12, migrasi tidak diperlukan/tabel sudah ada) untuk mendeteksi
+ * tren biaya maintenance naik per alat, dibanding 90 hari sebelumnya.
+ */
+export async function getAllMaintenanceLogs(): Promise<MaintenanceLog[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("magnarent_maintenance_logs")
+    .select("*")
+    .order("tanggal", { ascending: false })
+    .returns<MaintenanceLogRow[]>();
+
+  if (error) {
+    console.error("[magnarent] getAllMaintenanceLogs gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToMaintenanceLog);
+}
+
 export async function addMaintenanceLog(
   itemId: string,
   input: { tanggal: string; jenis: MaintenanceJenis; keterangan?: string; biaya: number }
@@ -308,7 +332,7 @@ export async function getInventoryUnits(itemId: string): Promise<InventoryUnit[]
 
 export async function addInventoryUnit(
   itemId: string,
-  input: { kodeUnit: string; status: InventoryUnitStatus; catatan?: string }
+  input: { kodeUnit: string; status: InventoryUnitStatus; catatan?: string; rfidTag?: string }
 ): Promise<MutationResult> {
   if (!input.kodeUnit?.trim()) return { ok: false, error: "Kode unit wajib diisi." };
 
@@ -318,11 +342,12 @@ export async function addInventoryUnit(
     kode_unit: input.kodeUnit.trim(),
     status: input.status,
     catatan: input.catatan?.trim() || null,
+    rfid_tag: input.rfidTag?.trim() || null,
   });
 
   if (error) {
     if (error.message.includes("duplicate key")) {
-      return { ok: false, error: "Kode unit ini sudah dipakai di alat yang sama." };
+      return { ok: false, error: "Kode unit atau tag RFID ini sudah dipakai." };
     }
     console.error("[magnarent] addInventoryUnit gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
@@ -335,7 +360,7 @@ export async function addInventoryUnit(
 
 export async function updateInventoryUnit(
   id: string,
-  input: { kodeUnit: string; status: InventoryUnitStatus; catatan?: string }
+  input: { kodeUnit: string; status: InventoryUnitStatus; catatan?: string; rfidTag?: string }
 ): Promise<MutationResult> {
   if (!input.kodeUnit?.trim()) return { ok: false, error: "Kode unit wajib diisi." };
 
@@ -346,13 +371,14 @@ export async function updateInventoryUnit(
       kode_unit: input.kodeUnit.trim(),
       status: input.status,
       catatan: input.catatan?.trim() || null,
+      rfid_tag: input.rfidTag?.trim() || null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
 
   if (error) {
     if (error.message.includes("duplicate key")) {
-      return { ok: false, error: "Kode unit ini sudah dipakai di alat yang sama." };
+      return { ok: false, error: "Kode unit atau tag RFID ini sudah dipakai." };
     }
     console.error("[magnarent] updateInventoryUnit gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
@@ -360,6 +386,61 @@ export async function updateInventoryUnit(
 
   revalidatePath(INVENTORY_PATH);
   return { ok: true };
+}
+
+/**
+ * Bulk-scan gudang (pelengkap QR per-unit, laporan Bagian 5-C #17) — staf
+ * scan/tempel banyak kode sekaligus (kode_unit ATAU rfid_tag, dua-duanya
+ * dicoba) lalu satu aksi update status semua unit yang cocok, dipakai saat
+ * bongkar/pasang alat event besar biar tidak perlu buka form satu-satu.
+ * Lintas semua alat (bukan cuma satu item), makanya createClient tanpa filter item_id.
+ */
+export async function bulkScanUpdateStatus(
+  codes: string[],
+  status: InventoryUnitStatus
+): Promise<{ ok: true; matchedCount: number; notFound: string[] } | { ok: false; error: string }> {
+  const cleaned = Array.from(new Set(codes.map((c) => c.trim()).filter(Boolean)));
+  if (cleaned.length === 0) return { ok: false, error: "Tidak ada kode yang bisa diproses." };
+
+  const supabase = await createClient();
+  const { data: matches, error: findError } = await supabase
+    .from("magnarent_inventory_units")
+    .select("id, kode_unit, rfid_tag")
+    .or(`kode_unit.in.(${cleaned.map((c) => `"${c}"`).join(",")}),rfid_tag.in.(${cleaned.map((c) => `"${c}"`).join(",")})`)
+    .returns<{ id: string; kode_unit: string; rfid_tag: string | null }[]>();
+
+  if (findError) {
+    console.error("[magnarent] bulkScanUpdateStatus (find) gagal:", findError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const matchedRows = matches ?? [];
+  const matchedIds = matchedRows.map((m) => m.id);
+  const matchedCodesLower = new Set(
+    matchedRows.flatMap((m) => [m.kode_unit.toLowerCase(), m.rfid_tag?.toLowerCase()].filter(Boolean) as string[])
+  );
+  const notFound = cleaned.filter((c) => !matchedCodesLower.has(c.toLowerCase()));
+
+  if (matchedIds.length > 0) {
+    const { error: updateError } = await supabase
+      .from("magnarent_inventory_units")
+      .update({ status, updated_at: new Date().toISOString() })
+      .in("id", matchedIds);
+
+    if (updateError) {
+      console.error("[magnarent] bulkScanUpdateStatus (update) gagal:", updateError.message);
+      return { ok: false, error: GENERIC_ERROR };
+    }
+  }
+
+  revalidatePath(INVENTORY_PATH);
+  void logActivity({
+    module: "magnarent",
+    action: "update",
+    entityType: "bulk scan unit",
+    entityLabel: `${matchedIds.length} unit → ${status}`,
+  });
+  return { ok: true, matchedCount: matchedIds.length, notFound };
 }
 
 export async function deleteInventoryUnit(id: string): Promise<MutationResult> {
@@ -624,5 +705,69 @@ export async function deleteGalleryFolder(id: string): Promise<MutationResult> {
   }
   revalidatePath(GALLERY_PATH);
   void logActivity({ module: "magnarent", action: "delete", entityType: "galeri kategori", entityLabel: folderRow?.title });
+  return { ok: true };
+}
+
+/**
+ * Pricing dinamis musiman (rekomendasi Bagian 5-C #16, migrasi 0069) --
+ * lihat komentar `SeasonalPricingRule` di extras-types.ts. `itemId`
+ * undefined saat dibuat = berlaku untuk semua alat.
+ */
+export async function listSeasonalPricingRules(): Promise<SeasonalPricingRule[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("magnarent_seasonal_pricing_rules")
+    .select("*")
+    .order("start_date", { ascending: true })
+    .returns<SeasonalPricingRuleRow[]>();
+
+  if (error) {
+    console.error("[magnarent] listSeasonalPricingRules gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToSeasonalPricingRule);
+}
+
+export async function addSeasonalPricingRule(input: {
+  itemId?: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  multiplierPct: number;
+}): Promise<MutationResult> {
+  const label = input.label.trim();
+  if (!label) return { ok: false, error: "Label musim wajib diisi." };
+  if (!input.startDate || !input.endDate || input.endDate < input.startDate) {
+    return { ok: false, error: "Rentang tanggal tidak valid." };
+  }
+  if (!Number.isFinite(input.multiplierPct)) return { ok: false, error: "Persen penyesuaian tidak valid." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_seasonal_pricing_rules").insert({
+    item_id: input.itemId || null,
+    label,
+    start_date: input.startDate,
+    end_date: input.endDate,
+    multiplier_pct: Math.round(input.multiplierPct),
+  });
+
+  if (error) {
+    console.error("[magnarent] addSeasonalPricingRule gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(INVENTORY_PATH);
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+export async function deleteSeasonalPricingRule(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_seasonal_pricing_rules").delete().eq("id", id);
+  if (error) {
+    console.error("[magnarent] deleteSeasonalPricingRule gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(INVENTORY_PATH);
+  revalidatePath(MODULE_PATH);
   return { ok: true };
 }

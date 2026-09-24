@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -28,6 +28,8 @@ import { cn } from "@/lib/cn";
 import type { Booking, BookingStatus, PaymentStatus } from "@/lib/magnarent/types";
 import { formatDateID, todayISO } from "@/lib/magnarent/date";
 import { calculateBookingTotal, formatRupiah } from "@/lib/magnarent/pricing";
+import { listSeasonalPricingRules } from "@/lib/magnarent/extras-actions";
+import { findApplicableSeasonalRule, type SeasonalPricingRule } from "@/lib/magnarent/extras-types";
 import { BOOKING_STATUS_STYLES as STATUS_STYLES, PAYMENT_STYLES } from "@/lib/status-styles";
 
 const GRADIENT = "linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)";
@@ -165,6 +167,19 @@ export function BookingScheduler() {
     if (form.tanggalMulai > form.tanggalSelesai) return null;
     return calculateBookingTotal({ tanggalMulai: form.tanggalMulai, tanggalSelesai: form.tanggalSelesai, jumlahUnit }, item);
   }, [inventory, form.itemId, form.tanggalMulai, form.tanggalSelesai, form.jumlahUnit]);
+
+  // Pricing dinamis musiman (rekomendasi Bagian 5-C #16) -- SARAN saja,
+  // tidak mengubah `liveTotal` di atas. Rules diambil sekali saat modal
+  // form dibuka (bukan dipreload lewat MagnarentDataProvider, jarang
+  // berubah dan cuma relevan saat staf sedang input booking baru).
+  const [seasonalRules, setSeasonalRules] = useState<SeasonalPricingRule[]>([]);
+  useEffect(() => {
+    if (formOpen) listSeasonalPricingRules().then(setSeasonalRules);
+  }, [formOpen]);
+  const seasonalHint = useMemo(() => {
+    if (!form.itemId || !form.tanggalMulai) return null;
+    return findApplicableSeasonalRule(seasonalRules, form.itemId, form.tanggalMulai);
+  }, [seasonalRules, form.itemId, form.tanggalMulai]);
 
   function openAddModal() {
     setEditingId(null);
@@ -670,6 +685,18 @@ export function BookingScheduler() {
           {liveTotal !== null && (
             <div className="rounded-xl bg-blue-50 px-3.5 py-2.5 text-sm font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
               Estimasi Total: {formatRupiah(liveTotal)}
+            </div>
+          )}
+
+          {seasonalHint && liveTotal !== null && (
+            <div className="rounded-xl bg-amber-50 px-3.5 py-2.5 text-xs text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+              <span className="font-semibold">Musim "{seasonalHint.label}"</span> berlaku di tanggal ini (
+              {seasonalHint.multiplierPct > 0 ? "+" : ""}
+              {seasonalHint.multiplierPct}%) — saran harga:{" "}
+              <span className="font-semibold">
+                {formatRupiah(Math.round(liveTotal * (1 + seasonalHint.multiplierPct / 100)))}
+              </span>{" "}
+              (bukan otomatis, sesuaikan manual kalau dipakai).
             </div>
           )}
 
