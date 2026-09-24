@@ -1,13 +1,17 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyDivision } from "@/lib/push/notify";
 import { logActivity } from "@/lib/activity/log";
 import { addEventExpense, deleteEventExpense, updateEventExpense } from "@/lib/event-expenses/actions";
 import type { ExpenseCategory } from "@/lib/event-expenses/types";
 import type {
   AssetComment,
+  CheckinLink,
+  CheckinStats,
   Client,
   ContentPost,
   ContentRequest,
@@ -22,7 +26,14 @@ import type {
   ProjectVendor,
   Vendor,
 } from "./types";
-import { rowToAssetComment, type AssetCommentRow } from "./mappers";
+import {
+  rowToAssetComment,
+  rowToCheckin,
+  rowToCheckinLink,
+  type AssetCommentRow,
+  type CheckinLinkRow,
+  type CheckinRow,
+} from "./mappers";
 
 const MODULE_PATH = "/dashboard/magnative";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
@@ -1331,5 +1342,130 @@ export async function deletePipelineFile(id: string): Promise<MutationResult> {
   }
   revalidatePath(MODULE_PATH);
   void logActivity({ module: "magnative", action: "delete", entityType: "file pipeline proposal", entityLabel: fileRow?.file_name });
+  return { ok: true };
+}
+
+/**
+ * Check-in QR & analitik on-site sederhana (rekomendasi Bagian 5-B #10,
+ * migrasi 0068) -- staf membuat link per proyek (`createCheckinLink`),
+ * tamu scan QR-nya dan submit lewat halaman publik `/checkin/[token]`
+ * (`getCheckinLinkInfo` + `submitCheckin`, pakai `createAdminClient`
+ * seperti portal klien -- bukan lewat RLS staf). Staf lihat rekap
+ * kehadiran lewat `getCheckinStats`.
+ */
+export async function createCheckinLink(projectId: string, label?: string): Promise<MutationResult & { token?: string }> {
+  const token = randomBytes(20).toString("hex");
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("magnative_checkin_links")
+    .insert({ project_id: projectId, token, label: label?.trim() || null });
+
+  if (error) {
+    console.error("[magnative] createCheckinLink gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true, token };
+}
+
+export async function listCheckinLinks(projectId: string): Promise<CheckinLink[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("magnative_checkin_links")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false })
+    .returns<CheckinLinkRow[]>();
+
+  if (error) {
+    console.error("[magnative] listCheckinLinks gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToCheckinLink);
+}
+
+export async function deleteCheckinLink(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnative_checkin_links").delete().eq("id", id);
+  if (error) {
+    console.error("[magnative] deleteCheckinLink gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+export async function getCheckinStats(projectId: string): Promise<CheckinStats> {
+  const supabase = await createClient();
+  const { data: links } = await supabase
+    .from("magnative_checkin_links")
+    .select("id")
+    .eq("project_id", projectId)
+    .returns<{ id: string }[]>();
+
+  const linkIds = (links ?? []).map((l) => l.id);
+  if (linkIds.length === 0) return { totalCheckins: 0, checkins: [] };
+
+  const { data, error } = await supabase
+    .from("magnative_checkins")
+    .select("*")
+    .in("checkin_link_id", linkIds)
+    .order("checked_in_at", { ascending: false })
+    .returns<CheckinRow[]>();
+
+  if (error) {
+    console.error("[magnative] getCheckinStats gagal:", error.message);
+    return { totalCheckins: 0, checkins: [] };
+  }
+  const checkins = (data ?? []).map(rowToCheckin);
+  return { totalCheckins: checkins.length, checkins };
+}
+
+export type CheckinLinkInfo = { projectName: string; label?: string } | null;
+
+/**
+ * Info link check-in untuk halaman publik `/checkin/[token]` -- PAKAI
+ * `createAdminClient` (service-role, bypass RLS) sama seperti
+ * `getPortalSummaryByToken` di lib/portal/actions.ts, karena tamu yang
+ * scan QR TIDAK login.
+ */
+export async function getCheckinLinkInfo(token: string): Promise<CheckinLinkInfo> {
+  const admin = createAdminClient();
+  const { data: link } = await admin
+    .from("magnative_checkin_links")
+    .select("id, label, project_id")
+    .eq("token", token)
+    .maybeSingle<{ id: string; label: string | null; project_id: string }>();
+
+  if (!link) return null;
+
+  const { data: project } = await admin
+    .from("magnative_projects")
+    .select("name")
+    .eq("id", link.project_id)
+    .maybeSingle<{ name: string }>();
+
+  if (!project) return null;
+  return { projectName: project.name, label: link.label ?? undefined };
+}
+
+export async function submitCheckin(token: string, guestName?: string): Promise<MutationResult> {
+  const admin = createAdminClient();
+  const { data: link } = await admin
+    .from("magnative_checkin_links")
+    .select("id")
+    .eq("token", token)
+    .maybeSingle<{ id: string }>();
+
+  if (!link) return { ok: false, error: "Link check-in tidak valid." };
+
+  const { error } = await admin
+    .from("magnative_checkins")
+    .insert({ checkin_link_id: link.id, guest_name: guestName?.trim() || null });
+
+  if (error) {
+    console.error("[magnative] submitCheckin gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
   return { ok: true };
 }

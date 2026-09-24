@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity/log";
 import { notifyDivision } from "@/lib/push/notify";
 import type {
+  ChecklistComment,
   ChecklistItemExtraInput,
   ChecklistStatusLogEntry,
   CreateEventInput,
@@ -821,5 +822,101 @@ export async function removeEventLink(id: string, eventId: string): Promise<Muta
   }
 
   revalidatePath(`${EVENTS_PATH}/${eventId}`);
+  return { ok: true };
+}
+
+type ChecklistCommentRow = {
+  id: string;
+  checklist_item_id: string;
+  author_name: string;
+  comment_text: string;
+  is_resolved: boolean;
+  created_at: string;
+};
+
+function rowToChecklistComment(row: ChecklistCommentRow): ChecklistComment {
+  return {
+    id: row.id,
+    checklistItemId: row.checklist_item_id,
+    authorName: row.author_name,
+    commentText: row.comment_text,
+    isResolved: row.is_resolved,
+    createdAt: row.created_at,
+  };
+}
+
+/**
+ * Thread diskusi per item checklist (rekomendasi Bagian 5-B #7, migrasi
+ * 0067) -- pola sama persis dengan `getAssetComments` di modul Magnative:
+ * data diambil ON-DEMAND lewat Server Action saat modal dibuka, bukan
+ * di-preload lewat `getEventById`/Papan Tracking supaya tidak membebani
+ * halaman dengan komentar SEMUA item sekaligus.
+ */
+export async function getChecklistComments(checklistItemId: string): Promise<ChecklistComment[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("event_checklist_comments")
+    .select("*")
+    .eq("checklist_item_id", checklistItemId)
+    .order("created_at", { ascending: true })
+    .returns<ChecklistCommentRow[]>();
+
+  if (error) {
+    console.error("[events] getChecklistComments gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToChecklistComment);
+}
+
+export async function addChecklistComment(checklistItemId: string, commentText: string): Promise<MutationResult> {
+  const text = commentText.trim();
+  if (!text) return { ok: false, error: "Komentar tidak boleh kosong." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let authorName = "Tidak diketahui";
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", user.id)
+      .maybeSingle<{ full_name: string }>();
+    authorName = profile?.full_name?.trim() || authorName;
+  }
+
+  const { error } = await supabase
+    .from("event_checklist_comments")
+    .insert({ checklist_item_id: checklistItemId, author_name: authorName, comment_text: text });
+
+  if (error) {
+    console.error("[events] addChecklistComment gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(TRACKING_PATH);
+  return { ok: true };
+}
+
+export async function setChecklistCommentResolved(id: string, isResolved: boolean): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("event_checklist_comments").update({ is_resolved: isResolved }).eq("id", id);
+  if (error) {
+    console.error("[events] setChecklistCommentResolved gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(TRACKING_PATH);
+  return { ok: true };
+}
+
+export async function deleteChecklistComment(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("event_checklist_comments").delete().eq("id", id);
+  if (error) {
+    console.error("[events] deleteChecklistComment gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(TRACKING_PATH);
   return { ok: true };
 }

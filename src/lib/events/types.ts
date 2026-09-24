@@ -245,3 +245,22 @@ export type ChecklistStatusLogEntry = {
   picName?: string;
   changedAt: string;
 };
+
+/**
+ * Satu komentar thread diskusi terikat ke item checklist (rekomendasi
+ * Bagian 5-B #7 laporan riset kompetitor 24 Sep 2026 -- "Live document
+ * sync + thread diskusi terikat langsung ke item checklist", ala Curate/
+ * Tripleseat). Memperkuat histori status/PIC di atas dengan lapisan
+ * komunikasi lintas-divisi langsung di item yang relevan. Pola sama persis
+ * dengan `AssetComment` di modul Magnative (proofing ringan aset kreatif)
+ * -- `authorName` di-snapshot saat komentar dibuat, bukan join live ke
+ * profiles. Migrasi 0067.
+ */
+export type ChecklistComment = {
+  id: string;
+  checklistItemId: string;
+  authorName: string;
+  commentText: string;
+  isResolved: boolean;
+  createdAt: string;
+};

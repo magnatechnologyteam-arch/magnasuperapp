@@ -311,3 +311,35 @@ export type ProjectTask = {
    * AKTUAL tetap lewat `ProjectCost`). Migrasi 0065. */
   biayaEstimasi?: number;
 };
+
+/**
+ * Link check-in QR untuk satu proyek (rekomendasi Bagian 5-B #10, migrasi
+ * 0068) -- "Heatmap/analitik keterlibatan on-site (check-in QR, dwell-time)
+ * sebagai laporan pasca-event bernilai jual ke klien brand." Disederhanakan
+ * jadi hitung kehadiran + linimasa (bukan heatmap lokasi/dwell-time penuh
+ * yang perlu perangkat tambahan). Satu proyek boleh punya beberapa link
+ * (mis. beda hari/sesi event), `label` bebas teks untuk membedakannya.
+ */
+export type CheckinLink = {
+  id: string;
+  projectId: string;
+  token: string;
+  label?: string;
+  createdAt: string;
+};
+
+/** Satu baris kehadiran tamu lewat scan QR -- `guestName` opsional (tamu
+ * boleh isi nama atau langsung skip demi kecepatan antrean check-in). */
+export type Checkin = {
+  id: string;
+  checkinLinkId: string;
+  guestName?: string;
+  checkedInAt: string;
+};
+
+/** Ringkasan analitik on-site sederhana untuk satu proyek -- dipakai
+ * laporan pasca-event ke klien "Brand pitching" (Bagian 5-B #10). */
+export type CheckinStats = {
+  totalCheckins: number;
+  checkins: Checkin[];
+};

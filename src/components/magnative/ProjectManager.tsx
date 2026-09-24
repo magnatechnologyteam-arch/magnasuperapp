@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { Briefcase, Building2, ListChecks, Pencil, Plus, Search, Share2, Trash2, Wallet2, Workflow } from "lucide-react";
+import { Briefcase, Building2, ListChecks, Pencil, Plus, QrCode, Search, Share2, Trash2, Wallet2, Workflow } from "lucide-react";
 import { useMagnativeData } from "./MagnativeDataProvider";
 import { ProjectCostModal } from "./ProjectCostModal";
 import { ProjectTaskModal } from "./ProjectTaskModal";
 import { ProjectVendorModal } from "./ProjectVendorModal";
 import { ProjectPipelineModal } from "./ProjectPipelineModal";
+import { CheckinModal } from "./CheckinModal";
 import { PortalShareModal } from "@/components/portal/PortalShareModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/cn";
 import type { PaymentStatus, Project, ProjectStatus, ProjectType } from "@/lib/magnative/types";
 import { SUMBER_UNDANGAN_PRESETS } from "@/lib/magnative/types";
 import { PROJECT_STATUS_STYLES as STATUS_STYLES, PAYMENT_STYLES } from "@/lib/status-styles";
+import { computeLeadScore, LEAD_SCORE_LABEL_STYLE } from "@/lib/magnative/leadScoring";
 
 const GRADIENT = "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)";
 
@@ -65,7 +67,7 @@ function projectToForm(p: Project) {
  * langsung ikut update tanpa reload berkat MagnativeDataProvider yang sama.
  */
 export function ProjectManager() {
-  const { clients, projects, addProject, updateProject, deleteProject } = useMagnativeData();
+  const { clients, projects, pipelineFiles, addProject, updateProject, deleteProject } = useMagnativeData();
   const { showToast } = useToast();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -79,6 +81,7 @@ export function ProjectManager() {
   const [vendorTarget, setVendorTarget] = useState<Project | null>(null);
   const [pipelineTarget, setPipelineTarget] = useState<Project | null>(null);
   const [portalTarget, setPortalTarget] = useState<Project | null>(null);
+  const [checkinTarget, setCheckinTarget] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
 
@@ -327,6 +330,21 @@ export function ProjectManager() {
                         {p.alasanKalah}
                       </p>
                     )}
+                    {p.status === "Pitching" &&
+                      (() => {
+                        const lead = computeLeadScore(p, projects, pipelineFiles);
+                        return (
+                          <span
+                            title={`Skor lead ${lead.score}/100 — sumber ${lead.breakdown.sourcePoints}, histori klien ${lead.breakdown.historyPoints}, momentum ${lead.breakdown.momentumPoints}`}
+                            className={cn(
+                              "ml-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                              LEAD_SCORE_LABEL_STYLE[lead.label]
+                            )}
+                          >
+                            Lead {lead.label} ({lead.score})
+                          </span>
+                        );
+                      })()}
                   </td>
                   <td className="px-5 py-3">
                     <span
@@ -389,6 +407,15 @@ export function ProjectManager() {
                         className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
                       >
                         <Share2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCheckinTarget(p)}
+                        title="Check-in on-site"
+                        aria-label="Check-in on-site"
+                        className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-teal-500/10 dark:hover:text-teal-300"
+                      >
+                        <QrCode className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
@@ -675,6 +702,7 @@ export function ProjectManager() {
           onClose={() => setPortalTarget(null)}
         />
       )}
+      {checkinTarget && <CheckinModal project={checkinTarget} onClose={() => setCheckinTarget(null)} />}
     </div>
   );
 }

@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardList, History, Link2, MapPin } from "lucide-react";
+import { ClipboardList, History, Link2, MapPin, MessageSquare } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/cn";
 import { updateEventChecklistProgress } from "@/lib/events/actions";
 import { ChecklistHistoryModal } from "./ChecklistHistoryModal";
+import { ChecklistDiscussionModal } from "./ChecklistDiscussionModal";
 import {
   EVENT_CHECKLIST_STATUSES,
   EVENT_SOURCE_LABELS,
@@ -64,6 +65,7 @@ export function EventTrackingBoard({
   useEffect(() => setItems(initialChecklistItems), [initialChecklistItems]);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [historyTarget, setHistoryTarget] = useState<EventChecklistItem | null>(null);
+  const [discussionTarget, setDiscussionTarget] = useState<EventChecklistItem | null>(null);
 
   const groupedItems = useMemo(() => {
     const map = new Map<string, EventChecklistItem[]>();
@@ -205,6 +207,7 @@ export function EventTrackingBoard({
                         <th className="px-3 py-2 font-medium">Status</th>
                         <th className="px-3 py-2 font-medium">PIC</th>
                         <th className="px-3 py-2 font-medium">Riwayat</th>
+                        <th className="px-3 py-2 font-medium">Diskusi</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -267,6 +270,17 @@ export function EventTrackingBoard({
                               Riwayat
                             </button>
                           </td>
+                          <td className="px-3 py-2 align-top">
+                            <button
+                              type="button"
+                              onClick={() => setDiscussionTarget(item)}
+                              title="Diskusi item ini"
+                              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 transition-colors hover:border-violet-300 hover:text-violet-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-violet-700 dark:hover:text-violet-300"
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              Diskusi
+                            </button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -283,6 +297,14 @@ export function EventTrackingBoard({
           checklistItemId={historyTarget.id}
           itemName={historyTarget.itemName}
           onClose={() => setHistoryTarget(null)}
+        />
+      )}
+
+      {discussionTarget && (
+        <ChecklistDiscussionModal
+          checklistItemId={discussionTarget.id}
+          itemName={discussionTarget.itemName}
+          onClose={() => setDiscussionTarget(null)}
         />
       )}
     </div>

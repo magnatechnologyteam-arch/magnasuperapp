@@ -1,5 +1,7 @@
 import type {
   AssetComment,
+  Checkin,
+  CheckinLink,
   Client,
   ClientStatus,
   ContentPost,
@@ -396,5 +398,41 @@ export function rowToAssetComment(row: AssetCommentRow): AssetComment {
     commentText: row.comment_text,
     isResolved: row.is_resolved,
     createdAt: row.created_at,
+  };
+}
+
+/** Baris `magnative_checkin_links` (rekomendasi Bagian 5-B #10, migrasi 0068). */
+export type CheckinLinkRow = {
+  id: string;
+  project_id: string;
+  token: string;
+  label: string | null;
+  created_at: string;
+};
+
+export function rowToCheckinLink(row: CheckinLinkRow): CheckinLink {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    token: row.token,
+    label: row.label ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+/** Baris `magnative_checkins` (migrasi 0068). */
+export type CheckinRow = {
+  id: string;
+  checkin_link_id: string;
+  guest_name: string | null;
+  checked_in_at: string;
+};
+
+export function rowToCheckin(row: CheckinRow): Checkin {
+  return {
+    id: row.id,
+    checkinLinkId: row.checkin_link_id,
+    guestName: row.guest_name ?? undefined,
+    checkedInAt: row.checked_in_at,
   };
 }
