@@ -14,11 +14,13 @@ import {
   Share2,
   Trash2,
   Truck,
+  Users,
   X as XIcon,
 } from "lucide-react";
 import { useMagnarentData, type BookingConflict } from "./MagnarentDataProvider";
 import { BookingConditionModal } from "./BookingConditionModal";
 import { DeliveryScheduleModal } from "./DeliveryScheduleModal";
+import { CrewAssignmentModal } from "./CrewAssignmentModal";
 import { PortalShareModal } from "@/components/portal/PortalShareModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -123,6 +125,7 @@ export function BookingScheduler() {
   const [conditionTarget, setConditionTarget] = useState<Booking | null>(null);
   // Gap #7 analisis Magnarent: penjadwalan pengiriman/pengambilan — dibuka lewat tombol baru di baris.
   const [deliveryTarget, setDeliveryTarget] = useState<Booking | null>(null);
+  const [crewTarget, setCrewTarget] = useState<Booking | null>(null);
   const [portalTarget, setPortalTarget] = useState<Booking | null>(null);
 
   const itemName = (id: string) => inventory.find((i) => i.id === id)?.name ?? "—";
@@ -472,6 +475,15 @@ export function BookingScheduler() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => setCrewTarget(b)}
+                          title="Kru bertugas"
+                          aria-label="Kru bertugas"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-teal-50 hover:text-teal-600 dark:hover:bg-teal-500/10 dark:hover:text-teal-300"
+                        >
+                          <Users className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setPortalTarget(b)}
                           title="Bagikan ke klien"
                           aria-label="Bagikan ke klien"
@@ -789,6 +801,13 @@ export function BookingScheduler() {
           bookingId={deliveryTarget.id}
           clientName={deliveryTarget.namaKlien}
           onClose={() => setDeliveryTarget(null)}
+        />
+      )}
+      {crewTarget && (
+        <CrewAssignmentModal
+          bookingId={crewTarget.id}
+          clientName={crewTarget.namaKlien}
+          onClose={() => setCrewTarget(null)}
         />
       )}
       {portalTarget && (

@@ -26,6 +26,12 @@ import {
   rowToSeasonalPricingRule,
   type SeasonalPricingRule,
   type SeasonalPricingRuleRow,
+  rowToCrewAssignment,
+  dateRangesOverlap,
+  type CrewAssignment,
+  type CrewAssignmentRow,
+  type CrewConflict,
+  type CrewRole,
 } from "./extras-types";
 import { rowToInventoryUnit, type InventoryUnitRow } from "./mappers";
 import type { InventoryUnit, InventoryUnitStatus } from "./types";
@@ -849,4 +855,112 @@ export async function deleteSeasonalPricingRule(id: string): Promise<MutationRes
   revalidatePath(INVENTORY_PATH);
   revalidatePath(MODULE_PATH);
   return { ok: true };
+}
+
+/**
+ * Crew/labor scheduling terintegrasi booking alat (Gap laporan Bagian
+ * 5-C, migrasi 0072) -- staf tambah nama kru + peran per booking lewat
+ * `addCrewAssignment`, dan bisa cek bentrok jadwal lewat
+ * `findCrewConflicts` SEBELUM menyimpan (heuristik overlap tanggal murni,
+ * BUKAN AI) -- dibuka dari CrewAssignmentModal.tsx di BookingScheduler.
+ */
+export async function getCrewAssignments(bookingId: string): Promise<CrewAssignment[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("magnarent_crew_assignments")
+    .select("*")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: true })
+    .returns<CrewAssignmentRow[]>();
+
+  if (error) {
+    console.error("[magnarent] getCrewAssignments gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToCrewAssignment);
+}
+
+export async function addCrewAssignment(
+  bookingId: string,
+  input: { crewName: string; role: CrewRole; catatan?: string }
+): Promise<MutationResult> {
+  if (!input.crewName?.trim()) return { ok: false, error: "Nama kru wajib diisi." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_crew_assignments").insert({
+    booking_id: bookingId,
+    crew_name: input.crewName.trim(),
+    role: input.role,
+    catatan: input.catatan?.trim() || null,
+  });
+
+  if (error) {
+    console.error("[magnarent] addCrewAssignment gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnarent", action: "create", entityType: "penugasan kru", entityLabel: input.crewName });
+  return { ok: true };
+}
+
+export async function deleteCrewAssignment(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_crew_assignments").delete().eq("id", id);
+  if (error) {
+    console.error("[magnarent] deleteCrewAssignment gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+/**
+ * Cek bentrok jadwal kru: cari nama kru yang sama di booking LAIN yang
+ * rentang tanggalnya tumpang tindih dengan booking ini -- dua query
+ * (kru dulu, baru booking-nya) daripada join langsung supaya tidak
+ * bergantung nama relasi FK Supabase yang belum tentu terdeteksi.
+ */
+export async function findCrewConflicts(bookingId: string, crewName: string): Promise<CrewConflict[]> {
+  if (!crewName?.trim()) return [];
+  const supabase = await createClient();
+
+  const { data: thisBooking } = await supabase
+    .from("magnarent_bookings")
+    .select("tanggal_mulai, tanggal_selesai")
+    .eq("id", bookingId)
+    .maybeSingle<{ tanggal_mulai: string; tanggal_selesai: string }>();
+  if (!thisBooking) return [];
+
+  const { data: crewRows, error } = await supabase
+    .from("magnarent_crew_assignments")
+    .select("booking_id, role")
+    .ilike("crew_name", crewName.trim())
+    .neq("booking_id", bookingId)
+    .returns<{ booking_id: string; role: CrewRole }[]>();
+
+  if (error || !crewRows || crewRows.length === 0) return [];
+
+  const otherBookingIds = Array.from(new Set(crewRows.map((r) => r.booking_id)));
+  const { data: bookings } = await supabase
+    .from("magnarent_bookings")
+    .select("id, nama_klien, tanggal_mulai, tanggal_selesai")
+    .in("id", otherBookingIds)
+    .returns<{ id: string; nama_klien: string; tanggal_mulai: string; tanggal_selesai: string }[]>();
+
+  const bookingById = new Map((bookings ?? []).map((b) => [b.id, b]));
+  const conflicts: CrewConflict[] = [];
+  for (const row of crewRows) {
+    const b = bookingById.get(row.booking_id);
+    if (!b) continue;
+    if (dateRangesOverlap(thisBooking.tanggal_mulai, thisBooking.tanggal_selesai, b.tanggal_mulai, b.tanggal_selesai)) {
+      conflicts.push({
+        bookingId: b.id,
+        namaKlien: b.nama_klien,
+        tanggalMulai: b.tanggal_mulai,
+        tanggalSelesai: b.tanggal_selesai,
+        role: row.role,
+      });
+    }
+  }
+  return conflicts;
 }

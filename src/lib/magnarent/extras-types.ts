@@ -279,3 +279,57 @@ export function rowToGalleryFolder(folder: GalleryFolderRow, photoRows: GalleryP
       .map(rowToGalleryPhotoOnly),
   };
 }
+
+/**
+ * Crew/labor scheduling terintegrasi booking alat (Gap laporan Bagian
+ * 5-C) -- satu baris per orang yang ditugaskan ke satu booking, migrasi
+ * 0072. Rentang tanggal penugasan ikut tanggal booking-nya (tidak ada
+ * jadwal jam kerja terpisah), deteksi bentrok dihitung heuristik di
+ * `findCrewConflicts` (extras-actions.ts) dengan membandingkan rentang
+ * tanggal booking lain yang punya nama kru sama.
+ */
+export const CREW_ROLES = ["Sopir", "Rigger", "Teknisi", "Among Alat", "Lainnya"] as const;
+export type CrewRole = (typeof CREW_ROLES)[number];
+
+export type CrewAssignment = {
+  id: string;
+  bookingId: string;
+  crewName: string;
+  role: CrewRole;
+  catatan: string | null;
+  createdAt: string;
+};
+
+export type CrewAssignmentRow = {
+  id: string;
+  booking_id: string;
+  crew_name: string;
+  role: CrewRole;
+  catatan: string | null;
+  created_at: string;
+};
+
+export function rowToCrewAssignment(row: CrewAssignmentRow): CrewAssignment {
+  return {
+    id: row.id,
+    bookingId: row.booking_id,
+    crewName: row.crew_name,
+    role: row.role,
+    catatan: row.catatan,
+    createdAt: row.created_at,
+  };
+}
+
+/** Ringkasan bentrok jadwal buat satu nama kru -- booking lain (bukan booking yang sedang dilihat) dengan rentang tanggal tumpang tindih. */
+export type CrewConflict = {
+  bookingId: string;
+  namaKlien: string;
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  role: CrewRole;
+};
+
+/** Cek dua rentang tanggal ISO (YYYY-MM-DD) tumpang tindih -- inklusif kedua ujung, sama pola dengan overlap check di availability.ts. */
+export function dateRangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
+  return aStart <= bEnd && bStart <= aEnd;
+}
