@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Share2,
   Trash2,
   Truck,
   X as XIcon,
@@ -18,6 +19,7 @@ import {
 import { useMagnarentData, type BookingConflict } from "./MagnarentDataProvider";
 import { BookingConditionModal } from "./BookingConditionModal";
 import { DeliveryScheduleModal } from "./DeliveryScheduleModal";
+import { PortalShareModal } from "@/components/portal/PortalShareModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -119,6 +121,7 @@ export function BookingScheduler() {
   const [conditionTarget, setConditionTarget] = useState<Booking | null>(null);
   // Gap #7 analisis Magnarent: penjadwalan pengiriman/pengambilan — dibuka lewat tombol baru di baris.
   const [deliveryTarget, setDeliveryTarget] = useState<Booking | null>(null);
+  const [portalTarget, setPortalTarget] = useState<Booking | null>(null);
 
   const itemName = (id: string) => inventory.find((i) => i.id === id)?.name ?? "—";
   const clientById = (id?: string) => (id ? clients.find((c) => c.id === id) : undefined);
@@ -452,6 +455,15 @@ export function BookingScheduler() {
                         >
                           <Truck className="h-4 w-4" />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setPortalTarget(b)}
+                          title="Bagikan ke klien"
+                          aria-label="Bagikan ke klien"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
+                        >
+                          <Share2 className="h-4 w-4" />
+                        </button>
                         <a
                           href={`/api/magnarent/bookings/${b.id}/contract`}
                           target="_blank"
@@ -750,6 +762,15 @@ export function BookingScheduler() {
           bookingId={deliveryTarget.id}
           clientName={deliveryTarget.namaKlien}
           onClose={() => setDeliveryTarget(null)}
+        />
+      )}
+      {portalTarget && (
+        <PortalShareModal
+          module="magnarent"
+          entityId={portalTarget.id}
+          entityLabel={portalTarget.namaKlien}
+          clientName={portalTarget.namaKlien}
+          onClose={() => setPortalTarget(null)}
         />
       )}
     </div>

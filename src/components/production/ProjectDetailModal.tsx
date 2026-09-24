@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { CheckCircle2, ChevronDown, Clock, FileText, Loader2, Paperclip, Trash2, Upload, Users } from "lucide-react";
+import { CheckCircle2, ChevronDown, Clock, FileText, Loader2, Paperclip, Share2, Trash2, Upload, Users } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
+import { PortalShareModal } from "@/components/portal/PortalShareModal";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
   addCrewTimelog,
@@ -431,6 +432,7 @@ export function ProjectDetailModal({
   const [addingCrew, setAddingCrew] = useState(false);
   const [removingCrewId, setRemovingCrewId] = useState<string | null>(null);
   const [expandedCrewId, setExpandedCrewId] = useState<string | null>(null);
+  const [portalShareOpen, setPortalShareOpen] = useState(false);
 
   function reloadChecks() {
     getProjectChecks(projectId).then(setChecks);
@@ -491,6 +493,16 @@ export function ProjectDetailModal({
   return (
     <Modal open={open} onClose={onClose} title={`Detail Proyek — ${projectName}`} maxWidth="max-w-xl">
       <div>
+        <div className="mb-3 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setPortalShareOpen(true)}
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-zinc-500 hover:bg-emerald-50 hover:text-emerald-600 dark:text-zinc-400 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            Bagikan ke Klien
+          </button>
+        </div>
         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
           Checklist Instalasi & Bongkar
         </p>
@@ -630,6 +642,15 @@ export function ProjectDetailModal({
       </div>
 
       <ProjectDocumentsSection projectId={projectId} />
+
+      {portalShareOpen && (
+        <PortalShareModal
+          module="production"
+          entityId={projectId}
+          entityLabel={projectName}
+          onClose={() => setPortalShareOpen(false)}
+        />
+      )}
     </Modal>
   );
 }

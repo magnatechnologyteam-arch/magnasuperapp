@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { Briefcase, Building2, ListChecks, Pencil, Plus, Search, Trash2, Wallet2, Workflow } from "lucide-react";
+import { Briefcase, Building2, ListChecks, Pencil, Plus, Search, Share2, Trash2, Wallet2, Workflow } from "lucide-react";
 import { useMagnativeData } from "./MagnativeDataProvider";
 import { ProjectCostModal } from "./ProjectCostModal";
 import { ProjectTaskModal } from "./ProjectTaskModal";
 import { ProjectVendorModal } from "./ProjectVendorModal";
 import { ProjectPipelineModal } from "./ProjectPipelineModal";
+import { PortalShareModal } from "@/components/portal/PortalShareModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -77,6 +78,7 @@ export function ProjectManager() {
   const [taskTarget, setTaskTarget] = useState<Project | null>(null);
   const [vendorTarget, setVendorTarget] = useState<Project | null>(null);
   const [pipelineTarget, setPipelineTarget] = useState<Project | null>(null);
+  const [portalTarget, setPortalTarget] = useState<Project | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>(ALL_FILTER);
 
@@ -381,6 +383,15 @@ export function ProjectManager() {
                       </button>
                       <button
                         type="button"
+                        onClick={() => setPortalTarget(p)}
+                        title="Bagikan ke klien"
+                        aria-label="Bagikan ke klien"
+                        className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10 dark:hover:text-emerald-300"
+                      >
+                        <Share2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => openEditModal(p)}
                         title="Edit proyek"
                         aria-label="Edit proyek"
@@ -655,6 +666,15 @@ export function ProjectManager() {
       {taskTarget && <ProjectTaskModal project={taskTarget} onClose={() => setTaskTarget(null)} />}
       {vendorTarget && <ProjectVendorModal project={vendorTarget} onClose={() => setVendorTarget(null)} />}
       {pipelineTarget && <ProjectPipelineModal project={pipelineTarget} onClose={() => setPipelineTarget(null)} />}
+      {portalTarget && (
+        <PortalShareModal
+          module="magnative"
+          entityId={portalTarget.id}
+          entityLabel={portalTarget.name}
+          clientName={clientName(portalTarget.clientId)}
+          onClose={() => setPortalTarget(null)}
+        />
+      )}
     </div>
   );
 }
