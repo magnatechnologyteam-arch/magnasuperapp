@@ -9,6 +9,7 @@ import {
   ClipboardCheck,
   FileSignature,
   Pencil,
+  PackageSearch,
   Plus,
   Search,
   Share2,
@@ -21,6 +22,7 @@ import { useMagnarentData, type BookingConflict } from "./MagnarentDataProvider"
 import { BookingConditionModal } from "./BookingConditionModal";
 import { DeliveryScheduleModal } from "./DeliveryScheduleModal";
 import { CrewAssignmentModal } from "./CrewAssignmentModal";
+import { SubrentModal } from "./SubrentModal";
 import { PortalShareModal } from "@/components/portal/PortalShareModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -126,6 +128,7 @@ export function BookingScheduler() {
   // Gap #7 analisis Magnarent: penjadwalan pengiriman/pengambilan — dibuka lewat tombol baru di baris.
   const [deliveryTarget, setDeliveryTarget] = useState<Booking | null>(null);
   const [crewTarget, setCrewTarget] = useState<Booking | null>(null);
+  const [subrentTarget, setSubrentTarget] = useState<Booking | null>(null);
   const [portalTarget, setPortalTarget] = useState<Booking | null>(null);
 
   const itemName = (id: string) => inventory.find((i) => i.id === id)?.name ?? "—";
@@ -484,6 +487,15 @@ export function BookingScheduler() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => setSubrentTarget(b)}
+                          title="Subrent alat (pinjam dari vendor luar)"
+                          aria-label="Subrent alat (pinjam dari vendor luar)"
+                          className="rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-300"
+                        >
+                          <PackageSearch className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setPortalTarget(b)}
                           title="Bagikan ke klien"
                           aria-label="Bagikan ke klien"
@@ -808,6 +820,16 @@ export function BookingScheduler() {
           bookingId={crewTarget.id}
           clientName={crewTarget.namaKlien}
           onClose={() => setCrewTarget(null)}
+        />
+      )}
+      {subrentTarget && (
+        <SubrentModal
+          bookingId={subrentTarget.id}
+          clientName={subrentTarget.namaKlien}
+          itemId={subrentTarget.itemId || undefined}
+          tanggalMulai={subrentTarget.tanggalMulai}
+          tanggalSelesai={subrentTarget.tanggalSelesai}
+          onClose={() => setSubrentTarget(null)}
         />
       )}
       {portalTarget && (

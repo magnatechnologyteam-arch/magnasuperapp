@@ -30,6 +30,8 @@ export type InventoryUnit = {
   catatan?: string;
   /** Tag RFID opsional (pelengkap QR, laporan Bagian 5-C #17) — dipakai untuk bulk-scan gudang saat event besar. */
   rfidTag?: string;
+  /** Gudang fisik SAAT INI tempat unit ini berada (Gap #9/analisis-kompetitor #15, migrasi 0073) — beda dari `InventoryItem.location` yang teks bebas di level alat; ini per-unit & berbasis id supaya transfer antar gudang bisa dilacak. undefined = belum pernah diset/ditempatkan. */
+  warehouseId?: string;
 };
 
 export type BookingStatus = "Menunggu" | "Dikonfirmasi" | "Selesai" | "Dibatalkan";

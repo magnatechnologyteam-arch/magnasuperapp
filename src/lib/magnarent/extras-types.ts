@@ -333,3 +333,123 @@ export type CrewConflict = {
 export function dateRangesOverlap(aStart: string, aEnd: string, bStart: string, bEnd: string): boolean {
   return aStart <= bEnd && bStart <= aEnd;
 }
+
+/**
+ * Multi-lokasi gudang & subrent tracking (analisis-kompetitor #15, Gap #9,
+ * migrasi 0073). `InventoryItem.location` (types.ts) tetap teks bebas di
+ * level alat (dipakai buat tampilan ringkas); `warehouse_id` di sini ada di
+ * level UNIT fisik (`magnarent_inventory_units`), jadi satu jenis alat bisa
+ * unit-unitnya tersebar di beberapa gudang berbeda. `magnarent_warehouses`
+ * sengaja tabel referensi terpisah (bukan cuma teks) supaya transfer antar
+ * gudang bisa dicatat by-id, konsisten meski nama gudang diketik beda-beda.
+ */
+export type Warehouse = {
+  id: string;
+  nama: string;
+  alamat: string | null;
+  catatan: string | null;
+  createdAt: string;
+};
+
+export type WarehouseRow = {
+  id: string;
+  nama: string;
+  alamat: string | null;
+  catatan: string | null;
+  created_at: string;
+};
+
+export function rowToWarehouse(row: WarehouseRow): Warehouse {
+  return {
+    id: row.id,
+    nama: row.nama,
+    alamat: row.alamat,
+    catatan: row.catatan,
+    createdAt: row.created_at,
+  };
+}
+
+/** Log transfer satu unit fisik dari satu gudang ke gudang lain -- histori,
+ * bukan status saat ini (status saat ini = `InventoryUnit.warehouseId`). */
+export type WarehouseTransfer = {
+  id: string;
+  unitId: string;
+  fromWarehouseId: string | null;
+  toWarehouseId: string;
+  catatan: string | null;
+  transferredAt: string;
+};
+
+export type WarehouseTransferRow = {
+  id: string;
+  unit_id: string;
+  from_warehouse_id: string | null;
+  to_warehouse_id: string;
+  catatan: string | null;
+  transferred_at: string;
+};
+
+export function rowToWarehouseTransfer(row: WarehouseTransferRow): WarehouseTransfer {
+  return {
+    id: row.id,
+    unitId: row.unit_id,
+    fromWarehouseId: row.from_warehouse_id,
+    toWarehouseId: row.to_warehouse_id,
+    catatan: row.catatan,
+    transferredAt: row.transferred_at,
+  };
+}
+
+/**
+ * Subrent tracking (analisis-kompetitor #15) -- alat yang DIPINJAM dari
+ * vendor luar buat menutupi kekurangan stok in-house (mis. saat satu
+ * booking butuh 50 kursi tapi stok cuma 30, 20 sisanya disubrent).
+ * `bookingId`/`itemId` opsional (nullable) supaya subrent bisa dicatat
+ * lepas dari booking tertentu juga (mis. nambah stok umum sementara).
+ */
+export const SUBRENT_STATUS = ["Dipesan", "Diterima", "Dikembalikan", "Dibatalkan"] as const;
+export type SubrentStatus = (typeof SUBRENT_STATUS)[number];
+
+export type SubrentRecord = {
+  id: string;
+  bookingId: string | null;
+  itemId: string | null;
+  vendorName: string;
+  jumlahUnit: number;
+  hargaSewaTotal: number | null;
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  status: SubrentStatus;
+  catatan: string | null;
+  createdAt: string;
+};
+
+export type SubrentRecordRow = {
+  id: string;
+  booking_id: string | null;
+  item_id: string | null;
+  vendor_name: string;
+  jumlah_unit: number;
+  harga_sewa_total: number | null;
+  tanggal_mulai: string;
+  tanggal_selesai: string;
+  status: SubrentStatus;
+  catatan: string | null;
+  created_at: string;
+};
+
+export function rowToSubrentRecord(row: SubrentRecordRow): SubrentRecord {
+  return {
+    id: row.id,
+    bookingId: row.booking_id,
+    itemId: row.item_id,
+    vendorName: row.vendor_name,
+    jumlahUnit: row.jumlah_unit,
+    hargaSewaTotal: row.harga_sewa_total,
+    tanggalMulai: row.tanggal_mulai,
+    tanggalSelesai: row.tanggal_selesai,
+    status: row.status,
+    catatan: row.catatan,
+    createdAt: row.created_at,
+  };
+}

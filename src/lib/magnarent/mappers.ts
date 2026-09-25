@@ -27,6 +27,7 @@ export type InventoryUnitRow = {
   status: InventoryUnitStatus;
   catatan: string | null;
   rfid_tag: string | null;
+  warehouse_id: string | null;
 };
 
 export function rowToInventoryUnit(row: InventoryUnitRow): InventoryUnit {
@@ -37,6 +38,7 @@ export function rowToInventoryUnit(row: InventoryUnitRow): InventoryUnit {
     status: row.status,
     catatan: row.catatan ?? undefined,
     rfidTag: row.rfid_tag ?? undefined,
+    warehouseId: row.warehouse_id ?? undefined,
   };
 }
 

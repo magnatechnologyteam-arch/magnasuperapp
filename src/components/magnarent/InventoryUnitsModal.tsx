@@ -11,8 +11,11 @@ import {
   addInventoryUnit,
   deleteInventoryUnit,
   getInventoryUnits,
+  getWarehouses,
+  transferUnitToWarehouse,
   updateInventoryUnit,
 } from "@/lib/magnarent/extras-actions";
+import type { Warehouse } from "@/lib/magnarent/extras-types";
 import type { InventoryUnit, InventoryUnitStatus } from "@/lib/magnarent/types";
 import type { InventoryItem } from "@/lib/magnarent/types";
 
@@ -26,7 +29,7 @@ const STATUS_STYLE: Record<InventoryUnitStatus, string> = {
 };
 
 function emptyForm(nextCode: string) {
-  return { kodeUnit: nextCode, status: "Tersedia" as InventoryUnitStatus, catatan: "", rfidTag: "" };
+  return { kodeUnit: nextCode, status: "Tersedia" as InventoryUnitStatus, catatan: "", rfidTag: "", warehouseId: "" };
 }
 
 /** Saran kode unit berikutnya, mis. "TND-01", "TND-02" — murni bantuan pengisian, staf tetap bisa ganti manual. */
@@ -52,6 +55,7 @@ function suggestNextCode(itemName: string, existing: InventoryUnit[]): string {
 export function InventoryUnitsModal({ item, onClose }: { item: InventoryItem; onClose: () => void }) {
   const { showToast } = useToast();
   const [units, setUnits] = useState<InventoryUnit[] | null>(null);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(emptyForm(""));
@@ -66,8 +70,24 @@ export function InventoryUnitsModal({ item, onClose }: { item: InventoryItem; on
 
   useEffect(() => {
     reload();
+    getWarehouses().then(setWarehouses);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id]);
+
+  function warehouseName(id?: string) {
+    return warehouses.find((w) => w.id === id)?.nama ?? null;
+  }
+
+  async function handleQuickTransfer(unit: InventoryUnit, toWarehouseId: string) {
+    if (!toWarehouseId || toWarehouseId === unit.warehouseId) return;
+    const result = await transferUnitToWarehouse(unit.id, toWarehouseId);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    showToast(`Unit "${unit.kodeUnit}" dipindah ke ${warehouseName(toWarehouseId) ?? "gudang lain"}.`);
+    reload();
+  }
 
   function openAddForm() {
     setEditingId(null);
@@ -78,7 +98,13 @@ export function InventoryUnitsModal({ item, onClose }: { item: InventoryItem; on
 
   function openEditForm(unit: InventoryUnit) {
     setEditingId(unit.id);
-    setForm({ kodeUnit: unit.kodeUnit, status: unit.status, catatan: unit.catatan ?? "", rfidTag: unit.rfidTag ?? "" });
+    setForm({
+      kodeUnit: unit.kodeUnit,
+      status: unit.status,
+      catatan: unit.catatan ?? "",
+      rfidTag: unit.rfidTag ?? "",
+      warehouseId: unit.warehouseId ?? "",
+    });
     setError(null);
     setFormOpen(true);
   }
@@ -90,7 +116,13 @@ export function InventoryUnitsModal({ item, onClose }: { item: InventoryItem; on
       return;
     }
     setSubmitting(true);
-    const payload = { kodeUnit: form.kodeUnit.trim(), status: form.status, catatan: form.catatan, rfidTag: form.rfidTag };
+    const payload = {
+      kodeUnit: form.kodeUnit.trim(),
+      status: form.status,
+      catatan: form.catatan,
+      rfidTag: form.rfidTag,
+      warehouseId: form.warehouseId || undefined,
+    };
     const result = editingId
       ? await updateInventoryUnit(editingId, payload)
       : await addInventoryUnit(item.id, payload);
@@ -174,6 +206,24 @@ export function InventoryUnitsModal({ item, onClose }: { item: InventoryItem; on
               </div>
             </div>
             <div>
+              <label htmlFor="unit-gudang" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Gudang (opsional)
+              </label>
+              <select
+                id="unit-gudang"
+                value={form.warehouseId}
+                onChange={(e) => setForm((f) => ({ ...f, warehouseId: e.target.value }))}
+                className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2 text-sm text-zinc-900 outline-none ring-violet-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
+              >
+                <option value="">— Belum ditempatkan —</option>
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.nama}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label htmlFor="unit-rfid" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
                 Tag RFID (opsional)
               </label>
@@ -254,6 +304,27 @@ export function InventoryUnitsModal({ item, onClose }: { item: InventoryItem; on
                 </p>
                 {unit.catatan && <p className="truncate text-xs text-zinc-400">{unit.catatan}</p>}
               </div>
+              {warehouses.length > 0 && (
+                <label className="sr-only" htmlFor={`unit-gudang-${unit.id}`}>
+                  Pindah gudang untuk {unit.kodeUnit}
+                </label>
+              )}
+              {warehouses.length > 0 && (
+                <select
+                  id={`unit-gudang-${unit.id}`}
+                  value={unit.warehouseId ?? ""}
+                  onChange={(e) => handleQuickTransfer(unit, e.target.value)}
+                  title="Pindah gudang"
+                  className="shrink-0 rounded-full border border-black/10 bg-transparent px-2 py-1 text-[11px] font-medium text-zinc-500 outline-none ring-violet-500/40 focus:ring-2 dark:border-white/10 dark:text-zinc-300 dark:[&>option]:bg-zinc-900"
+                >
+                  <option value="">— gudang —</option>
+                  {warehouses.map((w) => (
+                    <option key={w.id} value={w.id}>
+                      {w.nama}
+                    </option>
+                  ))}
+                </select>
+              )}
               <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold", STATUS_STYLE[unit.status])}>
                 {unit.status}
               </span>

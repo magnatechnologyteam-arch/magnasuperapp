@@ -32,6 +32,16 @@ import {
   type CrewAssignmentRow,
   type CrewConflict,
   type CrewRole,
+  rowToWarehouse,
+  type Warehouse,
+  type WarehouseRow,
+  rowToWarehouseTransfer,
+  type WarehouseTransfer,
+  type WarehouseTransferRow,
+  rowToSubrentRecord,
+  type SubrentRecord,
+  type SubrentRecordRow,
+  type SubrentStatus,
 } from "./extras-types";
 import { rowToInventoryUnit, type InventoryUnitRow } from "./mappers";
 import type { InventoryUnit, InventoryUnitStatus } from "./types";
@@ -340,7 +350,7 @@ export async function getInventoryUnits(itemId: string): Promise<InventoryUnit[]
 
 export async function addInventoryUnit(
   itemId: string,
-  input: { kodeUnit: string; status: InventoryUnitStatus; catatan?: string; rfidTag?: string }
+  input: { kodeUnit: string; status: InventoryUnitStatus; catatan?: string; rfidTag?: string; warehouseId?: string }
 ): Promise<MutationResult> {
   if (!input.kodeUnit?.trim()) return { ok: false, error: "Kode unit wajib diisi." };
 
@@ -351,6 +361,7 @@ export async function addInventoryUnit(
     status: input.status,
     catatan: input.catatan?.trim() || null,
     rfid_tag: input.rfidTag?.trim() || null,
+    warehouse_id: input.warehouseId || null,
   });
 
   if (error) {
@@ -368,7 +379,7 @@ export async function addInventoryUnit(
 
 export async function updateInventoryUnit(
   id: string,
-  input: { kodeUnit: string; status: InventoryUnitStatus; catatan?: string; rfidTag?: string }
+  input: { kodeUnit: string; status: InventoryUnitStatus; catatan?: string; rfidTag?: string; warehouseId?: string }
 ): Promise<MutationResult> {
   if (!input.kodeUnit?.trim()) return { ok: false, error: "Kode unit wajib diisi." };
 
@@ -380,6 +391,7 @@ export async function updateInventoryUnit(
       status: input.status,
       catatan: input.catatan?.trim() || null,
       rfid_tag: input.rfidTag?.trim() || null,
+      warehouse_id: input.warehouseId || null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", id);
@@ -963,4 +975,251 @@ export async function findCrewConflicts(bookingId: string, crewName: string): Pr
     }
   }
   return conflicts;
+}
+
+const WAREHOUSE_PATH = INVENTORY_PATH;
+
+/**
+ * Manajemen gudang bernama (Gap #9/analisis-kompetitor #15, migrasi 0073)
+ * -- daftar gudang fisik dipakai sebagai pilihan lokasi per-unit alat &
+ * tujuan transfer, terpisah dari `magnarent_inventory` (jenis alat).
+ */
+export async function getWarehouses(): Promise<Warehouse[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("magnarent_warehouses")
+    .select("*")
+    .order("nama", { ascending: true })
+    .returns<WarehouseRow[]>();
+
+  if (error) {
+    console.error("[magnarent] getWarehouses gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToWarehouse);
+}
+
+export async function addWarehouse(input: { nama: string; alamat?: string; catatan?: string }): Promise<MutationResult> {
+  if (!input.nama?.trim()) return { ok: false, error: "Nama gudang wajib diisi." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_warehouses").insert({
+    nama: input.nama.trim(),
+    alamat: input.alamat?.trim() || null,
+    catatan: input.catatan?.trim() || null,
+  });
+
+  if (error) {
+    if (error.message.includes("duplicate key")) {
+      return { ok: false, error: "Nama gudang ini sudah dipakai." };
+    }
+    console.error("[magnarent] addWarehouse gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(WAREHOUSE_PATH);
+  void logActivity({ module: "magnarent", action: "create", entityType: "gudang", entityLabel: input.nama });
+  return { ok: true };
+}
+
+export async function updateWarehouse(
+  id: string,
+  input: { nama: string; alamat?: string; catatan?: string }
+): Promise<MutationResult> {
+  if (!input.nama?.trim()) return { ok: false, error: "Nama gudang wajib diisi." };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("magnarent_warehouses")
+    .update({ nama: input.nama.trim(), alamat: input.alamat?.trim() || null, catatan: input.catatan?.trim() || null })
+    .eq("id", id);
+
+  if (error) {
+    if (error.message.includes("duplicate key")) {
+      return { ok: false, error: "Nama gudang ini sudah dipakai." };
+    }
+    console.error("[magnarent] updateWarehouse gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(WAREHOUSE_PATH);
+  return { ok: true };
+}
+
+export async function deleteWarehouse(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_warehouses").delete().eq("id", id);
+
+  if (error) {
+    console.error("[magnarent] deleteWarehouse gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(WAREHOUSE_PATH);
+  return { ok: true };
+}
+
+/**
+ * Pindahkan satu unit fisik ke gudang lain + catat log transfer -- beda
+ * dari sekadar `updateInventoryUnit` set warehouseId (itu buat penempatan
+ * awal/koreksi data tanpa histori); ini SELALU menulis baris log supaya
+ * jejak "unit X pernah di gudang mana saja" bisa ditelusuri.
+ */
+export async function transferUnitToWarehouse(
+  unitId: string,
+  toWarehouseId: string,
+  catatan?: string
+): Promise<MutationResult> {
+  const supabase = await createClient();
+
+  const { data: unit, error: findError } = await supabase
+    .from("magnarent_inventory_units")
+    .select("warehouse_id")
+    .eq("id", unitId)
+    .maybeSingle<{ warehouse_id: string | null }>();
+
+  if (findError || !unit) {
+    console.error("[magnarent] transferUnitToWarehouse (find) gagal:", findError?.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const { error: updateError } = await supabase
+    .from("magnarent_inventory_units")
+    .update({ warehouse_id: toWarehouseId, updated_at: new Date().toISOString() })
+    .eq("id", unitId);
+
+  if (updateError) {
+    console.error("[magnarent] transferUnitToWarehouse (update) gagal:", updateError.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  const { error: logError } = await supabase.from("magnarent_warehouse_transfers").insert({
+    unit_id: unitId,
+    from_warehouse_id: unit.warehouse_id,
+    to_warehouse_id: toWarehouseId,
+    catatan: catatan?.trim() || null,
+  });
+  if (logError) {
+    console.error("[magnarent] transferUnitToWarehouse (log) gagal:", logError.message);
+  }
+
+  revalidatePath(INVENTORY_PATH);
+  void logActivity({ module: "magnarent", action: "update", entityType: "transfer gudang", entityLabel: "1 unit alat" });
+  return { ok: true };
+}
+
+export async function getWarehouseTransfers(unitId: string): Promise<WarehouseTransfer[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("magnarent_warehouse_transfers")
+    .select("*")
+    .eq("unit_id", unitId)
+    .order("transferred_at", { ascending: false })
+    .returns<WarehouseTransferRow[]>();
+
+  if (error) {
+    console.error("[magnarent] getWarehouseTransfers gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToWarehouseTransfer);
+}
+
+/**
+ * Subrent tracking (analisis-kompetitor #15, migrasi 0073) -- catat alat
+ * yang dipinjam dari vendor luar buat menutupi kekurangan stok in-house
+ * saat fulfillment booking. `bookingId` opsional: bisa dicatat lepas dari
+ * booking tertentu (mis. nambah stok umum sementara jelang musim ramai).
+ */
+export async function getSubrentRecords(bookingId: string): Promise<SubrentRecord[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("magnarent_subrent_records")
+    .select("*")
+    .eq("booking_id", bookingId)
+    .order("created_at", { ascending: false })
+    .returns<SubrentRecordRow[]>();
+
+  if (error) {
+    console.error("[magnarent] getSubrentRecords gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToSubrentRecord);
+}
+
+export async function getAllSubrentRecords(): Promise<SubrentRecord[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("magnarent_subrent_records")
+    .select("*")
+    .order("tanggal_mulai", { ascending: false })
+    .returns<SubrentRecordRow[]>();
+
+  if (error) {
+    console.error("[magnarent] getAllSubrentRecords gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToSubrentRecord);
+}
+
+export async function addSubrentRecord(input: {
+  bookingId?: string;
+  itemId?: string;
+  vendorName: string;
+  jumlahUnit: number;
+  hargaSewaTotal?: number;
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  catatan?: string;
+}): Promise<MutationResult> {
+  if (!input.vendorName?.trim()) return { ok: false, error: "Nama vendor wajib diisi." };
+  if (!input.tanggalMulai || !input.tanggalSelesai) return { ok: false, error: "Tanggal mulai & selesai wajib diisi." };
+  if (input.tanggalMulai > input.tanggalSelesai) return { ok: false, error: "Tanggal mulai tidak boleh setelah tanggal selesai." };
+  if (!input.jumlahUnit || input.jumlahUnit < 1) return { ok: false, error: "Jumlah unit minimal 1." };
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_subrent_records").insert({
+    booking_id: input.bookingId || null,
+    item_id: input.itemId || null,
+    vendor_name: input.vendorName.trim(),
+    jumlah_unit: input.jumlahUnit,
+    harga_sewa_total: input.hargaSewaTotal ?? null,
+    tanggal_mulai: input.tanggalMulai,
+    tanggal_selesai: input.tanggalSelesai,
+    catatan: input.catatan?.trim() || null,
+  });
+
+  if (error) {
+    console.error("[magnarent] addSubrentRecord gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  void logActivity({ module: "magnarent", action: "create", entityType: "subrent alat", entityLabel: input.vendorName });
+  return { ok: true };
+}
+
+export async function updateSubrentStatus(id: string, status: SubrentStatus): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_subrent_records").update({ status }).eq("id", id);
+
+  if (error) {
+    console.error("[magnarent] updateSubrentStatus gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
+}
+
+export async function deleteSubrentRecord(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("magnarent_subrent_records").delete().eq("id", id);
+
+  if (error) {
+    console.error("[magnarent] deleteSubrentRecord gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  revalidatePath(MODULE_PATH);
+  return { ok: true };
 }

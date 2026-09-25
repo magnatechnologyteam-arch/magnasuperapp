@@ -1,12 +1,25 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
-import { CalendarRange, MapPin, Package, Pencil, Plus, QrCode, ScanLine, Search, Trash2, Wrench } from "lucide-react";
+import {
+  CalendarRange,
+  MapPin,
+  Package,
+  Pencil,
+  Plus,
+  QrCode,
+  ScanLine,
+  Search,
+  Trash2,
+  Warehouse as WarehouseIcon,
+  Wrench,
+} from "lucide-react";
 import { useMagnarentData } from "./MagnarentDataProvider";
 import { MaintenanceLogModal } from "./MaintenanceLogModal";
 import { InventoryUnitsModal } from "./InventoryUnitsModal";
 import { SeasonalPricingModal } from "./SeasonalPricingModal";
 import { BulkScanModal } from "./BulkScanModal";
+import { WarehouseManagerModal } from "./WarehouseManagerModal";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/components/ui/ToastProvider";
@@ -72,6 +85,7 @@ export function InventoryManager() {
   const [unitsTarget, setUnitsTarget] = useState<InventoryItem | null>(null);
   const [seasonalOpen, setSeasonalOpen] = useState(false);
   const [bulkScanOpen, setBulkScanOpen] = useState(false);
+  const [warehouseOpen, setWarehouseOpen] = useState(false);
 
   const categories = useMemo(
     () => Array.from(new Set(inventory.map((i) => i.category))),
@@ -210,6 +224,14 @@ export function InventoryManager() {
           >
             <ScanLine className="h-4 w-4" />
             Scan Massal
+          </button>
+          <button
+            type="button"
+            onClick={() => setWarehouseOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-teal-300 px-3.5 py-2 text-sm font-semibold text-teal-700 transition-colors hover:bg-teal-50 dark:border-teal-500/40 dark:text-teal-300 dark:hover:bg-teal-500/10"
+          >
+            <WarehouseIcon className="h-4 w-4" />
+            Kelola Gudang
           </button>
           <button
             type="button"
@@ -564,6 +586,7 @@ export function InventoryManager() {
       )}
       {seasonalOpen && <SeasonalPricingModal inventory={inventory} onClose={() => setSeasonalOpen(false)} />}
       {bulkScanOpen && <BulkScanModal onClose={() => setBulkScanOpen(false)} />}
+      {warehouseOpen && <WarehouseManagerModal onClose={() => setWarehouseOpen(false)} />}
     </div>
   );
 }
