@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/activity/log";
 import {
   rowToBomTemplate,
+  rowToCrewPiecePayment,
   rowToCrewTimelog,
   rowToEquipment,
   rowToEquipmentUsage,
@@ -18,9 +19,12 @@ import {
   type BomTemplateItem,
   type BomTemplateRow,
   type CheckStage,
+  type CrewPiecePayment,
+  type CrewPiecePaymentRow,
   type CrewRole,
   type CrewTimelog,
   type CrewTimelogRow,
+  type PiecePaymentStatus,
   type DocumentationTahap,
   type Equipment,
   type EquipmentCategory,
@@ -729,6 +733,90 @@ export async function deleteCrewTimelog(id: string): Promise<MutationResult> {
   const { error } = await supabase.from("production_crew_timelogs").delete().eq("id", id);
   if (error) {
     console.error("[production] deleteCrewTimelog gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(PROYEK_PATH);
+  return { ok: true };
+}
+
+/**
+ * Upah borongan (piece-rate) kru (analisis-kompetitor #21) — panel terpisah
+ * dari `CrewTimelogPanel`, dibuka di `ProjectDetailModal` per baris kru.
+ * Total dihitung di sini (bukan trigger DB) supaya konsisten dengan pola
+ * `magnarent_subrent_records`.
+ */
+export async function getCrewPiecePayments(projectCrewId: string): Promise<CrewPiecePayment[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("production_crew_piece_payments")
+    .select("*")
+    .eq("project_crew_id", projectCrewId)
+    .order("created_at", { ascending: false })
+    .returns<CrewPiecePaymentRow[]>();
+
+  if (error) {
+    console.error("[production] getCrewPiecePayments gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToCrewPiecePayment);
+}
+
+export async function addCrewPiecePayment(
+  projectCrewId: string,
+  input: { deskripsiPekerjaan: string; jumlahUnit: number; ratePerUnit: number; catatan?: string }
+): Promise<MutationResult> {
+  if (!input.deskripsiPekerjaan.trim()) return { ok: false, error: "Deskripsi pekerjaan wajib diisi." };
+  if (!Number.isFinite(input.jumlahUnit) || input.jumlahUnit <= 0)
+    return { ok: false, error: "Jumlah unit harus lebih dari 0." };
+  if (!Number.isFinite(input.ratePerUnit) || input.ratePerUnit < 0)
+    return { ok: false, error: "Rate per unit tidak valid." };
+
+  const totalUpah = input.jumlahUnit * input.ratePerUnit;
+  const supabase = await createClient();
+  const { error } = await supabase.from("production_crew_piece_payments").insert({
+    project_crew_id: projectCrewId,
+    deskripsi_pekerjaan: input.deskripsiPekerjaan.trim(),
+    jumlah_unit: input.jumlahUnit,
+    rate_per_unit: input.ratePerUnit,
+    total_upah: totalUpah,
+    catatan: input.catatan?.trim() || null,
+  });
+
+  if (error) {
+    console.error("[production] addCrewPiecePayment gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(PROYEK_PATH);
+  return { ok: true };
+}
+
+export async function updateCrewPiecePaymentStatus(
+  id: string,
+  status: PiecePaymentStatus,
+  tanggalBayar?: string
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("production_crew_piece_payments")
+    .update({
+      status,
+      tanggal_bayar: status === "Dibayar" ? tanggalBayar || new Date().toISOString().slice(0, 10) : null,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[production] updateCrewPiecePaymentStatus gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(PROYEK_PATH);
+  return { ok: true };
+}
+
+export async function deleteCrewPiecePayment(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("production_crew_piece_payments").delete().eq("id", id);
+  if (error) {
+    console.error("[production] deleteCrewPiecePayment gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(PROYEK_PATH);

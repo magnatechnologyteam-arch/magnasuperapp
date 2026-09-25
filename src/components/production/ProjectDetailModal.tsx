@@ -6,33 +6,44 @@ import { Modal } from "@/components/ui/Modal";
 import { PortalShareModal } from "@/components/portal/PortalShareModal";
 import { useToast } from "@/components/ui/ToastProvider";
 import {
+  addCrewPiecePayment,
   addCrewTimelog,
   addProjectCrew,
   addProjectDocument,
+  deleteCrewPiecePayment,
   deleteCrewTimelog,
   deleteProjectCrew,
   deleteProjectDocument,
+  getCrewPiecePayments,
   getCrewTimelogs,
   getProjectChecks,
   getProjectCrew,
   getProjectDocuments,
   removeProjectCheckPhoto,
   saveProjectCheck,
+  updateCrewPiecePaymentStatus,
 } from "@/lib/production/extras-actions";
 import {
   CREW_ROLES,
   type CheckStage,
+  type CrewPiecePayment,
   type CrewRole,
   type CrewTimelog,
+  type PiecePaymentStatus,
   type ProjectCheck,
   type ProjectCrew,
   type ProjectDocument,
 } from "@/lib/production/extras-types";
-import { formatDateID, todayISO } from "@/lib/shared/utils";
+import { formatDateID, formatRupiah, todayISO } from "@/lib/shared/utils";
 
 const STAGE_LABEL: Record<CheckStage, string> = { instalasi: "Saat Instalasi", bongkar: "Saat Bongkar" };
 const EMPTY_CREW_FORM = { nama: "", peran: "Tukang/Instalatur" as CrewRole, kontak: "", catatan: "" };
 const EMPTY_TIMELOG_FORM = { tanggal: todayISO(), jam: "1", catatan: "" };
+const EMPTY_PIECE_FORM = { deskripsiPekerjaan: "", jumlahUnit: "1", ratePerUnit: "", catatan: "" };
+const PIECE_STATUS_STYLE: Record<PiecePaymentStatus, string> = {
+  "Belum Dibayar": "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  Dibayar: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+};
 
 function CheckStagePanel({
   projectId,
@@ -278,6 +289,187 @@ function CrewTimelogPanel({ crewId, crewName }: { crewId: string; crewName: stri
         >
           {submitting && <Loader2 className="h-3 w-3 animate-spin" />}
           Catat
+        </button>
+      </form>
+      {error && (
+        <p className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-[11px] font-medium text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Upah borongan/piece-rate kru (analisis-kompetitor #21) — panel expand
+ * terpisah dari `CrewTimelogPanel` (jam kerja per-jam), sama pola tapi
+ * mencatat kesepakatan borongan per pekerjaan/unit-booth. Versi INTERNAL
+ * saja, belum terhubung payroll sungguhan.
+ */
+function CrewPiecePaymentPanel({ crewId, crewName }: { crewId: string; crewName: string }) {
+  const { showToast } = useToast();
+  const [payments, setPayments] = useState<CrewPiecePayment[] | null>(null);
+  const [form, setForm] = useState(EMPTY_PIECE_FORM);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  function reload() {
+    getCrewPiecePayments(crewId).then(setPayments);
+  }
+
+  useEffect(() => {
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [crewId]);
+
+  const totalUpah = (payments ?? []).reduce((sum, p) => sum + p.totalUpah, 0);
+  const jumlahUnit = Number(form.jumlahUnit);
+  const ratePerUnit = Number(form.ratePerUnit);
+  const previewTotal = Number.isFinite(jumlahUnit) && Number.isFinite(ratePerUnit) ? jumlahUnit * ratePerUnit : 0;
+
+  async function handleAdd(e: FormEvent) {
+    e.preventDefault();
+    if (!form.deskripsiPekerjaan.trim()) {
+      setError("Deskripsi pekerjaan wajib diisi.");
+      return;
+    }
+    if (!Number.isFinite(jumlahUnit) || jumlahUnit <= 0) {
+      setError("Jumlah unit harus lebih dari 0.");
+      return;
+    }
+    if (!Number.isFinite(ratePerUnit) || ratePerUnit < 0) {
+      setError("Rate per unit tidak valid.");
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    const result = await addCrewPiecePayment(crewId, {
+      deskripsiPekerjaan: form.deskripsiPekerjaan,
+      jumlahUnit,
+      ratePerUnit,
+      catatan: form.catatan,
+    });
+    setSubmitting(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setForm(EMPTY_PIECE_FORM);
+    reload();
+    showToast(`Upah borongan ${crewName} berhasil dicatat.`);
+  }
+
+  async function handleToggleStatus(p: CrewPiecePayment) {
+    setBusyId(p.id);
+    const nextStatus: PiecePaymentStatus = p.status === "Dibayar" ? "Belum Dibayar" : "Dibayar";
+    const result = await updateCrewPiecePaymentStatus(p.id, nextStatus);
+    setBusyId(null);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    reload();
+  }
+
+  async function handleRemove(id: string) {
+    setBusyId(id);
+    const result = await deleteCrewPiecePayment(id);
+    setBusyId(null);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    setPayments((prev) => prev?.filter((p) => p.id !== id) ?? null);
+  }
+
+  return (
+    <div className="mt-2 space-y-2.5 rounded-lg bg-zinc-50 p-3 dark:bg-white/[0.03]">
+      <div className="flex items-center justify-between">
+        <p className="text-[11px] font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+          Upah Borongan
+        </p>
+        <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Total {formatRupiah(totalUpah)}</span>
+      </div>
+
+      {payments === null ? (
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">Memuat…</p>
+      ) : payments.length === 0 ? (
+        <p className="text-xs text-zinc-400 dark:text-zinc-500">Belum ada upah borongan tercatat.</p>
+      ) : (
+        <ul className="space-y-1">
+          {payments.map((p) => (
+            <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-1.5 text-xs shadow-sm dark:bg-zinc-900">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-zinc-800 dark:text-zinc-100">{p.deskripsiPekerjaan}</p>
+                <p className="text-zinc-400 dark:text-zinc-500">
+                  {p.jumlahUnit} unit × {formatRupiah(p.ratePerUnit)} = {formatRupiah(p.totalUpah)}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleToggleStatus(p)}
+                disabled={busyId === p.id}
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold disabled:opacity-50 ${PIECE_STATUS_STYLE[p.status]}`}
+              >
+                {p.status}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRemove(p.id)}
+                disabled={busyId === p.id}
+                aria-label="Hapus upah borongan"
+                className="shrink-0 rounded-full p-1 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
+        <input
+          value={form.deskripsiPekerjaan}
+          onChange={(e) => setForm((f) => ({ ...f, deskripsiPekerjaan: e.target.value }))}
+          placeholder="Deskripsi pekerjaan (mis. instalasi booth 3x3)"
+          className="min-w-0 flex-1 rounded-lg border border-black/10 bg-transparent px-2.5 py-1.5 text-xs text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+        />
+        <div>
+          <label htmlFor={`piece-unit-${crewId}`} className="mb-1 block text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+            Unit
+          </label>
+          <input
+            id={`piece-unit-${crewId}`}
+            type="number"
+            min={0.5}
+            step={0.5}
+            value={form.jumlahUnit}
+            onChange={(e) => setForm((f) => ({ ...f, jumlahUnit: e.target.value }))}
+            className="w-16 rounded-lg border border-black/10 bg-transparent px-2 py-1.5 text-xs text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+          />
+        </div>
+        <div>
+          <label htmlFor={`piece-rate-${crewId}`} className="mb-1 block text-[10px] font-semibold text-zinc-500 dark:text-zinc-400">
+            Rate/unit (Rp)
+          </label>
+          <input
+            id={`piece-rate-${crewId}`}
+            type="number"
+            min={0}
+            step={1000}
+            value={form.ratePerUnit}
+            onChange={(e) => setForm((f) => ({ ...f, ratePerUnit: e.target.value }))}
+            className="w-28 rounded-lg border border-black/10 bg-transparent px-2 py-1.5 text-xs text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="flex items-center gap-1 rounded-full bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm disabled:opacity-60"
+        >
+          {submitting && <Loader2 className="h-3 w-3 animate-spin" />}
+          Catat ({formatRupiah(previewTotal)})
         </button>
       </form>
       {error && (
@@ -572,7 +764,12 @@ export function ProjectDetailModal({
                       </button>
                     </div>
                   </div>
-                  {isExpanded && <CrewTimelogPanel crewId={c.id} crewName={c.nama} />}
+                  {isExpanded && (
+                    <>
+                      <CrewTimelogPanel crewId={c.id} crewName={c.nama} />
+                      <CrewPiecePaymentPanel crewId={c.id} crewName={c.nama} />
+                    </>
+                  )}
                 </div>
               );
             })}

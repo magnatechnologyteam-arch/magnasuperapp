@@ -356,3 +356,54 @@ export function rowToMaterialTransfer(row: MaterialTransferRow): MaterialTransfe
     createdAt: row.created_at,
   };
 }
+
+/**
+ * Upah borongan (piece-rate) kru per pekerjaan/unit-booth — analisis-kompetitor
+ * #21. Terpisah dari `CrewTimelog` (jam kerja per-jam): ini mencatat
+ * kesepakatan borongan (mis. "instalasi booth 3x3 unit A" @ rate x jumlah unit),
+ * umum di model kerja lepas industri fabrikasi booth Indonesia. Total dihitung
+ * di app layer (jumlahUnit * ratePerUnit), tersimpan langsung sebagai kolom.
+ */
+export const PIECE_PAYMENT_STATUS = ["Belum Dibayar", "Dibayar"] as const;
+export type PiecePaymentStatus = (typeof PIECE_PAYMENT_STATUS)[number];
+
+export type CrewPiecePayment = {
+  id: string;
+  projectCrewId: string;
+  deskripsiPekerjaan: string;
+  jumlahUnit: number;
+  ratePerUnit: number;
+  totalUpah: number;
+  status: PiecePaymentStatus;
+  tanggalBayar: string | null;
+  catatan: string | null;
+  createdAt: string;
+};
+
+export type CrewPiecePaymentRow = {
+  id: string;
+  project_crew_id: string;
+  deskripsi_pekerjaan: string;
+  jumlah_unit: number;
+  rate_per_unit: number;
+  total_upah: number;
+  status: PiecePaymentStatus;
+  tanggal_bayar: string | null;
+  catatan: string | null;
+  created_at: string;
+};
+
+export function rowToCrewPiecePayment(row: CrewPiecePaymentRow): CrewPiecePayment {
+  return {
+    id: row.id,
+    projectCrewId: row.project_crew_id,
+    deskripsiPekerjaan: row.deskripsi_pekerjaan,
+    jumlahUnit: row.jumlah_unit,
+    ratePerUnit: row.rate_per_unit,
+    totalUpah: row.total_upah,
+    status: row.status,
+    tanggalBayar: row.tanggal_bayar,
+    catatan: row.catatan,
+    createdAt: row.created_at,
+  };
+}
