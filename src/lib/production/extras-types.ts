@@ -407,3 +407,81 @@ export function rowToCrewPiecePayment(row: CrewPiecePaymentRow): CrewPiecePaymen
     createdAt: row.created_at,
   };
 }
+
+export const NC_CATEGORIES = ["Material", "Vendor", "Kru", "Proses", "Lainnya"] as const;
+export type NcCategory = (typeof NC_CATEGORIES)[number];
+
+export const NC_SEVERITIES = ["Rendah", "Sedang", "Tinggi"] as const;
+export type NcSeverity = (typeof NC_SEVERITIES)[number];
+
+export const NC_STATUSES = ["Open", "Investigasi", "Tindakan Korektif", "Ditutup"] as const;
+export type NcStatus = (typeof NC_STATUSES)[number];
+
+/**
+ * Modul NC/CAPA (non-conformance & tindakan korektif/preventif --
+ * analisis-kompetitor #23) -- SENGAJA dipisah dari `ProjectCheck` di atas
+ * (checklist instalasi/bongkar rutin): ini mencatat TEMUAN ketidaksesuaian
+ * kualitas (material cacat, vendor telat kirim, kru lalai pasang, dsb) dan
+ * tindak lanjutnya, ditautkan opsional ke proyek/vendor/kru supaya bisa
+ * ditelusuri sebagai riwayat kualitas per vendor/kru (bukan cuma per
+ * proyek). Murni pencatatan manual staf -- TIDAK ADA skoring/analisis
+ * otomatis berbasis AI di sini.
+ */
+export type NcReport = {
+  id: string;
+  projectId: string | null;
+  vendorId: string | null;
+  projectCrewId: string | null;
+  kategori: NcCategory;
+  judul: string;
+  deskripsi: string;
+  severity: NcSeverity;
+  status: NcStatus;
+  akarMasalah: string | null;
+  tindakanKorektif: string | null;
+  tindakanPreventif: string | null;
+  pic: string | null;
+  tanggalDitemukan: string;
+  tanggalDitutup: string | null;
+  createdAt: string;
+};
+
+export type NcReportRow = {
+  id: string;
+  project_id: string | null;
+  vendor_id: string | null;
+  project_crew_id: string | null;
+  kategori: NcCategory;
+  judul: string;
+  deskripsi: string;
+  severity: NcSeverity;
+  status: NcStatus;
+  akar_masalah: string | null;
+  tindakan_korektif: string | null;
+  tindakan_preventif: string | null;
+  pic: string | null;
+  tanggal_ditemukan: string;
+  tanggal_ditutup: string | null;
+  created_at: string;
+};
+
+export function rowToNcReport(row: NcReportRow): NcReport {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    vendorId: row.vendor_id,
+    projectCrewId: row.project_crew_id,
+    kategori: row.kategori,
+    judul: row.judul,
+    deskripsi: row.deskripsi,
+    severity: row.severity,
+    status: row.status,
+    akarMasalah: row.akar_masalah,
+    tindakanKorektif: row.tindakan_korektif,
+    tindakanPreventif: row.tindakan_preventif,
+    pic: row.pic,
+    tanggalDitemukan: row.tanggal_ditemukan,
+    tanggalDitutup: row.tanggal_ditutup,
+    createdAt: row.created_at,
+  };
+}

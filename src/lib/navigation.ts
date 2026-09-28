@@ -126,6 +126,7 @@ export const MODULES: ModuleConfig[] = [
       { label: "Pemakaian & MRP", href: "/dashboard/production/pemakaian" },
       { label: "Pembelian", href: "/dashboard/production/pembelian" },
       { label: "Vendor", href: "/dashboard/production/vendor" },
+      { label: "NC/CAPA", href: "/dashboard/production/kualitas" },
       KATALOG_PRODUK_SUBNAV,
     ],
   },

@@ -10,6 +10,7 @@ import {
   rowToEquipment,
   rowToEquipmentUsage,
   rowToMaterialTransfer,
+  rowToNcReport,
   rowToProjectCheck,
   rowToProjectCrew,
   rowToProjectDocument,
@@ -34,6 +35,11 @@ import {
   type EquipmentUsageRow,
   type MaterialTransfer,
   type MaterialTransferRow,
+  type NcCategory,
+  type NcReport,
+  type NcReportRow,
+  type NcSeverity,
+  type NcStatus,
   type ProjectCheck,
   type ProjectCheckRow,
   type ProjectCrew,
@@ -53,6 +59,7 @@ const ALAT_PATH = "/dashboard/production/alat";
 const BOM_PATH = "/dashboard/production/bom";
 const VENDOR_PATH = "/dashboard/production/vendor";
 const PEMBELIAN_PATH = "/dashboard/production/pembelian";
+const KUALITAS_PATH = "/dashboard/production/kualitas";
 const GENERIC_ERROR = "Terjadi kesalahan, coba lagi.";
 const CHECKS_BUCKET = "production-checks";
 const DOCS_BUCKET = "production-documentation";
@@ -998,4 +1005,115 @@ export async function getMaterialTransfers(materialId: string): Promise<Material
     return [];
   }
   return (data ?? []).map(rowToMaterialTransfer);
+}
+
+/**
+ * Modul NC/CAPA (non-conformance & tindakan korektif/preventif --
+ * analisis-kompetitor #23) -- SENGAJA terpisah dari `getProjectChecks`/
+ * `saveProjectCheck` di atas (checklist rutin instalasi/bongkar). Ini
+ * mencatat TEMUAN ketidaksesuaian kualitas dan tindak lanjutnya, ditautkan
+ * opsional ke proyek/vendor/kru. Murni pencatatan manual staf -- TIDAK ADA
+ * skoring/analisis otomatis berbasis AI di sini.
+ */
+export async function getNcReports(): Promise<NcReport[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("production_nc_reports")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .returns<NcReportRow[]>();
+
+  if (error) {
+    console.error("[production] getNcReports gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToNcReport);
+}
+
+function validateNcReportInput(input: { judul: string; deskripsi: string }): string | null {
+  if (!input.judul?.trim()) return "Judul temuan wajib diisi.";
+  if (!input.deskripsi?.trim()) return "Deskripsi temuan wajib diisi.";
+  return null;
+}
+
+export async function addNcReport(input: {
+  projectId?: string;
+  vendorId?: string;
+  projectCrewId?: string;
+  kategori: NcCategory;
+  judul: string;
+  deskripsi: string;
+  severity: NcSeverity;
+  pic?: string;
+  tanggalDitemukan?: string;
+}): Promise<MutationResult> {
+  const validationError = validateNcReportInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+  const payload: Record<string, unknown> = {
+    project_id: input.projectId || null,
+    vendor_id: input.vendorId || null,
+    project_crew_id: input.projectCrewId || null,
+    kategori: input.kategori,
+    judul: input.judul.trim(),
+    deskripsi: input.deskripsi.trim(),
+    severity: input.severity,
+    pic: input.pic?.trim() || null,
+  };
+  if (input.tanggalDitemukan) payload.tanggal_ditemukan = input.tanggalDitemukan;
+
+  const { error } = await supabase.from("production_nc_reports").insert(payload);
+  if (error) {
+    console.error("[production] addNcReport gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(KUALITAS_PATH);
+  void logActivity({ module: "production", action: "create", entityType: "nc_report", entityLabel: input.judul });
+  return { ok: true };
+}
+
+/** Update status + tindak lanjut (akar masalah, tindakan korektif/preventif) satu NC report. */
+export async function updateNcReportProgress(
+  id: string,
+  input: {
+    status: NcStatus;
+    akarMasalah?: string;
+    tindakanKorektif?: string;
+    tindakanPreventif?: string;
+  }
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("production_nc_reports")
+    .update({
+      status: input.status,
+      akar_masalah: input.akarMasalah?.trim() || null,
+      tindakan_korektif: input.tindakanKorektif?.trim() || null,
+      tindakan_preventif: input.tindakanPreventif?.trim() || null,
+      tanggal_ditutup: input.status === "Ditutup" ? new Date().toISOString().slice(0, 10) : null,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[production] updateNcReportProgress gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(KUALITAS_PATH);
+  void logActivity({ module: "production", action: "update", entityType: "nc_report", entityLabel: input.status });
+  return { ok: true };
+}
+
+export async function deleteNcReport(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { data: ncRow } = await supabase.from("production_nc_reports").select("judul").eq("id", id).maybeSingle();
+
+  const { error } = await supabase.from("production_nc_reports").delete().eq("id", id);
+  if (error) {
+    console.error("[production] deleteNcReport gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(KUALITAS_PATH);
+  void logActivity({ module: "production", action: "delete", entityType: "nc_report", entityLabel: ncRow?.judul });
+  return { ok: true };
 }
