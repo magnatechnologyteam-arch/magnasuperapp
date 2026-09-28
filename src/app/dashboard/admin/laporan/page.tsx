@@ -9,6 +9,8 @@ import { calculateBookingTotal } from "@/lib/magnarent/pricing";
 import { rowToProject, type ProjectRow } from "@/lib/magnative/mappers";
 import { rowToBoothProject, rowToMaterial, type BoothProjectRow, type MaterialRow } from "@/lib/production/mappers";
 import { ACTIVE_BOOTH_STATUSES } from "@/lib/production/availability";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const DIVISION_LABEL: Record<string, string> = {
   magnarent: "Magnarent",
@@ -215,7 +217,7 @@ export default async function LaporanPage() {
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         {wantMagnarent && (
-          <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
             <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Status Booking Magnarent</h3>
             </div>
@@ -233,7 +235,7 @@ export default async function LaporanPage() {
         )}
 
         {wantMagnative && (
-          <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
             <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Status Proyek Magnativ</h3>
             </div>
@@ -252,7 +254,7 @@ export default async function LaporanPage() {
         )}
 
         {wantProduction && (
-          <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
             <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Tahap Proyek Booth Production</h3>
             </div>

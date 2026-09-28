@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { setMaintenanceBanner } from "@/lib/system-status/actions";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 export function MaintenanceToggleForm({
   initialActive,
@@ -31,7 +32,7 @@ export function MaintenanceToggleForm({
   }
 
   return (
-    <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className={cn("rounded-2xl border p-5 shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-sm font-bold text-zinc-900 dark:text-white">Banner Update</p>

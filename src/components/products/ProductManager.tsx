@@ -34,6 +34,7 @@ import {
   updateProduct,
 } from "@/lib/products/actions";
 import type { ImportSummary, Product, ProductDivision, ProductImportRow } from "@/lib/products/types";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #14B8A6 0%, #22D3EE 100%)";
 
@@ -518,13 +519,13 @@ export function ProductManager({ products }: { products: Product[] }) {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Cari nama, kategori, atau SKU…"
-            className="w-full rounded-full border border-black/10 bg-white py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-teal-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+            className={cn("w-full rounded-full border py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-teal-500/40 placeholder:text-zinc-400 focus:ring-2 dark:text-white", GLASS_INPUT)}
           />
         </div>
         <select
           value={divisionFilter}
           onChange={(e) => setDivisionFilter(e.target.value)}
-          className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-teal-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+          className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-teal-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
         >
           <option>{ALL_DIVISIONS_FILTER}</option>
           {DIVISION_OPTIONS.map((d) => (
@@ -535,7 +536,7 @@ export function ProductManager({ products }: { products: Product[] }) {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[980px] text-left text-sm">
             <thead>
@@ -909,7 +910,7 @@ export function ProductManager({ products }: { products: Product[] }) {
             <button
               type="button"
               onClick={downloadTemplate}
-              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-2.5 py-1 font-semibold text-teal-700 shadow-sm dark:bg-zinc-900 dark:text-teal-300"
+              className={cn("inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 font-semibold text-teal-700 shadow-sm dark:text-teal-300", GLASS_SURFACE, GLASS_BORDER)}
             >
               <Download className="h-3.5 w-3.5" />
               Template

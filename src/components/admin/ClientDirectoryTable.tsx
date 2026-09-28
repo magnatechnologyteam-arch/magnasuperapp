@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, Building2, Boxes, Palette, Hammer, Repeat } 
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 export type ClientHistoryItem = {
   id: string;
@@ -68,7 +69,7 @@ function ModuleGroup({
           >
             <span className="font-medium text-zinc-700 dark:text-zinc-200">{item.label}</span>
             <span className="text-zinc-400 dark:text-zinc-500">{formatTanggal(item.date)}</span>
-            <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-zinc-500 shadow-sm dark:bg-zinc-900 dark:text-zinc-400">
+            <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold text-zinc-500 shadow-sm dark:text-zinc-400", GLASS_SURFACE, GLASS_BORDER)}>
               {item.status}
             </span>
             <span className="font-semibold text-zinc-800 dark:text-zinc-100">{formatRupiah(item.value)}</span>
@@ -111,7 +112,7 @@ export function ClientDirectoryTable({ clients }: { clients: ClientSummary[] }) 
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
       {clients.length === 0 ? (
         <EmptyState
           icon={Building2}

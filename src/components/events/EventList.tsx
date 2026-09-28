@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/cn";
 import { createEvent } from "@/lib/events/actions";
 import type { EventStatus, EventSummary, EventType } from "@/lib/events/types";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const STATUS_BADGE: Record<EventStatus, string> = {
   Berjalan: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
@@ -97,21 +98,21 @@ export function EventList({ events, eventTypes }: { events: EventSummary[]; even
     <div>
       {events.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className={cn("rounded-2xl border p-4", GLASS_SURFACE, GLASS_BORDER)}>
             <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 dark:text-zinc-500">
               <CalendarClock className="h-3.5 w-3.5" />
               Event Berjalan
             </div>
             <p className="mt-1.5 text-2xl font-extrabold text-zinc-900 dark:text-white">{stats.runningCount}</p>
           </div>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className={cn("rounded-2xl border p-4", GLASS_SURFACE, GLASS_BORDER)}>
             <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 dark:text-zinc-500">
               <Gauge className="h-3.5 w-3.5" />
               Rata-rata Progress
             </div>
             <p className="mt-1.5 text-2xl font-extrabold text-zinc-900 dark:text-white">{stats.avgProgress}%</p>
           </div>
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className={cn("rounded-2xl border p-4", GLASS_SURFACE, GLASS_BORDER)}>
             <div className="flex items-center gap-2 text-xs font-semibold text-zinc-400 dark:text-zinc-500">
               <AlertTriangle className="h-3.5 w-3.5" />
               Belum Ada Progress
@@ -146,7 +147,7 @@ export function EventList({ events, eventTypes }: { events: EventSummary[]; even
             <Link
               key={ev.id}
               href={`/dashboard/admin/events/${ev.id}`}
-              className="rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-violet-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-violet-700"
+              className={cn("rounded-2xl border p-4 transition-colors hover:border-violet-300 hover:shadow-sm dark:hover:border-violet-700", GLASS_SURFACE, GLASS_BORDER)}
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="font-bold text-zinc-900 dark:text-white">{ev.name}</h3>

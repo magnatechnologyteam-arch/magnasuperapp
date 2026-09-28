@@ -20,6 +20,7 @@ import { cn } from "@/lib/cn";
 import { createInvoice, deleteInvoice, markInvoiceStatus, sendInvoiceWhatsApp, updateInvoice } from "@/lib/invoices/actions";
 import type { Invoice, InvoiceDivision, InvoiceSourceOption, InvoiceSourceType, InvoiceStatus } from "@/lib/invoices/types";
 import { INVOICE_STATUS_STYLES as STATUS_BADGE } from "@/lib/status-styles";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)";
 
@@ -479,13 +480,13 @@ export function InvoiceManager({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Cari nomor invoice atau nama klien…"
-            className="w-full rounded-full border border-black/10 bg-white py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+            className={cn("w-full rounded-full border py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:text-white", GLASS_INPUT)}
           />
         </div>
         <select
           value={divisionFilter}
           onChange={(e) => setDivisionFilter(e.target.value)}
-          className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+          className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-indigo-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
         >
           <option>{ALL_DIVISIONS_FILTER}</option>
           {DIVISION_OPTIONS.map((d) => (
@@ -497,7 +498,7 @@ export function InvoiceManager({
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-indigo-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+          className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-indigo-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
         >
           <option>{ALL_STATUS_FILTER}</option>
           {STATUS_OPTIONS.map((s) => (
@@ -508,7 +509,7 @@ export function InvoiceManager({
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1080px] text-left text-sm">
             <thead>
@@ -577,7 +578,7 @@ export function InvoiceManager({
                       )}
                     >
                       {STATUS_OPTIONS.map((s) => (
-                        <option key={s} value={s} className="bg-white text-zinc-900 dark:bg-zinc-900 dark:text-white">
+                        <option key={s} value={s} className={cn("text-zinc-900 dark:text-white", GLASS_SURFACE, GLASS_BORDER)}>
                           {s}
                         </option>
                       ))}

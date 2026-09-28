@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Copy, KeyRound, Loader2, UserPlus } from "lucide-react";
 import { createStaffAccount } from "@/app/dashboard/admin/actions";
 import { DIVISION_LABELS, type Division } from "@/lib/supabase/types";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const DIVISION_OPTIONS: Array<{ value: Division; hint: string }> = [
   { value: "production", hint: "Hanya modul Production" },
@@ -52,7 +54,7 @@ export function CreateStaffForm() {
   }
 
   return (
-    <div className="h-fit rounded-2xl border border-black/5 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className={cn("h-fit rounded-2xl border p-5 shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
       <div className="flex items-center gap-2">
         <UserPlus className="h-4 w-4 text-indigo-500" />
         <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Buat Akun Staf</h2>

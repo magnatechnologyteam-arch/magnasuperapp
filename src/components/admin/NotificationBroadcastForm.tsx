@@ -6,6 +6,7 @@ import { broadcastNotification } from "@/lib/push/actions";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/cn";
 import type { Division } from "@/lib/supabase/types";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const DIVISION_OPTIONS: { value: Division; label: string }[] = [
   { value: "magnarent", label: "Magnarent" },
@@ -60,7 +61,7 @@ export function NotificationBroadcastForm() {
   }
 
   return (
-    <div className="rounded-2xl border border-black/5 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className={cn("rounded-2xl border p-5 shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
       <p className="text-sm font-bold text-zinc-900 dark:text-white">Kirim Notifikasi</p>
       <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
         Cuma sampai ke perangkat yang sudah mengaktifkan notifikasi lewat Pengaturan → Notifikasi. Investor tidak

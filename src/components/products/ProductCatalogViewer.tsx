@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { formatRupiah } from "@/lib/shared/utils";
 import { ProductDetailModal } from "./ProductDetailModal";
 import type { Product, ProductDivision } from "@/lib/products/types";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const DIVISION_LABEL: Record<ProductDivision, string> = {
   magnarent: "Magnarent",
@@ -69,13 +70,13 @@ export function ProductCatalogViewer({ products }: { products: Product[] }) {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Cari nama, kategori, atau SKU…"
-            className="w-full rounded-full border border-black/10 bg-white py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-teal-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+            className={cn("w-full rounded-full border py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-teal-500/40 placeholder:text-zinc-400 focus:ring-2 dark:text-white", GLASS_INPUT)}
           />
         </div>
         <select
           value={divisionFilter}
           onChange={(e) => setDivisionFilter(e.target.value)}
-          className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-teal-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+          className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-teal-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
         >
           <option>{ALL_DIVISIONS_FILTER}</option>
           {DIVISION_OPTIONS.map((d) => (
@@ -107,7 +108,7 @@ export function ProductCatalogViewer({ products }: { products: Product[] }) {
               key={p.id}
               type="button"
               onClick={() => setDetailProductId(p.id)}
-              className="group overflow-hidden rounded-2xl border border-black/5 bg-white text-left shadow-sm transition-shadow hover:shadow-md dark:border-white/10 dark:bg-zinc-900"
+              className={cn("group overflow-hidden rounded-2xl border text-left shadow-sm transition-shadow hover:shadow-md", GLASS_SURFACE, GLASS_BORDER)}
             >
               <div className="relative aspect-square w-full overflow-hidden bg-zinc-100 dark:bg-white/5">
                 {p.photoUrl ? (

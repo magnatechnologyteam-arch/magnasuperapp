@@ -19,6 +19,8 @@ import {
   type Vendor,
 } from "@/lib/production/extras-types";
 import { formatDateID, todayISO } from "@/lib/shared/utils";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #E11D48 0%, #F59E0B 100%)";
 const ALL_FILTER = "Semua";
@@ -242,7 +244,7 @@ export function NcCapaManager({ ncReports, vendors }: { ncReports: NcReport[]; v
       {(vendorSummary.length > 0 || picSummary.length > 0) && (
         <div className="mb-5 grid gap-3 sm:grid-cols-2">
           {vendorSummary.length > 0 && (
-            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+            <div className={cn("rounded-2xl border p-4 shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
               <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 <Building2 className="h-3.5 w-3.5" />
                 Riwayat Kualitas per Vendor
@@ -262,7 +264,7 @@ export function NcCapaManager({ ncReports, vendors }: { ncReports: NcReport[]; v
             </div>
           )}
           {picSummary.length > 0 && (
-            <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+            <div className={cn("rounded-2xl border p-4 shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
               <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 <UserRound className="h-3.5 w-3.5" />
                 Riwayat Kualitas per PIC/Kru
@@ -291,13 +293,13 @@ export function NcCapaManager({ ncReports, vendors }: { ncReports: NcReport[]; v
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Cari judul, deskripsi, vendor, atau PIC…"
-            className="w-full rounded-full border border-black/10 bg-white py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-rose-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+            className={cn("w-full rounded-full border py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-rose-500/40 placeholder:text-zinc-400 focus:ring-2 dark:text-white", GLASS_INPUT)}
           />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-rose-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+          className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-rose-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
         >
           <option>{ALL_FILTER}</option>
           {NC_STATUSES.map((s) => (
@@ -309,7 +311,7 @@ export function NcCapaManager({ ncReports, vendors }: { ncReports: NcReport[]; v
         <select
           value={severityFilter}
           onChange={(e) => setSeverityFilter(e.target.value)}
-          className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-rose-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+          className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-rose-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
         >
           <option>{ALL_FILTER}</option>
           {NC_SEVERITIES.map((s) => (
@@ -320,7 +322,7 @@ export function NcCapaManager({ ncReports, vendors }: { ncReports: NcReport[]; v
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[880px] text-left text-sm">
             <thead>

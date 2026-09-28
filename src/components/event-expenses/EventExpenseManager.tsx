@@ -10,6 +10,8 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { formatDateID, formatRupiah } from "@/lib/shared/utils";
 import { deleteEventExpense, loadMoreEventExpenses } from "@/lib/event-expenses/actions";
 import { EXPENSE_CATEGORIES, EXPENSE_DIVISION_LABELS, type EventExpense, type ExpenseDivision, type ExpenseSourceOption } from "@/lib/event-expenses/types";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #4C1D95 0%, #7C3AED 100%)";
 
@@ -191,13 +193,13 @@ export function EventExpenseManager({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Cari PIC, keterangan, event…"
-              className="w-56 rounded-full border border-black/10 bg-white py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-violet-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+              className={cn("w-56 rounded-full border py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-violet-500/40 placeholder:text-zinc-400 focus:ring-2 dark:text-white", GLASS_INPUT)}
             />
           </div>
           <select
             value={divisionFilter}
             onChange={(e) => setDivisionFilter(e.target.value as ExpenseDivision | "all")}
-            className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200"
+            className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none dark:text-zinc-200", GLASS_SURFACE, GLASS_BORDER)}
           >
             <option value="all">Semua Divisi</option>
             {Object.entries(EXPENSE_DIVISION_LABELS).map(([value, label]) => (
@@ -209,7 +211,7 @@ export function EventExpenseManager({
           <select
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200"
+            className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none dark:text-zinc-200", GLASS_SURFACE, GLASS_BORDER)}
           >
             <option value="all">Semua Kategori</option>
             {EXPENSE_CATEGORIES.map((c) => (
@@ -236,7 +238,7 @@ export function EventExpenseManager({
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         {filtered.length === 0 ? (
           <EmptyState
             icon={Receipt}

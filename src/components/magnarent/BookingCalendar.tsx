@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMagnarentData } from "./MagnarentDataProvider";
 import { cn } from "@/lib/cn";
 import type { Booking, BookingStatus } from "@/lib/magnarent/types";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const WEEKDAYS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 const MONTHS = [
@@ -88,7 +89,7 @@ export function BookingCalendar() {
   const todayKey = toISO(today);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
       <div className="flex items-center justify-between border-b border-black/5 px-5 py-3.5 dark:border-white/10">
         <h3 className="text-sm font-bold text-zinc-900 dark:text-white">
           {MONTHS[cursor.getMonth()]} {cursor.getFullYear()}

@@ -1,5 +1,7 @@
 import Image from "next/image";
 import { Camera } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 export type PlaceholderShot = {
   /** Path relatif di /public, mis. "/images/placeholders/kategori-tenda.jpg" */
@@ -57,7 +59,7 @@ export function PlaceholderGallery({
         {shots.map((shot) => (
           <figure
             key={shot.src}
-            className="group overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900"
+            className={cn("group overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}
           >
             <div className="relative aspect-video w-full overflow-hidden">
               <Image

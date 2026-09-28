@@ -4,6 +4,8 @@ import { useEffect, useState, useTransition } from "react";
 import { X } from "lucide-react";
 import { createPortalLink, revokePortalLink, listPortalLinks, type MutationResult } from "@/lib/portal/actions";
 import type { PortalModule } from "@/lib/portal/types";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 type LinkRow = Awaited<ReturnType<typeof listPortalLinks>>[number];
 
@@ -77,7 +79,7 @@ export function PortalShareModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl dark:bg-zinc-900">
+      <div className={cn("w-full max-w-md rounded-xl p-5 shadow-xl", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Bagikan ke Klien — {entityLabel}</h2>
           <button type="button" onClick={onClose} className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800">

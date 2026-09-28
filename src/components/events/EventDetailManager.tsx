@@ -47,6 +47,7 @@ import {
   type TemplateImportRow,
   type VendorOption,
 } from "@/lib/events/types";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 function emptyItemForm() {
   return { category: "", itemName: "", detail: "", qtyInfo: "", notes: "", vendorId: "", team: "", dueDate: "" };
@@ -336,7 +337,7 @@ export function EventDetailManager({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-zinc-900 dark:text-white">{event.name}</h2>
@@ -384,7 +385,7 @@ export function EventDetailManager({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Checklist</h2>
@@ -502,7 +503,7 @@ export function EventDetailManager({
         )}
       </section>
 
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
         <div>
           <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Kaitan ke Data Divisi</h2>
           <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">

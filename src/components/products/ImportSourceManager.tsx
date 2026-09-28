@@ -19,6 +19,8 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { formatRupiah } from "@/lib/shared/utils";
 import { addImportSource, commitImportCandidates, deleteImportSource, previewImportSource } from "@/lib/products/import-actions";
 import type { ExternalProductCandidate, ImportSourceType, ProductImportSource } from "@/lib/products/types";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const TYPE_LABEL: Record<ImportSourceType, string> = {
   whatsapp_catalog: "WhatsApp Catalog",
@@ -152,7 +154,7 @@ export function ImportSourceManager({ sources }: { sources: ProductImportSource[
   }
 
   return (
-    <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-5">
+    <div className={cn("rounded-2xl border p-4 shadow-sm sm:p-5", GLASS_SURFACE, GLASS_BORDER)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-bold text-zinc-900 dark:text-white">Impor Otomatis</h2>

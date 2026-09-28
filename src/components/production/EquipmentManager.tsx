@@ -18,6 +18,7 @@ import {
 } from "@/lib/production/extras-types";
 import { EquipmentUsageModal } from "./EquipmentUsageModal";
 import { QrPrintModal } from "./QrPrintModal";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
 const CATEGORY_FILTER_ALL = "Semua Kategori";
@@ -145,13 +146,13 @@ export function EquipmentManager({ equipment }: { equipment: Equipment[] }) {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Cari nama alat…"
-            className="w-full rounded-full border border-black/10 bg-white py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+            className={cn("w-full rounded-full border py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:text-white", GLASS_INPUT)}
           />
         </div>
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+          className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-amber-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
         >
           <option>{CATEGORY_FILTER_ALL}</option>
           {EQUIPMENT_CATEGORIES.map((c) => (
@@ -162,7 +163,7 @@ export function EquipmentManager({ equipment }: { equipment: Equipment[] }) {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead>

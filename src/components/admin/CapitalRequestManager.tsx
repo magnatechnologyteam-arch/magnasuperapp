@@ -11,6 +11,7 @@ import { cn } from "@/lib/cn";
 import type { CapitalRequest } from "@/lib/capital-requests/types";
 import { addCapitalRequest, deleteCapitalRequest } from "@/lib/capital-requests/actions";
 import { CAPITAL_REQUEST_STATUS_STYLES as STATUS_STYLES } from "@/lib/status-styles";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #10B981 0%, #059669 100%)";
 
@@ -120,7 +121,7 @@ export function CapitalRequestManager({ requests }: { requests: CapitalRequest[]
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[960px] text-left text-sm">
             <thead>

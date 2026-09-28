@@ -18,7 +18,7 @@ import {
 import { BrandLogo } from "@/components/layout/BrandLogo";
 import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
-import { GLASS_BORDER, GLASS_SURFACE_STRONG } from "@/lib/glass";
+import { GLASS_BORDER, GLASS_SURFACE, GLASS_SURFACE_STRONG } from "@/lib/glass";
 import type { Division } from "@/lib/supabase/types";
 
 /**
@@ -124,7 +124,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
           type="button"
           onClick={() => setOpen(true)}
           aria-label={t("Buka menu")}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-black/5 bg-white text-zinc-600 shadow-sm dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-300"
+          className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-full border text-zinc-600 shadow-sm dark:text-zinc-300", GLASS_SURFACE, GLASS_BORDER)}
         >
           <Menu className="h-4 w-4" />
         </button>

@@ -3,6 +3,8 @@ import { Wallet } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getCashFlowStatement, DIVISION_LABELS } from "@/lib/accounting/data";
 import { formatRupiah, formatDateID, todayISO } from "@/lib/shared/utils";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 /**
  * Laporan Arus Kas (Tahap E modul "Akuntansi") -- HANYA akses penuh.
@@ -58,7 +60,7 @@ export default async function ArusKasAkuntansiPage({
         </div>
       </div>
 
-      <form className="mt-6 flex flex-wrap items-end gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <form className={cn("mt-6 flex flex-wrap items-end gap-3 rounded-2xl border p-4", GLASS_SURFACE, GLASS_BORDER)}>
         <div>
           <label htmlFor="start" className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
             Dari tanggal
@@ -92,23 +94,23 @@ export default async function ArusKasAkuntansiPage({
       </form>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Saldo Awal</p>
           <p className="mt-1.5 text-xl font-bold text-zinc-900 dark:text-white">{formatRupiah(report.saldoAwal)}</p>
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Kas Masuk</p>
           <p className="mt-1.5 text-xl font-bold text-emerald-600 dark:text-emerald-400">
             {formatRupiah(report.totalMasuk)}
           </p>
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Kas Keluar</p>
           <p className="mt-1.5 text-xl font-bold text-rose-600 dark:text-rose-400">
             {formatRupiah(report.totalKeluar)}
           </p>
         </div>
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <div className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Saldo Akhir</p>
           <p
             className={`mt-1.5 text-xl font-bold ${isNaik ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
@@ -124,7 +126,7 @@ export default async function ArusKasAkuntansiPage({
         </p>
       ) : (
         <>
-          <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <section className={cn("mt-6 rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
             <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Per Aktivitas</h2>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[480px] text-sm">
@@ -174,7 +176,7 @@ export default async function ArusKasAkuntansiPage({
             </div>
           </section>
 
-          <section className="mt-6 rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+          <section className={cn("mt-6 rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
             <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Rincian Mutasi</h2>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">

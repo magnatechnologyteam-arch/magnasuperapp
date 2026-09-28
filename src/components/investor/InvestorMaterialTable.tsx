@@ -3,11 +3,12 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { MaterialItem } from "@/lib/production/types";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 /** Tabel stok material Production, versi read only untuk investor — baris stok menipis ditandai. */
 export function InvestorMaterialTable({ materials }: { materials: MaterialItem[] }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead>

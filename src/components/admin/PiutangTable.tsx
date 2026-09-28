@@ -2,6 +2,7 @@ import { Wallet2 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 export type PiutangModule = "magnarent" | "magnative" | "production";
 export type PiutangStatus = "Belum Bayar" | "DP";
@@ -57,7 +58,7 @@ function formatTanggal(iso: string): string {
  */
 export function PiutangTable({ rows }: { rows: PiutangRow[] }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
       {rows.length === 0 ? (
         <EmptyState
           icon={Wallet2}

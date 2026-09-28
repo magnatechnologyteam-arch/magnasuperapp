@@ -13,6 +13,8 @@ import {
   updateBomTemplate,
 } from "@/lib/production/extras-actions";
 import type { BomTemplate, BomTemplateItem } from "@/lib/production/extras-types";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
 
@@ -147,7 +149,7 @@ export function BomTemplateManager({ templates }: { templates: BomTemplate[] }) 
       </div>
 
       {templates.length === 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
           <EmptyState
             icon={ClipboardList}
             title="Belum ada template BOM"
@@ -159,7 +161,7 @@ export function BomTemplateManager({ templates }: { templates: BomTemplate[] }) 
           {templates.map((t) => (
             <div
               key={t.id}
-              className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900"
+              className={cn("rounded-2xl border p-4 shadow-sm", GLASS_SURFACE, GLASS_BORDER)}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">

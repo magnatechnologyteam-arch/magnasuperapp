@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Download, Share, X } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const DISMISS_KEY = "magnasuperapp-pwa-install-dismissed";
 
@@ -121,7 +123,7 @@ export function PwaInstallPrompt() {
   if (!visible || (!promptEvent && !showIosInstructions)) return null;
 
   return (
-    <div className="animate-fade-up fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-sm items-center gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3 shadow-xl shadow-black/10 dark:border-white/10 dark:bg-zinc-900 sm:inset-x-auto sm:right-4">
+    <div className={cn("animate-fade-up fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-sm items-center gap-3 rounded-2xl border px-4 py-3 shadow-xl shadow-black/10 sm:inset-x-auto sm:right-4", GLASS_SURFACE, GLASS_BORDER)}>
       <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-indigo-500 via-fuchsia-500 to-amber-500 text-white">
         {showIosInstructions ? <Share className="h-4.5 w-4.5" /> : <Download className="h-4.5 w-4.5" />}
       </div>

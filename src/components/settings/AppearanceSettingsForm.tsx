@@ -8,6 +8,7 @@ import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
 import { LanguageDrawer } from "@/components/settings/LanguageDrawer";
 import type { LanguagePreference, ThemePreference } from "@/lib/supabase/types";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Terang", icon: Sun },
@@ -100,7 +101,7 @@ export function AppearanceSettingsForm({
   }
 
   return (
-    <div className="h-fit rounded-2xl border border-black/5 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className={cn("h-fit rounded-2xl border p-5 shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
       <h2 className="text-sm font-bold text-zinc-900 dark:text-white">{t("Tampilan & Bahasa")}</h2>
 
       <p className="mb-2 mt-4 text-xs font-semibold text-zinc-600 dark:text-zinc-300">{t("Tema")}</p>

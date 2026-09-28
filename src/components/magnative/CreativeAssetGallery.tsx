@@ -10,6 +10,7 @@ import { addCreativeAsset, deleteCreativeAsset } from "@/lib/magnative/actions";
 import { AssetCommentModal } from "./AssetCommentModal";
 import { cn } from "@/lib/cn";
 import type { CreativeAsset, CreativeAssetCategory } from "@/lib/magnative/types";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)";
 const ALL_CATEGORIES: CreativeAssetCategory[] = ["Template", "Foto Mentah", "Video", "Desain Grafis", "Lainnya"];
@@ -163,7 +164,7 @@ export function CreativeAssetGallery({ assets }: { assets: CreativeAsset[] }) {
       </div>
 
       {filteredAssets.length === 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
           <EmptyState
             icon={FolderOpen}
             title={assets.length === 0 ? "Belum ada aset kreatif" : "Tidak ada aset di kategori ini"}
@@ -179,7 +180,7 @@ export function CreativeAssetGallery({ assets }: { assets: CreativeAsset[] }) {
           {filteredAssets.map((asset) => (
             <figure
               key={asset.id}
-              className="group overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900"
+              className={cn("group overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}
             >
               <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-zinc-100 dark:bg-white/5">
                 {asset.fileType === "image" ? (

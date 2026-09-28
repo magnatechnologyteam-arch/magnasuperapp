@@ -8,6 +8,7 @@ import { formatDateID } from "@/lib/magnarent/date";
 import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const ACCENT_BLUE = "linear-gradient(135deg, #3B82F6 0%, #06B6D4 100%)";
 const ACCENT_EMERALD = "linear-gradient(135deg, #10B981 0%, #22D3EE 100%)";
@@ -127,7 +128,7 @@ export function UtilizationReport() {
           <select
             value={windowDays}
             onChange={(e) => setWindowDays(Number(e.target.value))}
-            className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-blue-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+            className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-blue-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
           >
             {WINDOW_OPTIONS.map((d) => (
               <option key={d} value={d}>
@@ -138,7 +139,7 @@ export function UtilizationReport() {
           <select
             value={tierFilter}
             onChange={(e) => setTierFilter(e.target.value)}
-            className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-blue-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+            className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-blue-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
           >
             <option>{ALL_TIER_FILTER}</option>
             {Object.values(TIER_LABEL).map((label) => (
@@ -148,7 +149,7 @@ export function UtilizationReport() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[880px] text-left text-sm">
             <thead>

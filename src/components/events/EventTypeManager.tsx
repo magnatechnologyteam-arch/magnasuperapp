@@ -30,6 +30,7 @@ import {
 } from "@/lib/events/actions";
 import { parseChecklistSheet } from "@/lib/events/importParser";
 import type { EventType, EventTypeTemplateItem, TemplateImportRow } from "@/lib/events/types";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 function emptyEventTypeForm() {
   return { name: "", description: "" };
@@ -328,7 +329,7 @@ export function EventTypeManager({
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+      <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Jenis Event</h2>
@@ -411,7 +412,7 @@ export function EventTypeManager({
       </section>
 
       {selectedType && (
-        <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-sm font-bold text-zinc-900 dark:text-white">

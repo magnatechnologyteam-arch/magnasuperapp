@@ -12,6 +12,7 @@ import { formatDateID, todayISO } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { ContentRequest, ContentRequestPriority, ContentRequestStatus } from "@/lib/magnative/types";
 import { CONTENT_REQUEST_PRIORITY_STYLES, CONTENT_REQUEST_STATUS_STYLES } from "@/lib/status-styles";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)";
 const ALL_PRIORITIES: ContentRequestPriority[] = ["Rendah", "Sedang", "Tinggi"];
@@ -134,7 +135,7 @@ export function ContentRequestManager({ requests }: { requests: ContentRequest[]
         </button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[860px] text-left text-sm">
             <thead>

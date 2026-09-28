@@ -8,6 +8,7 @@ import { getAvatarColor, getInitials } from "@/lib/shared/utils";
 import { compressAvatarImage } from "@/lib/shared/image";
 import { cn } from "@/lib/cn";
 import type { Profile } from "@/lib/supabase/types";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 /**
  * Kartu "Profil" di halaman Pengaturan — ubah nama & foto profil sendiri.
@@ -107,7 +108,7 @@ export function ProfileSettingsForm({ profile }: { profile: Profile & { email: s
   return (
     <form
       onSubmit={handleSubmit}
-      className="h-fit rounded-2xl border border-black/5 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900"
+      className={cn("h-fit rounded-2xl border p-5 shadow-sm", GLASS_SURFACE, GLASS_BORDER)}
     >
       <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Profil</h2>
 

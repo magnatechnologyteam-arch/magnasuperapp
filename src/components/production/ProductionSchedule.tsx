@@ -7,6 +7,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { formatDateID, formatRupiah, todayISO } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { BoothProject, BoothStatus } from "@/lib/production/types";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const STAGE_ORDER: BoothStatus[] = ["Desain", "Produksi", "Finishing", "Instalasi", "Selesai"];
 
@@ -83,7 +84,7 @@ export function ProductionSchedule() {
                 return (
                   <div
                     key={p.id}
-                    className="rounded-2xl border border-black/5 bg-white p-3.5 shadow-sm dark:border-white/10 dark:bg-zinc-900"
+                    className={cn("rounded-2xl border p-3.5 shadow-sm", GLASS_SURFACE, GLASS_BORDER)}
                   >
                     <p className="truncate text-sm font-semibold text-zinc-900 dark:text-white">{p.name}</p>
                     <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">{p.namaKlien}</p>

@@ -6,6 +6,7 @@ import { deleteActivityLogEntry, deleteAllActivityLogs } from "@/app/dashboard/a
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 export type ActivityRow = {
   id: string;
@@ -96,7 +97,7 @@ export function ActivityLogTable({ rows, readOnly = false }: { rows: ActivityRow
         </div>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         {rows.length === 0 ? (
           <EmptyState
             icon={History}

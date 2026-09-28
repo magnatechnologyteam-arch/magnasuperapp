@@ -24,6 +24,7 @@ import { cn } from "@/lib/cn";
 import type { CapitalRequest, CapitalRequestStatus } from "@/lib/capital-requests/types";
 import { decideCapitalRequest, removeCapitalRequestProof, uploadCapitalRequestProof } from "@/lib/capital-requests/actions";
 import { CAPITAL_REQUEST_STATUS_STYLES as STATUS_STYLES } from "@/lib/status-styles";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 /** Warna avatar ikon per kartu — status "Menunggu" pakai warna netral/amber
  * supaya kontras dengan kartu yang sudah diputuskan (hijau/merah), konsisten
@@ -164,7 +165,7 @@ export function CapitalRequestInbox({ requests }: { requests: CapitalRequest[] }
       </div>
 
       {requests.length > 0 && (
-        <div className="mb-6 overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <div className={cn("mb-6 overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
           <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Tren Modal Disetujui 6 Bulan</h3>
           </div>
@@ -179,7 +180,7 @@ export function CapitalRequestInbox({ requests }: { requests: CapitalRequest[] }
       )}
 
       {requests.length === 0 ? (
-        <div className="rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <div className={cn("rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
           <EmptyState
             icon={HandCoins}
             title="Belum ada pengajuan modal"
@@ -357,7 +358,7 @@ function RequestCard({
   }
 
   return (
-    <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-white/10 dark:bg-zinc-900 sm:p-5">
+    <div className={cn("rounded-2xl border p-4 shadow-sm transition-shadow hover:shadow-md sm:p-5", GLASS_SURFACE, GLASS_BORDER)}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <div

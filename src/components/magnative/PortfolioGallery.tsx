@@ -16,6 +16,8 @@ import {
   updatePortfolioFolder,
 } from "@/lib/magnative/actions";
 import type { PortfolioFolder } from "@/lib/magnative/types";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)";
 
@@ -202,7 +204,7 @@ export function PortfolioGallery({ folders }: { folders: PortfolioFolder[] }) {
       </div>
 
       {folders.length === 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
           <EmptyState
             icon={Camera}
             title="Belum ada folder portofolio"
@@ -216,7 +218,7 @@ export function PortfolioGallery({ folders }: { folders: PortfolioFolder[] }) {
               key={folder.id}
               type="button"
               onClick={() => setViewingFolderId(folder.id)}
-              className="group overflow-hidden rounded-2xl border border-black/5 bg-white text-left shadow-sm transition-transform hover:-translate-y-0.5 dark:border-white/10 dark:bg-zinc-900"
+              className={cn("group overflow-hidden rounded-2xl border text-left shadow-sm transition-transform hover:-translate-y-0.5", GLASS_SURFACE, GLASS_BORDER)}
             >
               <div className="relative aspect-video w-full overflow-hidden bg-zinc-100 dark:bg-white/5">
                 {folder.photos[0] ? (

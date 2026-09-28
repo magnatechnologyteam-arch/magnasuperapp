@@ -3,6 +3,8 @@ import { Scale } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getBalanceSheet } from "@/lib/accounting/data";
 import { formatRupiah, todayISO } from "@/lib/shared/utils";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 /**
  * Neraca (Tahap D modul "Akuntansi") -- HANYA akses penuh. Beda dari
@@ -50,7 +52,7 @@ export default async function NeracaPage({
         </div>
       </div>
 
-      <form className="mt-6 flex flex-wrap items-end gap-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <form className={cn("mt-6 flex flex-wrap items-end gap-3 rounded-2xl border p-4", GLASS_SURFACE, GLASS_BORDER)}>
         <div>
           <label htmlFor="tanggal" className="block text-xs font-medium text-zinc-500 dark:text-zinc-400">
             Per tanggal
@@ -86,7 +88,7 @@ export default async function NeracaPage({
           )}
 
           <div className="mt-6 grid gap-6 lg:grid-cols-3">
-            <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+            <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
               <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Aset</h2>
               <table className="mt-3 w-full text-sm">
                 <tbody>
@@ -116,7 +118,7 @@ export default async function NeracaPage({
               </table>
             </section>
 
-            <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+            <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
               <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Kewajiban</h2>
               <table className="mt-3 w-full text-sm">
                 <tbody>
@@ -146,7 +148,7 @@ export default async function NeracaPage({
               </table>
             </section>
 
-            <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+            <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
               <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Modal</h2>
               <table className="mt-3 w-full text-sm">
                 <tbody>

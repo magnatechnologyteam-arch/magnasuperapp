@@ -46,6 +46,8 @@ import {
   type Vendor,
 } from "@/lib/production/extras-types";
 import { formatDateID, formatRupiah, todayISO } from "@/lib/shared/utils";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const STAGE_LABEL: Record<CheckStage, string> = { instalasi: "Saat Instalasi", bongkar: "Saat Bongkar" };
 const EMPTY_CREW_FORM = { nama: "", peran: "Tukang/Instalatur" as CrewRole, kontak: "", catatan: "" };
@@ -256,7 +258,7 @@ function CrewTimelogPanel({ crewId, crewName }: { crewId: string; crewName: stri
       ) : (
         <ul className="space-y-1">
           {logs.map((l) => (
-            <li key={l.id} className="flex items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-1.5 text-xs shadow-sm dark:bg-zinc-900">
+            <li key={l.id} className={cn("flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
               <span className="text-zinc-500 dark:text-zinc-400">{formatDateID(l.tanggal)}</span>
               <span className="font-semibold text-zinc-800 dark:text-zinc-100">{l.jam} jam</span>
               {l.catatan && <span className="min-w-0 flex-1 truncate text-zinc-400 dark:text-zinc-500">{l.catatan}</span>}
@@ -424,7 +426,7 @@ function CrewPiecePaymentPanel({ crewId, crewName }: { crewId: string; crewName:
       ) : (
         <ul className="space-y-1">
           {payments.map((p) => (
-            <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-2.5 py-1.5 text-xs shadow-sm dark:bg-zinc-900">
+            <li key={p.id} className={cn("flex flex-wrap items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-xs shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold text-zinc-800 dark:text-zinc-100">{p.deskripsiPekerjaan}</p>
                 <p className="text-zinc-400 dark:text-zinc-500">

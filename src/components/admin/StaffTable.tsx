@@ -7,6 +7,7 @@ import { DIVISION_BADGE_CLASSES, DIVISION_LABELS, type Division } from "@/lib/su
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 type StaffRow = {
   id: string;
@@ -42,7 +43,7 @@ export function StaffTable({ staff, currentUserId }: { staff: StaffRow[]; curren
   const [confirmTarget, setConfirmTarget] = useState<StaffRow | null>(null);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
       {staff.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-b border-black/5 px-4 py-2.5 text-[11px] text-zinc-400 dark:border-white/10 dark:text-zinc-500">
           <span className="font-semibold text-zinc-500 dark:text-zinc-400">Warna divisi:</span>
@@ -103,7 +104,7 @@ export function StaffTable({ staff, currentUserId }: { staff: StaffRow[]; curren
                             <option
                               key={d}
                               value={d}
-                              className="bg-white font-semibold text-zinc-900 dark:bg-zinc-900 dark:text-white"
+                              className={cn("font-semibold text-zinc-900 dark:text-white", GLASS_SURFACE, GLASS_BORDER)}
                             >
                               {DIVISION_LABELS[d]}
                             </option>

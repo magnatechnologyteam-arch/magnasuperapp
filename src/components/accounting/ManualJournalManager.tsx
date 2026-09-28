@@ -11,6 +11,7 @@ import { createManualJournalEntry, deleteManualJournalEntry } from "@/lib/accoun
 import { DIVISION_LABELS, type Account, type JournalEntry, type ManualJournalDivision } from "@/lib/accounting/types";
 import { formatDateID, formatRupiah, todayISO } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 type Side = "Debit" | "Kredit";
 type LineRow = { accountCode: string; side: Side; amount: string; notes: string };
@@ -165,7 +166,7 @@ export function ManualJournalManager({
   }
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Jurnal Manual</h2>

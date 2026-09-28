@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/cn";
 import { addProjectPhoto, deleteProjectPhoto } from "@/lib/production/extras-actions";
 import { DOCUMENTATION_TAHAP, type DocumentationTahap, type ProjectPhoto } from "@/lib/production/extras-types";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
 const ALL_PROJECTS_FILTER = "Semua Proyek";
@@ -151,7 +152,7 @@ export function DocumentationGallery({ photos }: { photos: ProjectPhoto[] }) {
         <select
           value={projectFilter}
           onChange={(e) => setProjectFilter(e.target.value)}
-          className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+          className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-amber-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
         >
           <option>{ALL_PROJECTS_FILTER}</option>
           {projects.map((p) => (
@@ -180,7 +181,7 @@ export function DocumentationGallery({ photos }: { photos: ProjectPhoto[] }) {
       </div>
 
       {filteredPhotos.length === 0 ? (
-        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
           <EmptyState
             icon={Camera}
             title={photos.length === 0 ? "Belum ada dokumentasi" : "Tidak ada foto di filter ini"}
@@ -196,7 +197,7 @@ export function DocumentationGallery({ photos }: { photos: ProjectPhoto[] }) {
           {filteredPhotos.map((photo) => (
             <figure
               key={photo.id}
-              className="group overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900"
+              className={cn("group overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}
             >
               <div className="relative aspect-video w-full overflow-hidden">
                 <Image

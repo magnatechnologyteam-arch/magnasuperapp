@@ -10,6 +10,8 @@ import { KeuanganStatGrid } from "./KeuanganStatGrid";
 import { PiutangTable, type PiutangModule, type PiutangRow, type PiutangStatus } from "@/components/admin/PiutangTable";
 import { TrendBarChart } from "@/components/ui/TrendBarChart";
 import { ExportButton, type ExportSheet } from "@/components/ui/ExportButton";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 type PaymentStatusLike = "Belum Bayar" | "DP" | "Lunas";
 
@@ -241,7 +243,7 @@ export default async function KeuanganPage() {
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-5">
-        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900 lg:col-span-2">
+        <div className={cn("overflow-hidden rounded-2xl border shadow-sm lg:col-span-2", GLASS_SURFACE, GLASS_BORDER)}>
           <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Tren Pendapatan (Lunas) 6 Bulan</h3>
           </div>

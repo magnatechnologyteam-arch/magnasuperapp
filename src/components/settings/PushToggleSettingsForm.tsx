@@ -4,6 +4,7 @@ import { BellOff, BellRing, Loader2 } from "lucide-react";
 import { usePushSubscription } from "@/components/push/usePushSubscription";
 import { useT } from "@/lib/i18n/LocaleProvider";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 /**
  * Update Opsional 1 (item 2) — sebelumnya "Aktifkan/Matikan Notifikasi" +
@@ -28,7 +29,7 @@ export function PushToggleSettingsForm() {
   const isOn = status === "on";
 
   return (
-    <div className="h-fit rounded-2xl border border-black/5 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className={cn("h-fit rounded-2xl border p-5 shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
       <h2 className="text-sm font-bold text-zinc-900 dark:text-white">{t("Notifikasi")}</h2>
       <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
         {status === "denied"

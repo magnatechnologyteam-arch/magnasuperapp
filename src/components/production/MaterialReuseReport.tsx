@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
 import type { BoothProject } from "@/lib/production/types";
 import { BOOTH_STATUS_STYLES as STATUS_BADGE } from "@/lib/status-styles";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const ACCENT_ORANGE = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
 const ACCENT_EMERALD = "linear-gradient(135deg, #10B981 0%, #22D3EE 100%)";
@@ -88,7 +89,7 @@ export function MaterialReuseReport() {
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-orange-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+          className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-orange-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
         >
           <option>{ALL_FILTER}</option>
           <option>{REUSED_FILTER}</option>
@@ -96,7 +97,7 @@ export function MaterialReuseReport() {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         {filtered.length === 0 ? (
           <EmptyState
             icon={Recycle}
@@ -163,7 +164,7 @@ export function MaterialReuseReport() {
                         {r.projects.map((ref) => (
                           <li
                             key={ref.projectId}
-                            className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 rounded-lg bg-white px-3 py-1.5 text-xs shadow-sm dark:bg-zinc-900"
+                            className={cn("flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 rounded-lg px-3 py-1.5 text-xs shadow-sm", GLASS_SURFACE, GLASS_BORDER)}
                           >
                             <span className="font-medium text-zinc-700 dark:text-zinc-200">{ref.projectName}</span>
                             <span className="text-zinc-400 dark:text-zinc-500">{formatDateID(ref.date)}</span>

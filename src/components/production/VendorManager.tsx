@@ -8,6 +8,8 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastProvider";
 import { addVendor, deleteVendor, updateVendor } from "@/lib/production/extras-actions";
 import { VENDOR_CATEGORIES, type Vendor, type VendorCategory } from "@/lib/production/extras-types";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const GRADIENT = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
 const ALL_FILTER = "Semua Kategori";
@@ -153,13 +155,13 @@ export function VendorManager({ vendors }: { vendors: Vendor[] }) {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Cari nama vendor atau kontak…"
-            className="w-full rounded-full border border-black/10 bg-white py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+            className={cn("w-full rounded-full border py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:text-white", GLASS_INPUT)}
           />
         </div>
         <select
           value={categoryFilter}
           onChange={(e) => setCategoryFilter(e.target.value)}
-          className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+          className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-amber-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
         >
           <option>{ALL_FILTER}</option>
           {VENDOR_CATEGORIES.map((c) => (
@@ -170,7 +172,7 @@ export function VendorManager({ vendors }: { vendors: Vendor[] }) {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead>

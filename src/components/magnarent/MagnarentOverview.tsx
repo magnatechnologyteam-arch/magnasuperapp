@@ -15,6 +15,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { DonutChart } from "@/components/ui/DonutChart";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const UTILIZATION_WINDOW_DAYS = 90;
 
@@ -185,7 +186,7 @@ export function MagnarentOverview() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
           <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Distribusi Status Booking</h3>
           </div>
@@ -201,7 +202,7 @@ export function MagnarentOverview() {
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900 lg:col-span-2">
+        <div className={cn("overflow-hidden rounded-2xl border shadow-sm lg:col-span-2", GLASS_SURFACE, GLASS_BORDER)}>
           <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Booking Terdekat</h3>
           </div>
@@ -238,7 +239,7 @@ export function MagnarentOverview() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
           <div className="flex items-center justify-between border-b border-black/5 px-5 py-3.5 dark:border-white/10">
             <h3 className="flex items-center gap-1.5 text-sm font-bold text-zinc-900 dark:text-white">
               <TrendingUp className="h-4 w-4 text-emerald-500" />
@@ -272,7 +273,7 @@ export function MagnarentOverview() {
           )}
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
           <div className="flex items-center justify-between border-b border-black/5 px-5 py-3.5 dark:border-white/10">
             <h3 className="flex items-center gap-1.5 text-sm font-bold text-zinc-900 dark:text-white">
               <PackageX className="h-4 w-4 text-rose-500" />

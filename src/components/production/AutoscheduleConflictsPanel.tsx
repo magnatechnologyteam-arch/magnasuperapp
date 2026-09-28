@@ -12,6 +12,8 @@ import {
   type MaterialPressure,
 } from "@/lib/production/autoschedule";
 import { formatDateID } from "@/lib/shared/utils";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 /**
  * Autoschedule heuristik crew & material lintas proyek paralel
@@ -56,7 +58,7 @@ export function AutoscheduleConflictsPanel() {
   return (
     <div className="mb-5 space-y-3">
       {crewConflicts === null ? (
-        <div className="flex items-center gap-2 rounded-2xl border border-black/5 bg-white px-4 py-3 text-sm text-zinc-500 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-400">
+        <div className={cn("flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm text-zinc-500 dark:text-zinc-400", GLASS_SURFACE, GLASS_BORDER)}>
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Menghitung bentrok jadwal lintas proyek…
         </div>

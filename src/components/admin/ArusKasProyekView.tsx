@@ -8,6 +8,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { cn } from "@/lib/cn";
 import type { Project } from "@/lib/magnative/types";
 import { PROJECT_STATUS_STYLES as STATUS_BADGE } from "@/lib/status-styles";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const ACCENT_EMERALD = "linear-gradient(135deg, #10B981 0%, #22D3EE 100%)";
 const ACCENT_ROSE = "linear-gradient(135deg, #F43F5E 0%, #FB7185 100%)";
@@ -111,11 +112,11 @@ export function ArusKasProyekView({
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder="Cari proyek atau klien…"
-          className="w-full rounded-full border border-black/10 bg-white py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-violet-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-white"
+          className={cn("w-full rounded-full border py-2 pl-9 pr-3.5 text-sm text-zinc-900 outline-none ring-violet-500/40 placeholder:text-zinc-400 focus:ring-2 dark:text-white", GLASS_INPUT)}
         />
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         {filtered.length === 0 ? (
           <EmptyState
             icon={Wallet2}

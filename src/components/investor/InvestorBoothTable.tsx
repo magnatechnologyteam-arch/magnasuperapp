@@ -4,11 +4,12 @@ import { formatDateID, formatRupiah } from "@/lib/shared/utils";
 import { cn } from "@/lib/cn";
 import type { BoothProject } from "@/lib/production/types";
 import { BOOTH_STATUS_STYLES as STATUS_STYLES, PAYMENT_STYLES } from "@/lib/status-styles";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 /** Tabel proyek booth Production, versi read only untuk investor. */
 export function InvestorBoothTable({ projects }: { projects: BoothProject[] }) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+    <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead>

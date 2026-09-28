@@ -7,6 +7,8 @@ import { formatDateID, formatRupiah, todayISO } from "@/lib/shared/utils";
 import { StatCard } from "@/components/ui/StatCard";
 import { DonutChart } from "@/components/ui/DonutChart";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const ACCENT_VIOLET = "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)";
 const ACCENT_AMBER = "linear-gradient(135deg, #F59E0B 0%, #F97316 100%)";
@@ -112,7 +114,7 @@ export function MagnativeOverview() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+        <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
           <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
             <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Distribusi Status Proyek</h3>
           </div>
@@ -130,7 +132,7 @@ export function MagnativeOverview() {
         </div>
 
         <div className="grid gap-4 lg:col-span-2 sm:grid-cols-2">
-          <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
             <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Proyek Terdekat</h3>
             </div>
@@ -153,7 +155,7 @@ export function MagnativeOverview() {
             )}
           </div>
 
-          <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+          <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
             <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
               <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Konten Terdekat</h3>
             </div>

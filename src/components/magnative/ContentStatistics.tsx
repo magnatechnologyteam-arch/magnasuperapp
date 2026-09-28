@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import type { Platform } from "@/lib/magnative/types";
 import { PLATFORM_STYLES } from "@/lib/status-styles";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const ALL_PLATFORMS: Platform[] = ["Instagram", "TikTok", "Facebook", "YouTube", "LinkedIn", "Lainnya"];
 
@@ -52,7 +53,7 @@ export function ContentStatistics() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
           <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Alur Approval Konten</h3>
         </div>
@@ -68,7 +69,7 @@ export function ContentStatistics() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900 lg:col-span-2">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm lg:col-span-2", GLASS_SURFACE, GLASS_BORDER)}>
         <div className="border-b border-black/5 px-5 py-3.5 dark:border-white/10">
           <h3 className="text-sm font-bold text-zinc-900 dark:text-white">Performa Konten per Platform</h3>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">Jumlah konten & yang sudah tayang, per platform.</p>

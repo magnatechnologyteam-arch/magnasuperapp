@@ -6,6 +6,7 @@ import { CalendarClock, ClipboardList, MapPin } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
 import { EVENT_STATUSES, type EventStatus, type EventSummary } from "@/lib/events/types";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const STATUS_BADGE: Record<EventStatus, string> = {
   Berjalan: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
@@ -73,7 +74,7 @@ export function EventTrackingList({ events }: { events: EventSummary[] }) {
             <Link
               key={ev.id}
               href={`/dashboard/tracking-event/${ev.id}`}
-              className="rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-violet-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:hover:border-violet-700"
+              className={cn("rounded-2xl border p-4 transition-colors hover:border-violet-300 hover:shadow-sm dark:hover:border-violet-700", GLASS_SURFACE, GLASS_BORDER)}
             >
               <div className="flex items-start justify-between gap-2">
                 <h3 className="font-bold text-zinc-900 dark:text-white">{ev.name}</h3>

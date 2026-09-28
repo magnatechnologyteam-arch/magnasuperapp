@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/ToastProvider";
 import { createAccount, deleteAccount, setAccountActive } from "@/lib/accounting/actions";
 import type { Account, AccountType, NormalBalance } from "@/lib/accounting/types";
 import { cn } from "@/lib/cn";
+import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 const ACCOUNT_TYPES: AccountType[] = ["Aset", "Kewajiban", "Modal", "Pendapatan", "Beban"];
 const NORMAL_BALANCES: NormalBalance[] = ["Debit", "Kredit"];
@@ -131,7 +132,7 @@ export function ChartOfAccountsManager({ initialAccounts }: { initialAccounts: A
   }
 
   return (
-    <section className="rounded-2xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Daftar Akun</h2>

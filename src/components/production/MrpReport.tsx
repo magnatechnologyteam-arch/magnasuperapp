@@ -9,6 +9,7 @@ import { StatCard } from "@/components/ui/StatCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
 import type { BoothProject, MaterialItem, PurchaseOrder } from "@/lib/production/types";
+import { GLASS_BORDER, GLASS_INPUT, GLASS_SURFACE } from "@/lib/glass";
 
 const ACCENT_ROSE = "linear-gradient(135deg, #F43F5E 0%, #EC4899 100%)";
 const ACCENT_AMBER = "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)";
@@ -136,14 +137,14 @@ export function MrpReport() {
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="rounded-full border border-black/10 bg-white px-3.5 py-2 text-sm text-zinc-700 outline-none ring-orange-500/40 focus:ring-2 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-200 dark:[&>option]:bg-zinc-900"
+          className={cn("rounded-full border px-3.5 py-2 text-sm text-zinc-700 outline-none ring-orange-500/40 focus:ring-2 dark:text-zinc-200 dark:[&>option]:bg-zinc-900", GLASS_INPUT)}
         >
           <option>{NEEDS_PO_FILTER}</option>
           <option>{ALL_FILTER}</option>
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-black/5 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
+      <div className={cn("overflow-hidden rounded-2xl border shadow-sm", GLASS_SURFACE, GLASS_BORDER)}>
         {filtered.length === 0 ? (
           <EmptyState
             icon={PackageCheck}
