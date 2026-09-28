@@ -17,8 +17,9 @@ import { getVisibleModules, MODULES } from "@/lib/navigation";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getMagnarentSummary, getMagnativeSummary, getProductionSummary, getReminders } from "@/lib/dashboard/summary";
 import { getPortfolioFolders } from "@/lib/magnative/portfolio-data";
-import { QuickStatCard } from "@/components/dashboard/QuickStatCard";
 import { PortfolioHighlightWidget } from "@/components/dashboard/PortfolioHighlightWidget";
+import { DivisionStatTile } from "@/components/dashboard/DivisionStatTile";
+import { QuickActionDock } from "@/components/dashboard/QuickActionDock";
 import { GLASS_BORDER, GLASS_SURFACE, GLASS_SURFACE_STRONG } from "@/lib/glass";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n/dictionary";
@@ -114,69 +115,102 @@ export default async function DashboardHubPage() {
   const magnativeModule = modules.find((m) => m.id === "magnative");
   const productionModule = modules.find((m) => m.id === "production");
 
-  const statCards: StatCard[] = [];
-  if (magnarentSummary) {
-    statCards.push(
-      {
-        label: t(locale, "Booking Aktif"),
-        value: magnarentSummary.bookingAktif,
-        hint: t(locale, "Menunggu & dikonfirmasi"),
-        icon: CalendarRange,
-        accent: magnarentModule?.solid ?? "#E5484D",
-        href: "/dashboard/magnarent/booking",
-      },
-      {
-        label: t(locale, "Booking Bulan Ini"),
-        value: magnarentSummary.bookingBulanIni,
-        hint: t(locale, "Sejak tanggal 1 bulan ini"),
-        icon: ClipboardList,
-        // Navy dari logo resmi Magnarent (pasangan warna merahnya di gradient)
-        accent: "#262C3A",
-        href: "/dashboard/magnarent/booking",
-      }
-    );
+  // Tahap 46: Ringkasan Cepat sekarang dikelompokkan PER DIVISI (satu kartu
+  // kaca besar per divisi, isinya beberapa baris angka) alih-alih satu grid
+  // rata berisi kartu-kartu kecil terpisah — lihat DivisionStatTile.tsx
+  // untuk alasan lengkapnya (mengikuti model layout "bento/widget" yang
+  // disepakati, tapi tanpa progress ring rekaan karena datanya tidak punya
+  // angka "total" untuk dijadikan rasio yang jujur).
+  type DivisionStatGroup = {
+    moduleId: string;
+    label: string;
+    gradient: string;
+    icon: LucideIcon;
+    stats: StatCard[];
+  };
+
+  const divisionGroups: DivisionStatGroup[] = [];
+
+  if (magnarentSummary && magnarentModule) {
+    divisionGroups.push({
+      moduleId: "magnarent",
+      label: magnarentModule.label,
+      gradient: magnarentModule.gradient,
+      icon: magnarentModule.icon,
+      stats: [
+        {
+          label: t(locale, "Booking Aktif"),
+          value: magnarentSummary.bookingAktif,
+          hint: t(locale, "Menunggu & dikonfirmasi"),
+          icon: CalendarRange,
+          accent: magnarentModule.solid,
+          href: "/dashboard/magnarent/booking",
+        },
+        {
+          label: t(locale, "Booking Bulan Ini"),
+          value: magnarentSummary.bookingBulanIni,
+          hint: t(locale, "Sejak tanggal 1 bulan ini"),
+          icon: ClipboardList,
+          // Navy dari logo resmi Magnarent (pasangan warna merahnya di gradient)
+          accent: "#262C3A",
+          href: "/dashboard/magnarent/booking",
+        },
+      ],
+    });
   }
-  if (magnativeSummary) {
-    statCards.push(
-      {
-        label: t(locale, "Proyek Berjalan"),
-        value: magnativeSummary.proyekBerjalan,
-        hint: t(locale, "Status: Berjalan"),
-        icon: Hammer,
-        accent: magnativeModule?.solid ?? "#0B7A63",
-        href: "/dashboard/magnative/proyek",
-      },
-      {
-        label: t(locale, "Konten 7 Hari Ke Depan"),
-        value: magnativeSummary.kontenMingguIni,
-        hint: t(locale, "Terjadwal tayang minggu ini"),
-        icon: CalendarPlus,
-        // Teal lebih terang, ujung gradient resmi Magnativ
-        accent: "#14B8A6",
-        href: "/dashboard/magnative/sosial-media",
-      }
-    );
+  if (magnativeSummary && magnativeModule) {
+    divisionGroups.push({
+      moduleId: "magnative",
+      label: magnativeModule.label,
+      gradient: magnativeModule.gradient,
+      icon: magnativeModule.icon,
+      stats: [
+        {
+          label: t(locale, "Proyek Berjalan"),
+          value: magnativeSummary.proyekBerjalan,
+          hint: t(locale, "Status: Berjalan"),
+          icon: Hammer,
+          accent: magnativeModule.solid,
+          href: "/dashboard/magnative/proyek",
+        },
+        {
+          label: t(locale, "Konten 7 Hari Ke Depan"),
+          value: magnativeSummary.kontenMingguIni,
+          hint: t(locale, "Terjadwal tayang minggu ini"),
+          icon: CalendarPlus,
+          // Teal lebih terang, ujung gradient resmi Magnativ
+          accent: "#14B8A6",
+          href: "/dashboard/magnative/sosial-media",
+        },
+      ],
+    });
   }
-  if (productionSummary) {
-    statCards.push(
-      {
-        label: t(locale, "Proyek Booth Aktif"),
-        value: productionSummary.proyekAktif,
-        hint: t(locale, "Desain sampai Instalasi"),
-        icon: PackageSearch,
-        accent: productionModule?.solid ?? "#B8860B",
-        href: "/dashboard/production/proyek",
-      },
-      {
-        label: t(locale, "Stok Menipis"),
-        value: productionSummary.stokMenipis,
-        hint: t(locale, "Di titik minimum atau di bawahnya"),
-        icon: AlertTriangle,
-        accent: productionSummary.stokMenipis > 0 ? "#EF4444" : (productionModule?.solid ?? "#B8860B"),
-        href: "/dashboard/production/material",
-        warn: productionSummary.stokMenipis > 0,
-      }
-    );
+  if (productionSummary && productionModule) {
+    divisionGroups.push({
+      moduleId: "production",
+      label: productionModule.label,
+      gradient: productionModule.gradient,
+      icon: productionModule.icon,
+      stats: [
+        {
+          label: t(locale, "Proyek Booth Aktif"),
+          value: productionSummary.proyekAktif,
+          hint: t(locale, "Desain sampai Instalasi"),
+          icon: PackageSearch,
+          accent: productionModule.solid,
+          href: "/dashboard/production/proyek",
+        },
+        {
+          label: t(locale, "Stok Menipis"),
+          value: productionSummary.stokMenipis,
+          hint: t(locale, "Di titik minimum atau di bawahnya"),
+          icon: AlertTriangle,
+          accent: productionSummary.stokMenipis > 0 ? "#EF4444" : productionModule.solid,
+          href: "/dashboard/production/material",
+          warn: productionSummary.stokMenipis > 0,
+        },
+      ],
+    });
   }
 
   return (
@@ -246,25 +280,33 @@ export default async function DashboardHubPage() {
         </div>
       )}
 
-      {statCards.length > 0 && (
+      {divisionGroups.length > 0 && (
         <div className="mb-8" style={{ animationDelay: "30ms" }}>
           <p className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
             {t(locale, "Ringkasan Cepat")}
           </p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {statCards.map((card, i) => {
-              const Icon = card.icon;
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {divisionGroups.map((group, i) => {
+              const DivisionIcon = group.icon;
               return (
-                <QuickStatCard
-                  key={card.label}
-                  label={card.label}
-                  value={card.value}
-                  hint={card.hint}
-                  accent={card.accent}
-                  href={card.href}
-                  warn={card.warn}
-                  delayMs={i * 60}
-                  icon={<Icon className="h-5 w-5" />}
+                <DivisionStatTile
+                  key={group.moduleId}
+                  label={t(locale, group.label)}
+                  gradient={group.gradient}
+                  icon={<DivisionIcon className="h-4.5 w-4.5" />}
+                  delayMs={i * 80}
+                  stats={group.stats.map((stat) => {
+                    const StatIcon = stat.icon;
+                    return {
+                      label: stat.label,
+                      value: stat.value,
+                      hint: stat.hint,
+                      accent: stat.accent,
+                      href: stat.href,
+                      warn: stat.warn,
+                      icon: <StatIcon className="h-4 w-4" />,
+                    };
+                  })}
                 />
               );
             })}
@@ -277,36 +319,20 @@ export default async function DashboardHubPage() {
           <p className="mb-3 text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
             {t(locale, "Mulai Cepat")}
           </p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {quickActions.map((action) => {
+          <QuickActionDock
+            actions={quickActions.map((action) => {
               const Icon = action.icon;
               const accentGradient =
                 modules.find((m) => m.id === action.moduleId)?.gradient ??
                 MODULES.find((m) => m.id === action.moduleId)?.gradient;
-              return (
-                <Link
-                  key={action.label}
-                  href={action.href}
-                  className={cn(
-                    "group flex items-center gap-3 rounded-2xl border p-3.5 transition-all hover:-translate-y-0.5 hover:shadow-md",
-                    GLASS_SURFACE,
-                    GLASS_BORDER
-                  )}
-                >
-                  <div
-                    className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white transition-transform group-hover:scale-110"
-                    style={{ background: accentGradient }}
-                  >
-                    <Icon className="h-4.5 w-4.5" />
-                  </div>
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-zinc-700 dark:text-zinc-200">
-                    {t(locale, action.label)}
-                  </span>
-                  <ArrowUpRight className="h-4 w-4 shrink-0 text-zinc-300 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-zinc-500 dark:text-zinc-600" />
-                </Link>
-              );
+              return {
+                label: t(locale, action.label),
+                href: action.href,
+                gradient: accentGradient,
+                icon: <Icon className="h-5 w-5" />,
+              };
             })}
-          </div>
+          />
         </div>
       )}
 
