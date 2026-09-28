@@ -17,7 +17,9 @@ import { getVisibleModules, MODULES } from "@/lib/navigation";
 import { getCurrentProfile } from "@/lib/supabase/server";
 import { getMagnarentSummary, getMagnativeSummary, getProductionSummary, getReminders } from "@/lib/dashboard/summary";
 import { getPortfolioFolders } from "@/lib/magnative/portfolio-data";
+import { getEvents } from "@/lib/events/data";
 import { PortfolioHighlightWidget } from "@/components/dashboard/PortfolioHighlightWidget";
+import { EventTrackingHighlightWidget } from "@/components/dashboard/EventTrackingHighlightWidget";
 import { DivisionStatTile } from "@/components/dashboard/DivisionStatTile";
 import { QuickActionDock } from "@/components/dashboard/QuickActionDock";
 import { GLASS_BORDER, GLASS_SURFACE, GLASS_SURFACE_STRONG } from "@/lib/glass";
@@ -96,13 +98,18 @@ export default async function DashboardHubPage() {
   // `portfolioFolders` SENGAJA diambil TANPA gating `visibleModuleIds.has("magnative")`
   // (beda dari `magnativeSummary` di bawah) — Update Opsional 1 butir 5 minta
   // portofolio tampil ke SEMUA divisi di Hub, bukan cuma staf Magnative.
-  const [magnarentSummary, magnativeSummary, productionSummary, reminders, portfolioFolders] = await Promise.all([
-    visibleModuleIds.has("magnarent") ? getMagnarentSummary() : Promise.resolve(null),
-    visibleModuleIds.has("magnative") ? getMagnativeSummary() : Promise.resolve(null),
-    visibleModuleIds.has("production") ? getProductionSummary() : Promise.resolve(null),
-    getReminders(visibleModuleIds),
-    getPortfolioFolders(),
-  ]);
+  // `trackingEvents` SENGAJA diambil TANPA gating `visibleModuleIds` juga
+  // (sama seperti `portfolioFolders`) -- lihat catatan di
+  // EventTrackingHighlightWidget.tsx.
+  const [magnarentSummary, magnativeSummary, productionSummary, reminders, portfolioFolders, trackingEvents] =
+    await Promise.all([
+      visibleModuleIds.has("magnarent") ? getMagnarentSummary() : Promise.resolve(null),
+      visibleModuleIds.has("magnative") ? getMagnativeSummary() : Promise.resolve(null),
+      visibleModuleIds.has("production") ? getProductionSummary() : Promise.resolve(null),
+      getReminders(visibleModuleIds),
+      getPortfolioFolders(),
+      getEvents({ withProgress: true }),
+    ]);
 
   // Tahap 31: accent kartu Ringkasan Cepat diambil dari MODULES (warna resmi
   // tiap divisi), bukan biru/ungu/amber generik seperti sebelumnya — supaya
@@ -245,6 +252,8 @@ export default async function DashboardHubPage() {
       </div>
 
       <PortfolioHighlightWidget folders={portfolioFolders} />
+
+      <EventTrackingHighlightWidget events={trackingEvents} />
 
       {reminders.length > 0 && (
         <div className="mb-8 animate-fade-up">
