@@ -1,4 +1,5 @@
 import { ModuleHeader } from "@/components/layout/ModuleHeader";
+import { MaterialReuseForecastReport } from "@/components/production/MaterialReuseForecastReport";
 import { MaterialReuseReport } from "@/components/production/MaterialReuseReport";
 import { MrpReport } from "@/components/production/MrpReport";
 
@@ -27,6 +28,16 @@ export default function ProductionPemakaianPage() {
           </p>
         </div>
         <MrpReport />
+      </div>
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-bold text-zinc-900 dark:text-white">Forecast Reuse Material</h2>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            Proyeksi material yang akan bebas dari proyek yang mau dibongkar, dicocokkan ke proyek aktif lain yang
+            butuh material yang sama.
+          </p>
+        </div>
+        <MaterialReuseForecastReport />
       </div>
       <div className="space-y-6">
         <div>

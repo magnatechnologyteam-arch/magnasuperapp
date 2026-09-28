@@ -181,6 +181,8 @@ export type NewBoothProjectInput = {
   status: BoothStatus;
   tanggalMulai: string;
   tanggalInstalasi: string;
+  /** Estimasi tanggal bongkar (dismantle) — dipakai forecast reuse material ke depan. Migrasi 0077. */
+  tanggalBongkarEstimasi?: string;
   budget: number;
   statusPembayaran: PaymentStatus;
   /** Nominal DP yang sudah diterima — lihat migrasi 0015. */
@@ -278,6 +280,7 @@ export async function addProject(input: NewBoothProjectInput): Promise<SaveBooth
     p_dp_amount: input.dpAmount ?? 0,
     p_materials: input.materials,
     p_catatan: input.catatan ?? null,
+    p_tanggal_bongkar_estimasi: input.tanggalBongkarEstimasi || null,
   });
 
   if (error) {
@@ -344,6 +347,7 @@ export async function updateProject(id: string, input: NewBoothProjectInput): Pr
     p_dp_amount: input.dpAmount ?? 0,
     p_materials: input.materials,
     p_catatan: input.catatan ?? null,
+    p_tanggal_bongkar_estimasi: input.tanggalBongkarEstimasi || null,
   });
 
   if (error) {

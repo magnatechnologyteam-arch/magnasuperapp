@@ -35,6 +35,7 @@ export type BoothProjectRow = {
   status: BoothStatus;
   tanggal_mulai: string;
   tanggal_instalasi: string;
+  tanggal_bongkar_estimasi: string | null;
   budget: number;
   status_pembayaran: PaymentStatus;
   dp_amount: number;
@@ -96,6 +97,7 @@ export function rowToBoothProject(row: BoothProjectRow): BoothProject {
     status: row.status,
     tanggalMulai: row.tanggal_mulai,
     tanggalInstalasi: row.tanggal_instalasi,
+    tanggalBongkarEstimasi: row.tanggal_bongkar_estimasi ?? undefined,
     budget: row.budget,
     statusPembayaran: row.status_pembayaran,
     dpAmount: row.dp_amount ?? 0,

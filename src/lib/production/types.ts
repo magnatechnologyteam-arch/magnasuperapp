@@ -90,6 +90,8 @@ export type BoothProject = {
   tanggalMulai: string;
   /** Deadline instalasi booth di lokasi acara. */
   tanggalInstalasi: string;
+  /** Estimasi tanggal bongkar (dismantle) booth — dipakai untuk forecast reuse material ke depan. Migrasi 0077. */
+  tanggalBongkarEstimasi?: string;
   budget: number;
   /** Status tagihan ke klien — terpisah dari `status` (tahapan produksi). Lihat migrasi 0011. */
   statusPembayaran: PaymentStatus;

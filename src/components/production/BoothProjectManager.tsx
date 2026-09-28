@@ -85,6 +85,7 @@ function emptyForm() {
     status: "Desain" as BoothStatus,
     tanggalMulai: today,
     tanggalInstalasi: today,
+    tanggalBongkarEstimasi: "",
     budget: "0",
     statusPembayaran: "Belum Bayar" as PaymentStatus,
     dpAmount: "0",
@@ -101,6 +102,7 @@ function projectToForm(p: BoothProject) {
     status: p.status,
     tanggalMulai: p.tanggalMulai,
     tanggalInstalasi: p.tanggalInstalasi,
+    tanggalBongkarEstimasi: p.tanggalBongkarEstimasi ?? "",
     budget: String(p.budget),
     statusPembayaran: p.statusPembayaran,
     dpAmount: String(p.dpAmount ?? 0),
@@ -288,6 +290,7 @@ export function BoothProjectManager({ templates = [] }: { templates?: BomTemplat
       status: form.status,
       tanggalMulai: form.tanggalMulai,
       tanggalInstalasi: form.tanggalInstalasi,
+      tanggalBongkarEstimasi: form.tanggalBongkarEstimasi || undefined,
       budget,
       statusPembayaran: form.statusPembayaran,
       dpAmount,
@@ -609,6 +612,23 @@ export function BoothProjectManager({ templates = [] }: { templates?: BomTemplat
                 className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="booth-bongkar-date" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Estimasi Tanggal Bongkar (opsional)
+            </label>
+            <input
+              id="booth-bongkar-date"
+              type="date"
+              value={form.tanggalBongkarEstimasi}
+              onChange={(e) => setForm((f) => ({ ...f, tanggalBongkarEstimasi: e.target.value }))}
+              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2.5 text-sm text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+            />
+            <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+              Dipakai untuk memperkirakan kapan material proyek ini bisa dipakai ulang proyek lain (lihat Forecast
+              Reuse Material di halaman Pemakaian Material).
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
