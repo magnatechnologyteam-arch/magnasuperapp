@@ -1,12 +1,20 @@
 import type { ReactNode } from "react";
 import { BRAND_GRADIENT } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
+import { GLASS_BORDER, GLASS_SURFACE_STRONG } from "@/lib/glass";
+import { cn } from "@/lib/cn";
 
 /**
  * Shell untuk halaman publik /login & /register — sengaja terpisah dari
  * AppShell (Sidebar/Topbar dashboard) karena rute ini dipakai SEBELUM
  * pengguna punya sesi. Middleware (src/middleware.ts) yang menjaga supaya
  * pengguna yang sudah login tidak bisa membuka halaman ini lagi.
+ *
+ * Tahap 46 lanjutan: kartu login sebelumnya `bg-white` OPAK (satu-satunya
+ * permukaan di app yang belum ikut "Liquid Glass" Tahap 38/41) — sekarang
+ * dipindah ke GLASS_SURFACE_STRONG supaya blob warna brand di belakangnya
+ * (sudah ada dari awal, lihat di bawah) ikut tembus & halaman pertama yang
+ * dilihat pengguna langsung senada dengan Dashboard Hub setelah login.
  */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -33,7 +41,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           </p>
         </div>
 
-        <div className="rounded-3xl border border-black/5 bg-white p-7 shadow-xl shadow-black/5 dark:border-white/10 dark:bg-zinc-900 dark:shadow-black/30">
+        <div className={cn("rounded-3xl border p-7 shadow-xl shadow-black/5 dark:shadow-black/30", GLASS_SURFACE_STRONG, GLASS_BORDER)}>
           {children}
         </div>
 

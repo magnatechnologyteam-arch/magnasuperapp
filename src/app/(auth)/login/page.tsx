@@ -3,6 +3,8 @@ import { AlertCircle, CheckCircle2, User } from "lucide-react";
 import { signIn } from "../actions";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { LoginSubmitButton } from "./LoginSubmitButton";
+import { cn } from "@/lib/cn";
+import { GLASS_INPUT } from "@/lib/glass";
 
 export default async function LoginPage({
   searchParams,
@@ -47,7 +49,10 @@ export default async function LoginPage({
               required
               autoComplete="username"
               placeholder="username Anda"
-              className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pl-10 pr-3.5 text-sm text-zinc-900 outline-none ring-[#D4AF37]/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              className={cn(
+                "w-full rounded-xl border py-2.5 pl-10 pr-3.5 text-sm text-zinc-900 outline-none ring-[#D4AF37]/40 placeholder:text-zinc-400 focus:ring-2 dark:text-white",
+                GLASS_INPUT
+              )}
             />
           </div>
         </div>

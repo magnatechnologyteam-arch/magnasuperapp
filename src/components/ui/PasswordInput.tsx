@@ -2,12 +2,19 @@
 
 import { useState } from "react";
 import { Eye, EyeOff, Lock } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { GLASS_INPUT } from "@/lib/glass";
 
 /**
  * Input password dengan tombol mata untuk tampil/sembunyi — dipakai di
  * halaman Login dan Atur Password Baru. Toggle-nya murni state lokal di
  * browser (tidak pernah mengirim apa pun ke server), jadi aman dipasang di
  * form manapun tanpa mengubah cara form itu submit.
+ *
+ * Tahap 46 lanjutan: dipindah ke GLASS_INPUT (sebelumnya border solid biasa,
+ * satu-satunya kotak input di app yang belum ikut "Liquid Glass") + ring
+ * fokus diperbaiki ke emas brand (sebelumnya `ring-indigo-500`, sisa warna
+ * generik yang tidak senada dengan identitas Magna sama sekali).
  */
 export function PasswordInput({
   id,
@@ -37,7 +44,10 @@ export function PasswordInput({
         minLength={minLength}
         autoComplete={autoComplete}
         placeholder={placeholder}
-        className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pl-10 pr-10 text-sm text-zinc-900 outline-none ring-indigo-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+        className={cn(
+          "w-full rounded-xl border py-2.5 pl-10 pr-10 text-sm text-zinc-900 outline-none ring-[#D4AF37]/40 placeholder:text-zinc-400 focus:ring-2 dark:text-white",
+          GLASS_INPUT
+        )}
       />
       <button
         type="button"

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { CheckCircle2, Mail } from "lucide-react";
 import { requestPasswordReset } from "../actions";
+import { cn } from "@/lib/cn";
+import { GLASS_INPUT } from "@/lib/glass";
 
 export default async function LupaPasswordPage({
   searchParams,
@@ -38,7 +40,10 @@ export default async function LupaPasswordPage({
               required
               autoComplete="email"
               placeholder="email pemulihan Anda"
-              className="w-full rounded-xl border border-black/10 bg-transparent py-2.5 pl-10 pr-3.5 text-sm text-zinc-900 outline-none ring-[#D4AF37]/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+              className={cn(
+                "w-full rounded-xl border py-2.5 pl-10 pr-3.5 text-sm text-zinc-900 outline-none ring-[#D4AF37]/40 placeholder:text-zinc-400 focus:ring-2 dark:text-white",
+                GLASS_INPUT
+              )}
             />
           </div>
         </div>
