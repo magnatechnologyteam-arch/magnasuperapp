@@ -485,3 +485,63 @@ export function rowToNcReport(row: NcReportRow): NcReport {
     createdAt: row.created_at,
   };
 }
+
+export const SUBCONTRACT_STATUSES = ["Dikirim", "Diproses", "Diterima", "Dibatalkan"] as const;
+export type SubcontractStatus = (typeof SUBCONTRACT_STATUSES)[number];
+
+export type SubcontractMaterialItem = { materialId: string; qty: number };
+
+/**
+ * Subcontracting tracking terintegrasi BOM (analisis-kompetitor #24) --
+ * material yang dikirim ke vendor eksternal (laser cutting, printing
+ * besar, dsb) lalu diterima kembali sebagai barang jadi. `materialDikirim`
+ * berisi item BOM proyek yang sama (bukan input bebas) -- supaya benar-
+ * benar "terintegrasi BOM". Tidak mengubah stok gudang, murni tracking
+ * status pengiriman & penerimaan dari vendor.
+ */
+export type SubcontractOrder = {
+  id: string;
+  projectId: string;
+  vendorId: string | null;
+  deskripsiPekerjaan: string;
+  materialDikirim: SubcontractMaterialItem[];
+  status: SubcontractStatus;
+  tanggalKirim: string;
+  estimasiTerima: string | null;
+  tanggalTerima: string | null;
+  biayaJasa: number;
+  catatan: string | null;
+  createdAt: string;
+};
+
+export type SubcontractOrderRow = {
+  id: string;
+  project_id: string;
+  vendor_id: string | null;
+  deskripsi_pekerjaan: string;
+  material_dikirim: SubcontractMaterialItem[];
+  status: SubcontractStatus;
+  tanggal_kirim: string;
+  estimasi_terima: string | null;
+  tanggal_terima: string | null;
+  biaya_jasa: number;
+  catatan: string | null;
+  created_at: string;
+};
+
+export function rowToSubcontractOrder(row: SubcontractOrderRow): SubcontractOrder {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    vendorId: row.vendor_id,
+    deskripsiPekerjaan: row.deskripsi_pekerjaan,
+    materialDikirim: row.material_dikirim ?? [],
+    status: row.status,
+    tanggalKirim: row.tanggal_kirim,
+    estimasiTerima: row.estimasi_terima,
+    tanggalTerima: row.tanggal_terima,
+    biayaJasa: row.biaya_jasa,
+    catatan: row.catatan,
+    createdAt: row.created_at,
+  };
+}

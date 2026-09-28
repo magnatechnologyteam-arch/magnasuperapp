@@ -1,30 +1,37 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { CheckCircle2, ChevronDown, Clock, FileText, Loader2, Paperclip, Share2, Trash2, Upload, Users } from "lucide-react";
+import { Boxes, CheckCircle2, ChevronDown, Clock, FileText, Loader2, Paperclip, Share2, Trash2, Upload, Users } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { PortalShareModal } from "@/components/portal/PortalShareModal";
 import { useToast } from "@/components/ui/ToastProvider";
+import { useProductionData } from "./ProductionDataProvider";
 import {
   addCrewPiecePayment,
   addCrewTimelog,
   addProjectCrew,
   addProjectDocument,
+  addSubcontractOrder,
   deleteCrewPiecePayment,
   deleteCrewTimelog,
   deleteProjectCrew,
   deleteProjectDocument,
+  deleteSubcontractOrder,
   getCrewPiecePayments,
   getCrewTimelogs,
   getProjectChecks,
   getProjectCrew,
   getProjectDocuments,
+  getSubcontractOrders,
+  getVendors,
   removeProjectCheckPhoto,
   saveProjectCheck,
   updateCrewPiecePaymentStatus,
+  updateSubcontractStatus,
 } from "@/lib/production/extras-actions";
 import {
   CREW_ROLES,
+  SUBCONTRACT_STATUSES,
   type CheckStage,
   type CrewPiecePayment,
   type CrewRole,
@@ -33,6 +40,10 @@ import {
   type ProjectCheck,
   type ProjectCrew,
   type ProjectDocument,
+  type SubcontractMaterialItem,
+  type SubcontractOrder,
+  type SubcontractStatus,
+  type Vendor,
 } from "@/lib/production/extras-types";
 import { formatDateID, formatRupiah, todayISO } from "@/lib/shared/utils";
 
@@ -43,6 +54,20 @@ const EMPTY_PIECE_FORM = { deskripsiPekerjaan: "", jumlahUnit: "1", ratePerUnit:
 const PIECE_STATUS_STYLE: Record<PiecePaymentStatus, string> = {
   "Belum Dibayar": "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
   Dibayar: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+};
+const EMPTY_SUBCONTRACT_FORM = {
+  vendorId: "",
+  deskripsiPekerjaan: "",
+  tanggalKirim: todayISO(),
+  estimasiTerima: "",
+  biayaJasa: "",
+  catatan: "",
+};
+const SUBCONTRACT_STATUS_STYLE: Record<SubcontractStatus, string> = {
+  Dikirim: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
+  Diproses: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  Diterima: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+  Dibatalkan: "bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400",
 };
 
 function CheckStagePanel({
@@ -482,6 +507,335 @@ function CrewPiecePaymentPanel({ crewId, crewName }: { crewId: string; crewName:
 }
 
 /**
+ * Subcontracting tracking terintegrasi BOM (analisis-kompetitor #24) --
+ * material dari BOM proyek ini yang dikirim ke vendor eksternal (laser
+ * cutting, printing besar, dsb) lalu diterima kembali sebagai barang
+ * jadi. Picker material SENGAJA mengambil dari `project.materials` (BOM
+ * proyek yang sama, lewat `useProductionData()`) supaya benar-benar
+ * "terintegrasi BOM", bukan input bebas. Tidak mengubah stok gudang --
+ * murni tracking status pengiriman/penerimaan & vendor.
+ */
+function SubcontractPanel({ projectId }: { projectId: string }) {
+  const { showToast } = useToast();
+  const { projects, materials } = useProductionData();
+  const project = projects.find((p) => p.id === projectId);
+  const bomItems = project?.materials ?? [];
+
+  const [orders, setOrders] = useState<SubcontractOrder[] | null>(null);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [form, setForm] = useState(EMPTY_SUBCONTRACT_FORM);
+  const [pickMaterialId, setPickMaterialId] = useState("");
+  const [pickQty, setPickQty] = useState("1");
+  const [selectedMaterials, setSelectedMaterials] = useState<SubcontractMaterialItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  function reload() {
+    getSubcontractOrders(projectId).then(setOrders);
+  }
+
+  useEffect(() => {
+    reload();
+    getVendors().then(setVendors);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
+
+  function materialName(materialId: string) {
+    return materials.find((m) => m.id === materialId)?.name ?? "Material tidak dikenal";
+  }
+  function vendorName(vendorId: string | null) {
+    return vendors.find((v) => v.id === vendorId)?.name ?? null;
+  }
+
+  function handleAddMaterial() {
+    if (!pickMaterialId) return;
+    const qty = Number(pickQty);
+    if (!Number.isFinite(qty) || qty <= 0) return;
+    setSelectedMaterials((prev) => {
+      const existing = prev.find((m) => m.materialId === pickMaterialId);
+      if (existing) {
+        return prev.map((m) => (m.materialId === pickMaterialId ? { ...m, qty } : m));
+      }
+      return [...prev, { materialId: pickMaterialId, qty }];
+    });
+    setPickMaterialId("");
+    setPickQty("1");
+  }
+
+  function handleRemoveMaterial(materialId: string) {
+    setSelectedMaterials((prev) => prev.filter((m) => m.materialId !== materialId));
+  }
+
+  async function handleAdd(e: FormEvent) {
+    e.preventDefault();
+    if (!form.deskripsiPekerjaan.trim()) {
+      setError("Deskripsi pekerjaan wajib diisi.");
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    const result = await addSubcontractOrder(projectId, {
+      vendorId: form.vendorId || undefined,
+      deskripsiPekerjaan: form.deskripsiPekerjaan,
+      materialDikirim: selectedMaterials,
+      tanggalKirim: form.tanggalKirim || undefined,
+      estimasiTerima: form.estimasiTerima || undefined,
+      biayaJasa: form.biayaJasa ? Number(form.biayaJasa) : undefined,
+      catatan: form.catatan || undefined,
+    });
+    setSubmitting(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    showToast(`Subkontrak "${form.deskripsiPekerjaan}" berhasil dicatat.`);
+    setForm(EMPTY_SUBCONTRACT_FORM);
+    setSelectedMaterials([]);
+    reload();
+  }
+
+  async function handleStatusChange(order: SubcontractOrder, status: SubcontractStatus) {
+    setBusyId(order.id);
+    const result = await updateSubcontractStatus(order.id, status);
+    setBusyId(null);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    reload();
+  }
+
+  async function handleRemove(id: string) {
+    setBusyId(id);
+    const result = await deleteSubcontractOrder(id);
+    setBusyId(null);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    setOrders((prev) => prev?.filter((o) => o.id !== id) ?? null);
+  }
+
+  return (
+    <div className="mt-5 border-t border-black/5 pt-4 dark:border-white/10">
+      <p className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+        <Boxes className="h-3.5 w-3.5" />
+        Subkontrak / Vendor Eksternal
+      </p>
+
+      {orders === null ? (
+        <p className="py-4 text-center text-xs text-zinc-400 dark:text-zinc-500">Memuat…</p>
+      ) : orders.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-black/10 px-3.5 py-3 text-xs text-zinc-400 dark:border-white/10">
+          Belum ada material yang dikirim ke vendor eksternal.
+        </p>
+      ) : (
+        <ul className="space-y-2">
+          {orders.map((o) => (
+            <li key={o.id} className="rounded-xl border border-black/5 px-3 py-2.5 dark:border-white/10">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">{o.deskripsiPekerjaan}</p>
+                  <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                    {vendorName(o.vendorId) ?? "Vendor belum ditentukan"} · Dikirim {formatDateID(o.tanggalKirim)}
+                    {o.tanggalTerima && ` · Diterima ${formatDateID(o.tanggalTerima)}`}
+                    {o.biayaJasa > 0 && ` · ${formatRupiah(o.biayaJasa)}`}
+                  </p>
+                  {o.materialDikirim.length > 0 && (
+                    <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
+                      {o.materialDikirim.map((m) => `${materialName(m.materialId)} (${m.qty})`).join(", ")}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleRemove(o.id)}
+                  disabled={busyId === o.id}
+                  aria-label={`Hapus subkontrak ${o.deskripsiPekerjaan}`}
+                  className="shrink-0 rounded-full p-1.5 text-zinc-400 transition-colors hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {SUBCONTRACT_STATUSES.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleStatusChange(o, s)}
+                    disabled={busyId === o.id}
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold disabled:opacity-50 ${
+                      o.status === s ? SUBCONTRACT_STATUS_STYLE[s] : "bg-zinc-50 text-zinc-400 dark:bg-white/5 dark:text-zinc-500"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form onSubmit={handleAdd} className="mt-3 space-y-3 rounded-xl border border-black/5 p-3.5 dark:border-white/10">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="sub-vendor" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Vendor Eksternal
+            </label>
+            <select
+              id="sub-vendor"
+              value={form.vendorId}
+              onChange={(e) => setForm((f) => ({ ...f, vendorId: e.target.value }))}
+              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2 text-sm text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
+            >
+              <option value="">— Belum ditentukan —</option>
+              {vendors.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="sub-biaya" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Biaya Jasa (opsional)
+            </label>
+            <input
+              id="sub-biaya"
+              type="number"
+              min={0}
+              step={1000}
+              value={form.biayaJasa}
+              onChange={(e) => setForm((f) => ({ ...f, biayaJasa: e.target.value }))}
+              placeholder="0"
+              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <input
+          value={form.deskripsiPekerjaan}
+          onChange={(e) => setForm((f) => ({ ...f, deskripsiPekerjaan: e.target.value }))}
+          placeholder="Deskripsi pekerjaan (mis. laser cutting akrilik logo)"
+          className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+        />
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="sub-kirim" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Tanggal Kirim
+            </label>
+            <input
+              id="sub-kirim"
+              type="date"
+              value={form.tanggalKirim}
+              onChange={(e) => setForm((f) => ({ ...f, tanggalKirim: e.target.value }))}
+              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2 text-sm text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+            />
+          </div>
+          <div>
+            <label htmlFor="sub-estimasi" className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Estimasi Terima (opsional)
+            </label>
+            <input
+              id="sub-estimasi"
+              type="date"
+              value={form.estimasiTerima}
+              onChange={(e) => setForm((f) => ({ ...f, estimasiTerima: e.target.value }))}
+              className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2 text-sm text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+            />
+          </div>
+        </div>
+
+        {bomItems.length > 0 && (
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Material dari BOM yang Dikirim (opsional)
+            </label>
+            <div className="flex flex-wrap items-end gap-2">
+              <select
+                value={pickMaterialId}
+                onChange={(e) => setPickMaterialId(e.target.value)}
+                className="min-w-0 flex-1 rounded-lg border border-black/10 bg-transparent px-2.5 py-1.5 text-xs text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white dark:[&>option]:bg-zinc-900"
+              >
+                <option value="">Pilih material dari BOM proyek…</option>
+                {bomItems.map((m) => (
+                  <option key={m.materialId} value={m.materialId}>
+                    {materialName(m.materialId)} (alokasi {m.qty})
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                min={0.01}
+                step={0.5}
+                value={pickQty}
+                onChange={(e) => setPickQty(e.target.value)}
+                className="w-16 rounded-lg border border-black/10 bg-transparent px-2 py-1.5 text-xs text-zinc-900 outline-none ring-amber-500/40 focus:ring-2 dark:border-white/10 dark:text-white"
+              />
+              <button
+                type="button"
+                onClick={handleAddMaterial}
+                className="rounded-full bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+              >
+                Tambah
+              </button>
+            </div>
+            {selectedMaterials.length > 0 && (
+              <ul className="mt-2 space-y-1">
+                {selectedMaterials.map((m) => (
+                  <li
+                    key={m.materialId}
+                    className="flex items-center justify-between rounded-lg bg-zinc-50 px-2.5 py-1.5 text-xs dark:bg-white/[0.03]"
+                  >
+                    <span className="text-zinc-700 dark:text-zinc-200">
+                      {materialName(m.materialId)} × {m.qty}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMaterial(m.materialId)}
+                      aria-label={`Hapus ${materialName(m.materialId)} dari daftar kirim`}
+                      className="text-zinc-400 hover:text-rose-600"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        <textarea
+          value={form.catatan}
+          onChange={(e) => setForm((f) => ({ ...f, catatan: e.target.value }))}
+          rows={2}
+          placeholder="Catatan (opsional) — mis. instruksi khusus untuk vendor"
+          className="w-full rounded-xl border border-black/10 bg-transparent px-3.5 py-2 text-sm text-zinc-900 outline-none ring-amber-500/40 placeholder:text-zinc-400 focus:ring-2 dark:border-white/10 dark:text-white"
+        />
+
+        {error && (
+          <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-medium text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
+            {error}
+          </p>
+        )}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="flex w-full items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500 to-rose-500 px-4 py-2 text-xs font-semibold text-white shadow-sm disabled:opacity-60"
+        >
+          {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          Catat Pengiriman ke Vendor
+        </button>
+      </form>
+    </div>
+  );
+}
+
+/**
  * Lampiran gambar kerja/desain (Tahap 44 — gap #6 analisis-gap-production.md)
  * — denah, rendering, shop drawing per proyek. TERPISAH dari dokumentasi
  * before/after instalasi (bucket & tabel beda) karena tujuannya beda: ini
@@ -837,6 +1191,8 @@ export function ProjectDetailModal({
           </button>
         </form>
       </div>
+
+      <SubcontractPanel projectId={projectId} />
 
       <ProjectDocumentsSection projectId={projectId} />
 

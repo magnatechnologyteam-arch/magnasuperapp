@@ -11,6 +11,7 @@ import {
   rowToEquipmentUsage,
   rowToMaterialTransfer,
   rowToNcReport,
+  rowToSubcontractOrder,
   rowToProjectCheck,
   rowToProjectCrew,
   rowToProjectDocument,
@@ -48,6 +49,10 @@ import {
   type ProjectDocumentRow,
   type ProjectPhoto,
   type ProjectPhotoRow,
+  type SubcontractMaterialItem,
+  type SubcontractOrder,
+  type SubcontractOrderRow,
+  type SubcontractStatus,
   type Vendor,
   type VendorCategory,
   type VendorRow,
@@ -1115,5 +1120,109 @@ export async function deleteNcReport(id: string): Promise<MutationResult> {
   }
   revalidatePath(KUALITAS_PATH);
   void logActivity({ module: "production", action: "delete", entityType: "nc_report", entityLabel: ncRow?.judul });
+  return { ok: true };
+}
+
+/**
+ * Subcontracting tracking terintegrasi BOM (analisis-kompetitor #24) --
+ * material dari BOM proyek yang dikirim ke vendor eksternal (laser
+ * cutting, printing besar, dsb) lalu diterima kembali sebagai barang
+ * jadi. `materialDikirim` sengaja mengacu ke item BOM proyek yang sama
+ * (bukan input bebas). Tidak mengubah stok gudang -- murni tracking
+ * status pengiriman/penerimaan.
+ */
+export async function getSubcontractOrders(projectId: string): Promise<SubcontractOrder[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("production_subcontract_orders")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false })
+    .returns<SubcontractOrderRow[]>();
+
+  if (error) {
+    console.error("[production] getSubcontractOrders gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToSubcontractOrder);
+}
+
+function validateSubcontractInput(input: { deskripsiPekerjaan: string }): string | null {
+  if (!input.deskripsiPekerjaan?.trim()) return "Deskripsi pekerjaan wajib diisi.";
+  return null;
+}
+
+export async function addSubcontractOrder(
+  projectId: string,
+  input: {
+    vendorId?: string;
+    deskripsiPekerjaan: string;
+    materialDikirim?: SubcontractMaterialItem[];
+    tanggalKirim?: string;
+    estimasiTerima?: string;
+    biayaJasa?: number;
+    catatan?: string;
+  }
+): Promise<MutationResult> {
+  const validationError = validateSubcontractInput(input);
+  if (validationError) return { ok: false, error: validationError };
+
+  const supabase = await createClient();
+  const payload: Record<string, unknown> = {
+    project_id: projectId,
+    vendor_id: input.vendorId || null,
+    deskripsi_pekerjaan: input.deskripsiPekerjaan.trim(),
+    material_dikirim: input.materialDikirim ?? [],
+    biaya_jasa: input.biayaJasa ?? 0,
+    catatan: input.catatan?.trim() || null,
+  };
+  if (input.tanggalKirim) payload.tanggal_kirim = input.tanggalKirim;
+  if (input.estimasiTerima) payload.estimasi_terima = input.estimasiTerima;
+
+  const { error } = await supabase.from("production_subcontract_orders").insert(payload);
+  if (error) {
+    console.error("[production] addSubcontractOrder gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(PROYEK_PATH);
+  void logActivity({
+    module: "production",
+    action: "create",
+    entityType: "subcontract_order",
+    entityLabel: input.deskripsiPekerjaan,
+  });
+  return { ok: true };
+}
+
+export async function updateSubcontractStatus(
+  id: string,
+  status: SubcontractStatus,
+  tanggalTerima?: string
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("production_subcontract_orders")
+    .update({
+      status,
+      tanggal_terima: status === "Diterima" ? tanggalTerima || new Date().toISOString().slice(0, 10) : null,
+    })
+    .eq("id", id);
+
+  if (error) {
+    console.error("[production] updateSubcontractStatus gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(PROYEK_PATH);
+  return { ok: true };
+}
+
+export async function deleteSubcontractOrder(id: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("production_subcontract_orders").delete().eq("id", id);
+  if (error) {
+    console.error("[production] deleteSubcontractOrder gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(PROYEK_PATH);
   return { ok: true };
 }
