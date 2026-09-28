@@ -204,6 +204,27 @@ export async function getProjectCrew(projectId: string): Promise<ProjectCrew[]> 
   return (data ?? []).map(rowToProjectCrew);
 }
 
+/**
+ * Ambil kru dari BANYAK proyek sekaligus dalam satu query -- dipakai oleh
+ * panel Autoschedule (analisis-kompetitor #22) untuk cek bentrok kru lintas
+ * proyek aktif, supaya tidak perlu N kali panggil `getProjectCrew`.
+ */
+export async function getProjectCrewForProjects(projectIds: string[]): Promise<ProjectCrew[]> {
+  if (projectIds.length === 0) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("production_project_crew")
+    .select("*")
+    .in("project_id", projectIds)
+    .returns<ProjectCrewRow[]>();
+
+  if (error) {
+    console.error("[production] getProjectCrewForProjects gagal:", error.message);
+    return [];
+  }
+  return (data ?? []).map(rowToProjectCrew);
+}
+
 export async function addProjectCrew(
   projectId: string,
   input: { nama: string; peran: CrewRole; kontak?: string; catatan?: string }
