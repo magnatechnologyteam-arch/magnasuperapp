@@ -8,6 +8,7 @@ import { cn } from "@/lib/cn";
 import { updateEventChecklistProgress } from "@/lib/events/actions";
 import { ChecklistHistoryModal } from "./ChecklistHistoryModal";
 import { ChecklistDiscussionModal } from "./ChecklistDiscussionModal";
+import { ChecklistProgressRing } from "./ChecklistProgressRing";
 import {
   EVENT_CHECKLIST_STATUSES,
   EVENT_SOURCE_LABELS,
@@ -75,7 +76,15 @@ export function EventTrackingBoard({
       bucket.push(item);
       map.set(item.category, bucket);
     }
-    return Array.from(map.entries()).map(([category, list]) => ({ category, list }));
+    // Tahap 49: hitung juga progres per kategori (bukan cuma per event) --
+    // dipakai buat badge kecil "x/y" di sebelah tiap judul kategori, biar
+    // staf langsung tahu kategori mana yang masih tertinggal tanpa harus
+    // scroll baca satu-satu itemnya.
+    return Array.from(map.entries()).map(([category, list]) => ({
+      category,
+      list,
+      done: list.filter((i) => i.status === "Finish").length,
+    }));
   }, [items]);
 
   const progressPct = useMemo(() => {
@@ -145,16 +154,13 @@ export function EventTrackingBoard({
           </span>
         </div>
 
-        <div className="mt-4">
-          <div className="flex items-center justify-between text-xs font-semibold text-zinc-500 dark:text-zinc-400">
-            <span>Progress checklist</span>
-            <span>{progressPct}%</span>
-          </div>
-          <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all"
-              style={{ width: `${progressPct}%` }}
-            />
+        <div className="mt-4 flex items-center gap-4 border-t border-zinc-100 pt-4 dark:border-white/10">
+          <ChecklistProgressRing percent={progressPct} size={56} strokeWidth={6} />
+          <div>
+            <p className="text-sm font-bold text-zinc-700 dark:text-zinc-200">Progress checklist</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-500">
+              {items.filter((i) => i.status === "Finish").length}/{items.length} item selesai
+            </p>
           </div>
         </div>
       </section>
@@ -192,100 +198,99 @@ export function EventTrackingBoard({
             description="Admin belum mengisi checklist untuk event ini."
           />
         ) : (
-          <div className="mt-4 space-y-5">
-            {groupedItems.map(({ category, list }) => (
+          <div className="mt-4 space-y-6">
+            {groupedItems.map(({ category, list, done }) => (
               <div key={category}>
-                <p className="mb-1.5 text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                  {category}
-                </p>
-                <div className="overflow-x-auto rounded-xl border border-zinc-100 dark:border-zinc-800">
-                  <table className="w-full min-w-[720px] text-sm">
-                    <thead>
-                      <tr className="border-b border-zinc-100 bg-zinc-50 text-left text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800 dark:bg-zinc-950/40 dark:text-zinc-400">
-                        <th className="px-3 py-2 font-medium">Item</th>
-                        <th className="px-3 py-2 font-medium">Detail</th>
-                        <th className="px-3 py-2 font-medium">Qty/Durasi</th>
-                        <th className="px-3 py-2 font-medium">Status</th>
-                        <th className="px-3 py-2 font-medium">PIC</th>
-                        <th className="px-3 py-2 font-medium">Riwayat</th>
-                        <th className="px-3 py-2 font-medium">Diskusi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {list.map((item) => (
-                        <tr key={item.id} className="border-t border-zinc-100 dark:border-zinc-800">
-                          <td className="px-3 py-2 align-top font-medium text-zinc-700 dark:text-zinc-200">
-                            {item.itemName}
-                            {item.notes && (
-                              <p className="mt-0.5 text-[11px] font-normal text-zinc-400 dark:text-zinc-500">
-                                {item.notes}
-                              </p>
+                <div className="mb-2 flex items-center gap-2">
+                  <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                    {category}
+                  </p>
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                      done === list.length
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                        : "bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400"
+                    )}
+                  >
+                    {done}/{list.length}
+                  </span>
+                </div>
+                {/* Tahap 49: sebelumnya <table> yang wajib overflow-x-scroll
+                    (min-w-[720px]) supaya 7 kolomnya muat -- di layar sempit
+                    jadi kepotong & harus digeser. Diganti daftar kartu
+                    (setiap item = satu baris kaca) yang boleh melebar penuh
+                    di layar besar dan menumpuk vertikal di layar kecil,
+                    tanpa scroll horizontal sama sekali. */}
+                <div className="space-y-2">
+                  {list.map((item) => (
+                    <div key={item.id} className={cn("rounded-2xl border p-3.5", GLASS_SURFACE, GLASS_BORDER)}>
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-zinc-700 dark:text-zinc-200">{item.itemName}</p>
+                          {(item.detail || item.qtyInfo) && (
+                            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                              {[item.detail, item.qtyInfo].filter(Boolean).join(" · ")}
+                            </p>
+                          )}
+                          {item.notes && (
+                            <p className="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">{item.notes}</p>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select
+                            value={item.status}
+                            disabled={savingId === item.id}
+                            onChange={(e) =>
+                              handleUpdate(item, { status: e.target.value as EventChecklistStatus })
+                            }
+                            className={cn(
+                              "rounded-lg border bg-transparent px-2 py-1 text-xs font-semibold dark:bg-zinc-950",
+                              CHECKLIST_STATUS_STYLE[item.status]
                             )}
-                          </td>
-                          <td className="px-3 py-2 align-top text-xs text-zinc-500 dark:text-zinc-400">
-                            {item.detail || "—"}
-                          </td>
-                          <td className="px-3 py-2 align-top text-xs text-zinc-500 dark:text-zinc-400">
-                            {item.qtyInfo || "—"}
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <select
-                              value={item.status}
-                              disabled={savingId === item.id}
-                              onChange={(e) => handleUpdate(item, { status: e.target.value as EventChecklistStatus })}
-                              className={cn(
-                                "rounded-lg border bg-transparent px-2 py-1 text-xs font-semibold dark:bg-zinc-950",
-                                CHECKLIST_STATUS_STYLE[item.status]
-                              )}
-                            >
-                              {EVENT_CHECKLIST_STATUSES.map((s) => (
-                                <option key={s} value={s}>
-                                  {s}
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <select
-                              value={item.pic ?? ""}
-                              disabled={savingId === item.id}
-                              onChange={(e) => handleUpdate(item, { picId: e.target.value || null })}
-                              className="rounded-lg border border-zinc-300 bg-transparent px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
-                            >
-                              <option value="">Belum ditugaskan</option>
-                              {picOptions.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.fullName} ({DIVISION_LABEL[p.division] ?? p.division})
-                                </option>
-                              ))}
-                            </select>
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <button
-                              type="button"
-                              onClick={() => setHistoryTarget(item)}
-                              title="Lihat riwayat status & PIC"
-                              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 transition-colors hover:border-violet-300 hover:text-violet-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-violet-700 dark:hover:text-violet-300"
-                            >
-                              <History className="h-3 w-3" />
-                              Riwayat
-                            </button>
-                          </td>
-                          <td className="px-3 py-2 align-top">
-                            <button
-                              type="button"
-                              onClick={() => setDiscussionTarget(item)}
-                              title="Diskusi item ini"
-                              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 transition-colors hover:border-violet-300 hover:text-violet-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-violet-700 dark:hover:text-violet-300"
-                            >
-                              <MessageSquare className="h-3 w-3" />
-                              Diskusi
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          >
+                            {EVENT_CHECKLIST_STATUSES.map((s) => (
+                              <option key={s} value={s}>
+                                {s}
+                              </option>
+                            ))}
+                          </select>
+                          <select
+                            value={item.pic ?? ""}
+                            disabled={savingId === item.id}
+                            onChange={(e) => handleUpdate(item, { picId: e.target.value || null })}
+                            className="max-w-[9.5rem] rounded-lg border border-zinc-300 bg-transparent px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
+                          >
+                            <option value="">Belum ditugaskan</option>
+                            {picOptions.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.fullName} ({DIVISION_LABEL[p.division] ?? p.division})
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => setHistoryTarget(item)}
+                            title="Lihat riwayat status & PIC"
+                            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 transition-colors hover:border-violet-300 hover:text-violet-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-violet-700 dark:hover:text-violet-300"
+                          >
+                            <History className="h-3 w-3" />
+                            <span className="hidden sm:inline">Riwayat</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDiscussionTarget(item)}
+                            title="Diskusi item ini"
+                            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 transition-colors hover:border-violet-300 hover:text-violet-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-violet-700 dark:hover:text-violet-300"
+                          >
+                            <MessageSquare className="h-3 w-3" />
+                            <span className="hidden sm:inline">Diskusi</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}

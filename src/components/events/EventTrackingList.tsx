@@ -3,10 +3,11 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CalendarClock, ClipboardList, MapPin } from "lucide-react";
+import { ChecklistProgressRing } from "./ChecklistProgressRing";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/cn";
 import { EVENT_STATUSES, type EventStatus, type EventSummary } from "@/lib/events/types";
-import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
+import { GLASS_BORDER, GLASS_PILL, GLASS_SURFACE } from "@/lib/glass";
 
 const STATUS_BADGE: Record<EventStatus, string> = {
   Berjalan: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
@@ -48,7 +49,7 @@ export function EventTrackingList({ events }: { events: EventSummary[] }) {
               "rounded-full border px-3.5 py-1.5 text-xs font-semibold transition-colors",
               filter === f.key
                 ? "border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-400 dark:bg-violet-500/10 dark:text-violet-300"
-                : "border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400"
+                : cn("text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200", GLASS_PILL)
             )}
           >
             {f.label}
@@ -76,41 +77,46 @@ export function EventTrackingList({ events }: { events: EventSummary[] }) {
               href={`/dashboard/tracking-event/${ev.id}`}
               className={cn("rounded-2xl border p-4 transition-colors hover:border-violet-300 hover:shadow-sm dark:hover:border-violet-700", GLASS_SURFACE, GLASS_BORDER)}
             >
-              <div className="flex items-start justify-between gap-2">
-                <h3 className="font-bold text-zinc-900 dark:text-white">{ev.name}</h3>
-                <span className={cn("shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold", STATUS_BADGE[ev.status])}>
-                  {ev.status}
-                </span>
-              </div>
-              {ev.clientName && <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{ev.clientName}</p>}
-              <div className="mt-2.5 space-y-1 text-xs text-zinc-400 dark:text-zinc-500">
-                {ev.eventTypeName && <p>Jenis: {ev.eventTypeName}</p>}
-                {ev.location && (
-                  <p className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3" /> {ev.location}
-                  </p>
-                )}
-                {(ev.startDate || ev.endDate) && (
-                  <p className="flex items-center gap-1">
-                    <CalendarClock className="h-3 w-3" />
-                    {ev.startDate ?? "?"} – {ev.endDate ?? "?"}
-                  </p>
-                )}
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-bold text-zinc-900 dark:text-white">{ev.name}</h3>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold",
+                        STATUS_BADGE[ev.status]
+                      )}
+                    >
+                      {ev.status}
+                    </span>
+                  </div>
+                  {ev.clientName && <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{ev.clientName}</p>}
+                  <div className="mt-2.5 space-y-1 text-xs text-zinc-400 dark:text-zinc-500">
+                    {ev.eventTypeName && <p>Jenis: {ev.eventTypeName}</p>}
+                    {ev.location && (
+                      <p className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" /> {ev.location}
+                      </p>
+                    )}
+                    {(ev.startDate || ev.endDate) && (
+                      <p className="flex items-center gap-1">
+                        <CalendarClock className="h-3 w-3" />
+                        {ev.startDate ?? "?"} – {ev.endDate ?? "?"}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
               {typeof ev.checklistTotal === "number" && ev.checklistTotal > 0 && (
-                <div className="mt-3">
-                  <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">
-                    <span>
-                      {ev.checklistDone ?? 0}/{ev.checklistTotal} item
-                    </span>
-                    <span>{Math.round(((ev.checklistDone ?? 0) / ev.checklistTotal) * 100)}%</span>
-                  </div>
-                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500"
-                      style={{ width: `${Math.round(((ev.checklistDone ?? 0) / ev.checklistTotal) * 100)}%` }}
-                    />
-                  </div>
+                <div className="mt-3 flex items-center gap-3 border-t border-zinc-100 pt-3 dark:border-white/10">
+                  <ChecklistProgressRing
+                    percent={((ev.checklistDone ?? 0) / ev.checklistTotal) * 100}
+                    size={36}
+                    strokeWidth={4}
+                  />
+                  <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
+                    {ev.checklistDone ?? 0}/{ev.checklistTotal} item checklist selesai
+                  </p>
                 </div>
               )}
             </Link>
