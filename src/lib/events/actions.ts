@@ -6,6 +6,7 @@ import { logActivity } from "@/lib/activity/log";
 import { notifyDivision, notifyUsers } from "@/lib/push/notify";
 import {
   CHECKLIST_PHASE_LABELS,
+  CHECKLIST_REVIEW_PHASES,
   type ChecklistComment,
   type ChecklistItemExtraInput,
   type ChecklistPhase,
@@ -1163,11 +1164,21 @@ export async function approveChecklistPhaseReview(
 }
 
 /** Tolak Design/Mockup/Sample yang sedang diajukan ("jika tidak lolos" di
- * diagram use case) -- HANYA Admin/Owner. Reset TOTAL: baris review
- * dihapus sekalian (bukan cuma ubah sub_status), jadi begitu PIC
- * mengunggah foto lagi itu dihitung ulang sebagai "Proposed" (bukan
- * lanjut revisi), sesuai keputusan Owner. Tidak bisa dipakai kalau sudah
- * "approved" (kunci akhir, lihat `approveChecklistPhaseReview`). */
+ * diagram use case) -- HANYA Admin/Owner. Baris review fase yang ditolak
+ * dihapus sekalian (reset total, bukan cuma ubah sub_status), jadi begitu
+ * PIC mengunggah foto lagi itu dihitung ulang sebagai "Proposed".
+ *
+ * "Perputaran" (Tahap 52 lanjutan) -- kalau yang ditolak itu Mockup atau
+ * Sample, diagram use case Owner gambarkan panah balik bukan cuma ke fase
+ * itu sendiri tapi "restart total dari awal": item.current_phase MUNDUR
+ * ke Design lagi, PIC wajib kerjakan ulang Design->Mockup(->Sample) dari
+ * Proposed. Fase-fase SEBELUMNYA yang sudah "approved" TIDAK dihapus
+ * (riwayat foto lama tetap kelihatan sampai ditimpa), cuma sub_status-nya
+ * dikembalikan ke "revised" supaya bisa disubmit ulang (lihat guard
+ * monoton di `submitChecklistPhaseReview`). Reject di Design sendiri
+ * (tidak ada fase sebelumnya) tetap seperti semula: reset fase itu saja.
+ * Tidak bisa dipakai kalau sudah "approved" (kunci akhir, lihat
+ * `approveChecklistPhaseReview`). */
 export async function rejectChecklistPhaseReview(
   itemId: string,
   eventId: string,
@@ -1197,10 +1208,45 @@ export async function rejectChecklistPhaseReview(
     return { ok: false, error: GENERIC_ERROR };
   }
 
+  const earlierPhases = CHECKLIST_REVIEW_PHASES.slice(0, CHECKLIST_REVIEW_PHASES.indexOf(phase));
+  const isCascading = earlierPhases.length > 0;
+
+  if (isCascading) {
+    const { data: earlierReviews } = await supabase
+      .from("event_checklist_phase_reviews")
+      .select("id, sub_status")
+      .eq("checklist_item_id", itemId)
+      .in("phase", earlierPhases)
+      .returns<{ id: string; sub_status: string }[]>();
+    const approvedIds = (earlierReviews ?? []).filter((r) => r.sub_status === "approved").map((r) => r.id);
+    if (approvedIds.length > 0) {
+      const { error: resetError } = await supabase
+        .from("event_checklist_phase_reviews")
+        .update({ sub_status: "revised", approved_by: null, approved_at: null })
+        .in("id", approvedIds);
+      if (resetError) {
+        console.error("[events] rejectChecklistPhaseReview: reset fase sebelumnya gagal:", resetError.message);
+        return { ok: false, error: GENERIC_ERROR };
+      }
+    }
+
+    const { error: itemError } = await supabase
+      .from("event_checklist_items")
+      .update({ current_phase: "design" })
+      .eq("id", itemId);
+    if (itemError) {
+      console.error("[events] rejectChecklistPhaseReview: mundurkan fase gagal:", itemError.message);
+      return { ok: false, error: GENERIC_ERROR };
+    }
+    await writeChecklistPhaseLog(supabase, item, "design");
+  }
+
   if (item.pic) {
     void notifyUsers([item.pic], {
       title: "Perlu Revisi",
-      body: `${item.item_name}: fase ${CHECKLIST_PHASE_LABELS[phase]} ditolak, unggah ulang foto konfirmasi.`,
+      body: isCascading
+        ? `${item.item_name}: fase ${CHECKLIST_PHASE_LABELS[phase]} ditolak, item dikembalikan ke Design -- kerjakan ulang dari awal.`
+        : `${item.item_name}: fase ${CHECKLIST_PHASE_LABELS[phase]} ditolak, unggah ulang foto konfirmasi.`,
       url: `${TRACKING_PATH}/${eventId}`,
     });
   }
