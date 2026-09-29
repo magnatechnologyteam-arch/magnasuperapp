@@ -1111,7 +1111,9 @@ export async function submitChecklistPhaseReview(formData: FormData): Promise<Mu
 
 /** Setujui Design/Mockup/Sample yang sedang aktif -- fitur berikutnya
  * langsung terbuka ("gembok", keputusan Owner), item.current_phase
- * otomatis maju. */
+ * otomatis maju. Sesuai diagram use case: HANYA Admin/Owner (akses penuh)
+ * yang boleh memutuskan lolos/tidak, PIC yang mengerjakan tidak bisa
+ * menyetujui pekerjaannya sendiri lagi (Tahap 52, siklus review). */
 export async function approveChecklistPhaseReview(
   itemId: string,
   eventId: string,
@@ -1121,7 +1123,7 @@ export async function approveChecklistPhaseReview(
   const access = await getCurrentUserAccess(supabase);
   const item = await getChecklistItemCore(supabase, itemId);
   if (!item) return { ok: false, error: "Item tidak ditemukan." };
-  if (!canActOnItem(item.pic, access)) return { ok: false, error: "Hanya PIC item ini yang bisa menyetujui." };
+  if (!access.isFullAccess) return { ok: false, error: "Hanya Admin/Owner yang bisa menyetujui fase ini." };
   if (item.current_phase !== phase) return { ok: false, error: "Fase item sudah berubah, muat ulang halaman." };
 
   const { data: review } = await supabase
@@ -1155,6 +1157,53 @@ export async function approveChecklistPhaseReview(
   }
   await writeChecklistPhaseLog(supabase, item, nextPhase);
   notifyItemPic(item, nextPhase, eventId);
+
+  revalidatePath(`${TRACKING_PATH}/${eventId}`);
+  return { ok: true };
+}
+
+/** Tolak Design/Mockup/Sample yang sedang diajukan ("jika tidak lolos" di
+ * diagram use case) -- HANYA Admin/Owner. Reset TOTAL: baris review
+ * dihapus sekalian (bukan cuma ubah sub_status), jadi begitu PIC
+ * mengunggah foto lagi itu dihitung ulang sebagai "Proposed" (bukan
+ * lanjut revisi), sesuai keputusan Owner. Tidak bisa dipakai kalau sudah
+ * "approved" (kunci akhir, lihat `approveChecklistPhaseReview`). */
+export async function rejectChecklistPhaseReview(
+  itemId: string,
+  eventId: string,
+  phase: ChecklistReviewPhase
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const access = await getCurrentUserAccess(supabase);
+  const item = await getChecklistItemCore(supabase, itemId);
+  if (!item) return { ok: false, error: "Item tidak ditemukan." };
+  if (!access.isFullAccess) return { ok: false, error: "Hanya Admin/Owner yang bisa menolak fase ini." };
+  if (item.current_phase !== phase) return { ok: false, error: "Fase item sudah berubah, muat ulang halaman." };
+
+  const { data: review } = await supabase
+    .from("event_checklist_phase_reviews")
+    .select("id, sub_status")
+    .eq("checklist_item_id", itemId)
+    .eq("phase", phase)
+    .maybeSingle<{ id: string; sub_status: string }>();
+  if (!review) return { ok: false, error: "Belum ada foto yang diajukan untuk fase ini." };
+  if (review.sub_status === "approved") {
+    return { ok: false, error: "Fase ini sudah disetujui, tidak bisa ditolak lagi." };
+  }
+
+  const { error } = await supabase.from("event_checklist_phase_reviews").delete().eq("id", review.id);
+  if (error) {
+    console.error("[events] rejectChecklistPhaseReview gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+
+  if (item.pic) {
+    void notifyUsers([item.pic], {
+      title: "Perlu Revisi",
+      body: `${item.item_name}: fase ${CHECKLIST_PHASE_LABELS[phase]} ditolak, unggah ulang foto konfirmasi.`,
+      url: `${TRACKING_PATH}/${eventId}`,
+    });
+  }
 
   revalidatePath(`${TRACKING_PATH}/${eventId}`);
   return { ok: true };

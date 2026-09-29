@@ -11,6 +11,7 @@ import {
   bulkAdvanceChecklistPhase,
   confirmChecklistCompleted,
   markProductionDone,
+  rejectChecklistPhaseReview,
   setChecklistNeedsProduction,
   submitChecklistPhaseReview,
   updateChecklistProduction,
@@ -53,6 +54,8 @@ const BTN =
   "inline-flex items-center justify-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-[11px] font-semibold text-zinc-600 transition-colors hover:border-violet-300 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-violet-700 dark:hover:text-violet-300";
 const BTN_PRIMARY =
   "inline-flex items-center justify-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-violet-500 dark:hover:bg-violet-400";
+const BTN_DANGER =
+  "inline-flex items-center justify-center gap-1 rounded-lg border border-rose-200 px-2.5 py-1 text-[11px] font-semibold text-rose-600 transition-colors hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-500/10";
 const INPUT_XS =
   "rounded-lg border border-zinc-300 bg-transparent px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950";
 
@@ -141,6 +144,7 @@ function ReviewPhaseCard({
   phase,
   review,
   canAct,
+  isFullAccess,
   eventId,
   onChanged,
 }: {
@@ -148,6 +152,7 @@ function ReviewPhaseCard({
   phase: ChecklistReviewPhase;
   review: ChecklistPhaseReview | undefined;
   canAct: boolean;
+  isFullAccess: boolean;
   eventId: string;
   onChanged: () => void;
 }) {
@@ -183,6 +188,18 @@ function ReviewPhaseCard({
         return;
       }
       showToast(`${CHECKLIST_PHASE_LABELS[phase]} disetujui.`);
+      onChanged();
+    });
+  }
+
+  function reject() {
+    startTransition(async () => {
+      const result = await rejectChecklistPhaseReview(item.id, eventId, phase);
+      if (!result.ok) {
+        showToast(result.error, "error");
+        return;
+      }
+      showToast(`${CHECKLIST_PHASE_LABELS[phase]} ditolak, PIC perlu unggah ulang.`);
       onChanged();
     });
   }
@@ -225,10 +242,20 @@ function ReviewPhaseCard({
           <button type="button" onClick={submit} disabled={pending || !file} className={BTN}>
             {review ? "Simpan Revisi" : "Kirim"}
           </button>
-          {review?.photoUrl && (
-            <button type="button" onClick={approve} disabled={pending} className={BTN_PRIMARY}>
-              Setujui
-            </button>
+          {isFullAccess && review?.photoUrl && (
+            <>
+              <button type="button" onClick={approve} disabled={pending} className={BTN_PRIMARY}>
+                Setujui
+              </button>
+              <button type="button" onClick={reject} disabled={pending} className={BTN_DANGER}>
+                Tolak
+              </button>
+            </>
+          )}
+          {!isFullAccess && review?.photoUrl && (
+            <p className="w-full text-[11px] text-zinc-400 dark:text-zinc-500">
+              Menunggu persetujuan Admin/Owner.
+            </p>
           )}
         </div>
       )}
@@ -818,6 +845,7 @@ export function EventTrackingBoard({
                                 phase={item.currentPhase as ChecklistReviewPhase}
                                 review={activeReview}
                                 canAct={canAct}
+                                isFullAccess={isFullAccess}
                                 eventId={item.eventId}
                                 onChanged={handleChanged}
                               />
