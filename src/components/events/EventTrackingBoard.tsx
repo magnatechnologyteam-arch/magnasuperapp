@@ -1,19 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { ClipboardList, History, Link2, MapPin, MessageSquare } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/cn";
-import { updateEventChecklistProgress } from "@/lib/events/actions";
+import {
+  approveChecklistPhaseReview,
+  bulkAdvanceChecklistPhase,
+  confirmChecklistCompleted,
+  markProductionDone,
+  setChecklistNeedsProduction,
+  submitChecklistPhaseReview,
+  updateChecklistProduction,
+  updateEventChecklistProgress,
+} from "@/lib/events/actions";
 import { ChecklistHistoryModal } from "./ChecklistHistoryModal";
 import { ChecklistDiscussionModal } from "./ChecklistDiscussionModal";
 import { ChecklistProgressRing } from "./ChecklistProgressRing";
 import {
-  EVENT_CHECKLIST_STATUSES,
+  CHECKLIST_PHASES,
+  CHECKLIST_PHASE_LABELS,
+  CHECKLIST_REVIEW_PHASES,
+  CHECKLIST_SUB_STATUS_LABELS,
   EVENT_SOURCE_LABELS,
+  computeChecklistItemProgress,
+  type ChecklistPhase,
+  type ChecklistPhaseReview,
+  type ChecklistReviewPhase,
   type EventChecklistItem,
-  type EventChecklistStatus,
   type EventLink,
   type EventSummary,
   type PicOption,
@@ -26,15 +42,6 @@ const STATUS_BADGE: Record<string, string> = {
   Dibatalkan: "bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400",
 };
 
-const CHECKLIST_STATUS_STYLE: Record<EventChecklistStatus, string> = {
-  "Belum Mulai": "border-zinc-300 text-zinc-500 dark:border-zinc-600 dark:text-zinc-400",
-  Sample: "border-amber-300 text-amber-700 dark:border-amber-500/40 dark:text-amber-300",
-  Approval: "border-orange-300 text-orange-700 dark:border-orange-500/40 dark:text-orange-300",
-  Preparation: "border-sky-300 text-sky-700 dark:border-sky-500/40 dark:text-sky-300",
-  Production: "border-violet-300 text-violet-700 dark:border-violet-500/40 dark:text-violet-300",
-  Finish: "border-emerald-300 text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-300",
-};
-
 const DIVISION_LABEL: Record<string, string> = {
   magnarent: "Magnarent",
   magnative: "Magnativ",
@@ -42,32 +49,495 @@ const DIVISION_LABEL: Record<string, string> = {
   all: "Admin/Owner",
 };
 
+const BTN =
+  "inline-flex items-center justify-center gap-1 rounded-lg border border-zinc-200 px-2.5 py-1 text-[11px] font-semibold text-zinc-600 transition-colors hover:border-violet-300 hover:text-violet-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-violet-700 dark:hover:text-violet-300";
+const BTN_PRIMARY =
+  "inline-flex items-center justify-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-violet-500 dark:hover:bg-violet-400";
+const INPUT_XS =
+  "rounded-lg border border-zinc-300 bg-transparent px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950";
+
+/** "PIC yang bertanggung jawab" (keputusan Owner) -- akses penuh selalu
+ * boleh override, dipakai di semua kartu aksi fase + seleksi bulk loading. */
+function canActOnItem(item: EventChecklistItem, currentUserId: string | null, isFullAccess: boolean): boolean {
+  if (isFullAccess) return true;
+  if (!currentUserId) return false;
+  return item.pic === currentUserId;
+}
+
+/** Ringkasan visual posisi item di alur 8-fase (atau 4-fase kalau
+ * `needsProduction=false`, lompat langsung dari Completed). */
+function PhaseStepper({ item }: { item: EventChecklistItem }) {
+  const seq: ChecklistPhase[] = item.needsProduction
+    ? CHECKLIST_PHASES
+    : ["completed", "loading_in", "loading_out", "finish"];
+  const currentIdx = seq.indexOf(item.currentPhase);
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {seq.map((phase, i) => (
+        <span
+          key={phase}
+          className={cn(
+            "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+            i < currentIdx
+              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+              : i === currentIdx
+                ? "bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300"
+                : "bg-zinc-100 text-zinc-400 dark:bg-white/5 dark:text-zinc-500"
+          )}
+        >
+          {CHECKLIST_PHASE_LABELS[phase]}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/** Kartu aksi Design/Mockup/Sample -- siklus Proposed -> Revised ->
+ * Approved, foto WAJIB sebelum fase berikutnya terbuka (keputusan Owner). */
+function ReviewPhaseCard({
+  item,
+  phase,
+  review,
+  canAct,
+  eventId,
+  onChanged,
+}: {
+  item: EventChecklistItem;
+  phase: ChecklistReviewPhase;
+  review: ChecklistPhaseReview | undefined;
+  canAct: boolean;
+  eventId: string;
+  onChanged: () => void;
+}) {
+  const { showToast } = useToast();
+  const [pending, startTransition] = useTransition();
+  const [file, setFile] = useState<File | null>(null);
+  const subStatus = review?.subStatus;
+
+  function submit() {
+    if (!file) return;
+    const fd = new FormData();
+    fd.set("itemId", item.id);
+    fd.set("eventId", eventId);
+    fd.set("phase", phase);
+    fd.set("file", file);
+    startTransition(async () => {
+      const result = await submitChecklistPhaseReview(fd);
+      if (!result.ok) {
+        showToast(result.error, "error");
+        return;
+      }
+      showToast("Foto tersimpan.");
+      setFile(null);
+      onChanged();
+    });
+  }
+
+  function approve() {
+    startTransition(async () => {
+      const result = await approveChecklistPhaseReview(item.id, eventId, phase);
+      if (!result.ok) {
+        showToast(result.error, "error");
+        return;
+      }
+      showToast(`${CHECKLIST_PHASE_LABELS[phase]} disetujui.`);
+      onChanged();
+    });
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-zinc-100 p-3 dark:border-white/10">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+          {CHECKLIST_PHASE_LABELS[phase]}
+        </p>
+        {subStatus && (
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
+            {CHECKLIST_SUB_STATUS_LABELS[subStatus]}
+            {review && review.revisionCount > 0 ? ` (revisi ${review.revisionCount})` : ""}
+          </span>
+        )}
+      </div>
+
+      {review?.photoUrl && (
+        <a href={review.photoUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={review.photoUrl} alt="Foto konfirmasi" className="h-16 w-16 rounded-lg object-cover" />
+        </a>
+      )}
+
+      {!canAct ? (
+        <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
+          Menunggu PIC ({item.picName ?? "belum ditugaskan"}).
+        </p>
+      ) : subStatus === "approved" ? (
+        <p className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Disetujui.</p>
+      ) : (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            disabled={pending}
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="text-xs text-zinc-500 dark:text-zinc-400"
+          />
+          <button type="button" onClick={submit} disabled={pending || !file} className={BTN}>
+            {review ? "Simpan Revisi" : "Kirim"}
+          </button>
+          {review?.photoUrl && (
+            <button type="button" onClick={approve} disabled={pending} className={BTN_PRIMARY}>
+              Setujui
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Kartu aksi fase Production -- draft qty/catatan/foto bisa disimpan
+ * berkali-kali, "Tandai Selesai" baru aktif setelah ada foto tersimpan. */
+function ProductionCard({
+  item,
+  eventId,
+  canAct,
+  onChanged,
+}: {
+  item: EventChecklistItem;
+  eventId: string;
+  canAct: boolean;
+  onChanged: () => void;
+}) {
+  const { showToast } = useToast();
+  const [pending, startTransition] = useTransition();
+  const [qty, setQty] = useState(item.productionQty ?? "");
+  const [notes, setNotes] = useState(item.productionNotes ?? "");
+  const [file, setFile] = useState<File | null>(null);
+
+  function saveDraft() {
+    const fd = new FormData();
+    fd.set("itemId", item.id);
+    fd.set("eventId", eventId);
+    fd.set("qty", qty);
+    fd.set("notes", notes);
+    if (file) fd.set("file", file);
+    startTransition(async () => {
+      const result = await updateChecklistProduction(fd);
+      if (!result.ok) {
+        showToast(result.error, "error");
+        return;
+      }
+      showToast("Draft produksi disimpan.");
+      setFile(null);
+      onChanged();
+    });
+  }
+
+  function markDone() {
+    startTransition(async () => {
+      const result = await markProductionDone(item.id, eventId);
+      if (!result.ok) {
+        showToast(result.error, "error");
+        return;
+      }
+      showToast("Production selesai.");
+      onChanged();
+    });
+  }
+
+  if (!canAct) {
+    return (
+      <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
+        Menunggu PIC ({item.picName ?? "belum ditugaskan"}) mengisi Production.
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-2 space-y-2 rounded-xl border border-zinc-100 p-3 dark:border-white/10">
+      <div className="flex flex-wrap gap-2">
+        <input
+          value={qty}
+          onChange={(e) => setQty(e.target.value)}
+          placeholder="Qty"
+          disabled={pending}
+          className={cn(INPUT_XS, "w-20")}
+        />
+        <input
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Catatan produksi"
+          disabled={pending}
+          className={cn(INPUT_XS, "min-w-[8rem] flex-1")}
+        />
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          disabled={pending}
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          className="text-xs text-zinc-500 dark:text-zinc-400"
+        />
+      </div>
+      {item.productionPhotoUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={item.productionPhotoUrl} alt="Foto produksi" className="h-16 w-16 rounded-lg object-cover" />
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={saveDraft} disabled={pending} className={BTN}>
+          Simpan Draft
+        </button>
+        <button
+          type="button"
+          onClick={markDone}
+          disabled={pending || !item.productionPhotoUrl}
+          title={!item.productionPhotoUrl ? "Simpan draft dengan foto dulu" : undefined}
+          className={BTN_PRIMARY}
+        >
+          Tandai Selesai
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Kartu aksi fase Completed -- cuma konfirmasi, tanpa foto (berlaku sama
+ * untuk item `needsProduction` true maupun false, keputusan Owner). */
+function CompletedCard({
+  item,
+  eventId,
+  canAct,
+  onChanged,
+}: {
+  item: EventChecklistItem;
+  eventId: string;
+  canAct: boolean;
+  onChanged: () => void;
+}) {
+  const { showToast } = useToast();
+  const [pending, startTransition] = useTransition();
+
+  if (!canAct) {
+    return (
+      <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
+        Menunggu konfirmasi PIC ({item.picName ?? "belum ditugaskan"}).
+      </p>
+    );
+  }
+
+  function confirm() {
+    startTransition(async () => {
+      const result = await confirmChecklistCompleted(item.id, eventId);
+      if (!result.ok) {
+        showToast(result.error, "error");
+        return;
+      }
+      showToast("Completed dikonfirmasi.");
+      onChanged();
+    });
+  }
+
+  return (
+    <button type="button" onClick={confirm} disabled={pending} className={cn(BTN_PRIMARY, "mt-2")}>
+      Konfirmasi Completed
+    </button>
+  );
+}
+
+const BULK_STAGES: { target: "loading_in" | "loading_out" | "finish"; predecessor: ChecklistPhase; label: string }[] = [
+  { target: "loading_in", predecessor: "completed", label: "Loading In (mulai dibawa ke lokasi event)" },
+  { target: "loading_out", predecessor: "loading_in", label: "Loading Out (pulang dari lokasi event)" },
+  { target: "finish", predecessor: "loading_out", label: "Finish" },
+];
+
+/** Ditandai sekaligus (keputusan Owner: "ditandai sekaligus") tapi SEMUA
+ * item event ditampilkan (bukan cuma yang siap) supaya tidak ada yang
+ * terlewat -- checkbox cuma aktif untuk item yang fasenya sudah pas DAN
+ * PIC-nya pengguna ini (atau akses penuh), sisanya tetap terlihat dengan
+ * keterangan kenapa belum bisa ditandai. */
+function BulkLoadingSection({
+  items,
+  eventId,
+  currentUserId,
+  isFullAccess,
+  onChanged,
+}: {
+  items: EventChecklistItem[];
+  eventId: string;
+  currentUserId: string | null;
+  isFullAccess: boolean;
+  onChanged: () => void;
+}) {
+  return (
+    <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
+      <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Loading &amp; Finish</h2>
+      <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
+        Tandai sekaligus per tahap -- semua item ditampilkan supaya tidak ada yang terlewat.
+      </p>
+      <div className="mt-4 space-y-6">
+        {BULK_STAGES.map((stage) => (
+          <BulkStageGroup
+            key={stage.target}
+            stage={stage}
+            items={items}
+            eventId={eventId}
+            currentUserId={currentUserId}
+            isFullAccess={isFullAccess}
+            onChanged={onChanged}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BulkStageGroup({
+  stage,
+  items,
+  eventId,
+  currentUserId,
+  isFullAccess,
+  onChanged,
+}: {
+  stage: { target: "loading_in" | "loading_out" | "finish"; predecessor: ChecklistPhase; label: string };
+  items: EventChecklistItem[];
+  eventId: string;
+  currentUserId: string | null;
+  isFullAccess: boolean;
+  onChanged: () => void;
+}) {
+  const { showToast } = useToast();
+  const [pending, startTransition] = useTransition();
+  const predecessorIdx = CHECKLIST_PHASES.indexOf(stage.predecessor);
+
+  const eligibleIds = useMemo(
+    () =>
+      items
+        .filter((i) => i.currentPhase === stage.predecessor && canActOnItem(i, currentUserId, isFullAccess))
+        .map((i) => i.id),
+    [items, stage.predecessor, currentUserId, isFullAccess]
+  );
+  const eligibleKey = eligibleIds.join(",");
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(eligibleIds));
+  const [lastKey, setLastKey] = useState(eligibleKey);
+  if (eligibleKey !== lastKey) {
+    setLastKey(eligibleKey);
+    setSelected(new Set(eligibleIds));
+  }
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function confirmBulk() {
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    startTransition(async () => {
+      const result = await bulkAdvanceChecklistPhase(eventId, ids, stage.target);
+      if (!result.ok) {
+        showToast(result.error, "error");
+        return;
+      }
+      showToast(
+        `${result.advanced} item ditandai ${CHECKLIST_PHASE_LABELS[stage.target]}` +
+          (result.skipped > 0 ? `, ${result.skipped} dilewati.` : ".")
+      );
+      onChanged();
+    });
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{stage.label}</p>
+        <span className="text-[10px] text-zinc-400 dark:text-zinc-500">{eligibleIds.length} siap ditandai</span>
+      </div>
+      <div className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-zinc-100 p-2 dark:border-white/10">
+        {items.map((item) => {
+          const itemIdx = CHECKLIST_PHASES.indexOf(item.currentPhase);
+          const isEligible = item.currentPhase === stage.predecessor;
+          const canAct = canActOnItem(item, currentUserId, isFullAccess);
+          const alreadyPast = itemIdx > predecessorIdx;
+          return (
+            <label
+              key={item.id}
+              className={cn(
+                "flex items-center gap-2 rounded-lg px-2 py-1 text-xs",
+                !(isEligible && canAct) && "opacity-60"
+              )}
+            >
+              <input
+                type="checkbox"
+                disabled={!isEligible || !canAct || pending}
+                checked={selected.has(item.id)}
+                onChange={() => toggle(item.id)}
+              />
+              <span className="flex-1 truncate text-zinc-600 dark:text-zinc-300">{item.itemName}</span>
+              {alreadyPast ? (
+                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">sudah</span>
+              ) : !isEligible ? (
+                <span className="text-[10px] text-zinc-400">belum sampai</span>
+              ) : !canAct ? (
+                <span className="text-[10px] text-zinc-400">PIC: {item.picName ?? "-"}</span>
+              ) : null}
+            </label>
+          );
+        })}
+      </div>
+      <button
+        type="button"
+        onClick={confirmBulk}
+        disabled={pending || selected.size === 0}
+        className={cn(BTN_PRIMARY, "mt-2")}
+      >
+        Tandai {selected.size} item {CHECKLIST_PHASE_LABELS[stage.target]}
+      </button>
+    </div>
+  );
+}
+
 /**
- * "Papan Tracking" (Tahap D) -- halaman TERBUKA untuk 3 divisi operasional
- * + akses penuh, dipakai update status & PIC tiap item checklist secara
- * bersama-sama (RLS `event_checklist_items_update` sudah membuka ini sejak
- * migrasi 0053). SENGAJA tidak ada fitur tambah/hapus item atau kelola
- * kaitan di sini -- itu tetap milik halaman detail Admin
- * (`/dashboard/admin/events/[id]`, Tahap C) supaya struktur checklist
- * (kategori/nama/detail) tidak berubah-ubah di tengah divisi lagi kerja.
+ * "Papan Tracking" (Tahap D, redesain besar Tahap 51) -- halaman TERBUKA
+ * untuk 3 divisi operasional + akses penuh, alur 8 fase Design->Mockup->
+ * Sample->Production->Completed->Loading In->Loading Out->Finish (lihat
+ * types.ts `ChecklistPhase`). PIC item self-approve tiap fase (keputusan
+ * Owner: "PIC yang bertanggung jawab"), akses penuh selalu boleh override.
+ * SENGAJA tidak ada fitur tambah/hapus item atau kelola kaitan di sini --
+ * itu tetap milik halaman detail Admin (`/dashboard/admin/events/[id]`,
+ * Tahap C). State di-refresh lewat `router.refresh()` (bukan optimistic
+ * update manual) karena struktur phase reviews sudah cukup bercabang.
  */
 export function EventTrackingBoard({
   event,
   initialChecklistItems,
   links,
   picOptions,
+  currentUserId,
+  isFullAccess,
 }: {
   event: EventSummary;
   initialChecklistItems: EventChecklistItem[];
   links: EventLink[];
   picOptions: PicOption[];
+  currentUserId: string | null;
+  isFullAccess: boolean;
 }) {
+  const router = useRouter();
   const { showToast } = useToast();
-  const [items, setItems] = useState(initialChecklistItems);
-  useEffect(() => setItems(initialChecklistItems), [initialChecklistItems]);
+  const items = initialChecklistItems;
   const [savingId, setSavingId] = useState<string | null>(null);
   const [historyTarget, setHistoryTarget] = useState<EventChecklistItem | null>(null);
   const [discussionTarget, setDiscussionTarget] = useState<EventChecklistItem | null>(null);
+
+  function handleChanged() {
+    router.refresh();
+  }
 
   const groupedItems = useMemo(() => {
     const map = new Map<string, EventChecklistItem[]>();
@@ -76,56 +546,43 @@ export function EventTrackingBoard({
       bucket.push(item);
       map.set(item.category, bucket);
     }
-    // Tahap 49: hitung juga progres per kategori (bukan cuma per event) --
-    // dipakai buat badge kecil "x/y" di sebelah tiap judul kategori, biar
-    // staf langsung tahu kategori mana yang masih tertinggal tanpa harus
-    // scroll baca satu-satu itemnya.
     return Array.from(map.entries()).map(([category, list]) => ({
       category,
       list,
-      done: list.filter((i) => i.status === "Finish").length,
+      done: list.filter((i) => i.currentPhase === "finish").length,
     }));
   }, [items]);
 
   const progressPct = useMemo(() => {
     if (items.length === 0) return 0;
-    const done = items.filter((i) => i.status === "Finish").length;
-    return Math.round((done / items.length) * 100);
+    const sum = items.reduce((acc, item) => acc + computeChecklistItemProgress(item, item.phaseReviews ?? []), 0);
+    return Math.round(sum / items.length);
   }, [items]);
 
-  async function handleUpdate(
-    item: EventChecklistItem,
-    patch: { status?: EventChecklistStatus; picId?: string | null }
-  ) {
-    const nextStatus = patch.status ?? item.status;
-    const nextPicId = patch.picId !== undefined ? patch.picId : item.pic ?? null;
+  const finishedCount = items.filter((i) => i.currentPhase === "finish").length;
 
+  async function handlePicChange(item: EventChecklistItem, picId: string | null) {
     setSavingId(item.id);
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === item.id
-          ? {
-              ...i,
-              status: nextStatus,
-              pic: nextPicId ?? undefined,
-              picName: nextPicId ? picOptions.find((p) => p.id === nextPicId)?.fullName : undefined,
-            }
-          : i
-      )
-    );
-
-    const result = await updateEventChecklistProgress(item.id, item.eventId, {
-      status: nextStatus,
-      picId: nextPicId,
-    });
+    const result = await updateEventChecklistProgress(item.id, item.eventId, { status: item.status, picId });
     setSavingId(null);
-
     if (!result.ok) {
       showToast(result.error, "error");
-      setItems(initialChecklistItems);
       return;
     }
-    showToast("Progress disimpan.");
+    showToast("PIC disimpan.");
+    router.refresh();
+  }
+
+  async function handleNeedsProductionToggle(item: EventChecklistItem, needsProduction: boolean) {
+    setSavingId(item.id);
+    const result = await setChecklistNeedsProduction(item.id, item.eventId, needsProduction);
+    setSavingId(null);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    showToast("Perlu Produksi diperbarui.");
+    router.refresh();
   }
 
   return (
@@ -159,7 +616,7 @@ export function EventTrackingBoard({
           <div>
             <p className="text-sm font-bold text-zinc-700 dark:text-zinc-200">Progress checklist</p>
             <p className="text-xs text-zinc-400 dark:text-zinc-500">
-              {items.filter((i) => i.status === "Finish").length}/{items.length} item selesai
+              {finishedCount}/{items.length} item selesai
             </p>
           </div>
         </div>
@@ -188,7 +645,7 @@ export function EventTrackingBoard({
       <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
         <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Checklist</h2>
         <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
-          Update status & PIC tiap item sesuai progres pekerjaan divisimu -- bisa diisi bersama staf divisi lain.
+          Isi tiap fase sesuai progres pekerjaan divisimu -- foto konfirmasi wajib sebelum fase berikutnya terbuka.
         </p>
 
         {groupedItems.length === 0 ? (
@@ -216,87 +673,122 @@ export function EventTrackingBoard({
                     {done}/{list.length}
                   </span>
                 </div>
-                {/* Tahap 49: sebelumnya <table> yang wajib overflow-x-scroll
-                    (min-w-[720px]) supaya 7 kolomnya muat -- di layar sempit
-                    jadi kepotong & harus digeser. Diganti daftar kartu
-                    (setiap item = satu baris kaca) yang boleh melebar penuh
-                    di layar besar dan menumpuk vertikal di layar kecil,
-                    tanpa scroll horizontal sama sekali. */}
                 <div className="space-y-2">
-                  {list.map((item) => (
-                    <div key={item.id} className={cn("rounded-2xl border p-3.5", GLASS_SURFACE, GLASS_BORDER)}>
-                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-zinc-700 dark:text-zinc-200">{item.itemName}</p>
-                          {(item.detail || item.qtyInfo) && (
-                            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                              {[item.detail, item.qtyInfo].filter(Boolean).join(" · ")}
-                            </p>
-                          )}
-                          {item.notes && (
-                            <p className="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">{item.notes}</p>
-                          )}
-                        </div>
-
-                        <div className="flex flex-wrap items-center gap-2">
-                          <select
-                            value={item.status}
-                            disabled={savingId === item.id}
-                            onChange={(e) =>
-                              handleUpdate(item, { status: e.target.value as EventChecklistStatus })
-                            }
-                            className={cn(
-                              "rounded-lg border bg-transparent px-2 py-1 text-xs font-semibold dark:bg-zinc-950",
-                              CHECKLIST_STATUS_STYLE[item.status]
+                  {list.map((item) => {
+                    const canAct = canActOnItem(item, currentUserId, isFullAccess);
+                    const activeReview = CHECKLIST_REVIEW_PHASES.includes(item.currentPhase as ChecklistReviewPhase)
+                      ? item.phaseReviews?.find((r) => r.phase === item.currentPhase)
+                      : undefined;
+                    return (
+                      <div key={item.id} className={cn("rounded-2xl border p-3.5", GLASS_SURFACE, GLASS_BORDER)}>
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-zinc-700 dark:text-zinc-200">{item.itemName}</p>
+                            {(item.detail || item.qtyInfo) && (
+                              <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                                {[item.detail, item.qtyInfo].filter(Boolean).join(" · ")}
+                              </p>
                             )}
-                          >
-                            {EVENT_CHECKLIST_STATUSES.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                          <select
-                            value={item.pic ?? ""}
-                            disabled={savingId === item.id}
-                            onChange={(e) => handleUpdate(item, { picId: e.target.value || null })}
-                            className="max-w-[9.5rem] rounded-lg border border-zinc-300 bg-transparent px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950"
-                          >
-                            <option value="">Belum ditugaskan</option>
-                            {picOptions.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.fullName} ({DIVISION_LABEL[p.division] ?? p.division})
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => setHistoryTarget(item)}
-                            title="Lihat riwayat status & PIC"
-                            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 transition-colors hover:border-violet-300 hover:text-violet-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-violet-700 dark:hover:text-violet-300"
-                          >
-                            <History className="h-3 w-3" />
-                            <span className="hidden sm:inline">Riwayat</span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDiscussionTarget(item)}
-                            title="Diskusi item ini"
-                            className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 transition-colors hover:border-violet-300 hover:text-violet-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-violet-700 dark:hover:text-violet-300"
-                          >
-                            <MessageSquare className="h-3 w-3" />
-                            <span className="hidden sm:inline">Diskusi</span>
-                          </button>
+                            {item.notes && (
+                              <p className="mt-0.5 text-[11px] text-zinc-400 dark:text-zinc-500">{item.notes}</p>
+                            )}
+                            <div className="mt-2">
+                              <PhaseStepper item={item} />
+                            </div>
+
+                            {CHECKLIST_REVIEW_PHASES.includes(item.currentPhase as ChecklistReviewPhase) && (
+                              <ReviewPhaseCard
+                                item={item}
+                                phase={item.currentPhase as ChecklistReviewPhase}
+                                review={activeReview}
+                                canAct={canAct}
+                                eventId={item.eventId}
+                                onChanged={handleChanged}
+                              />
+                            )}
+                            {item.currentPhase === "production" && (
+                              <ProductionCard item={item} eventId={item.eventId} canAct={canAct} onChanged={handleChanged} />
+                            )}
+                            {item.currentPhase === "completed" && (
+                              <CompletedCard item={item} eventId={item.eventId} canAct={canAct} onChanged={handleChanged} />
+                            )}
+                            {(item.currentPhase === "loading_in" || item.currentPhase === "loading_out") && (
+                              <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
+                                Lanjut di bagian &quot;Loading &amp; Finish&quot; di bawah.
+                              </p>
+                            )}
+                            {item.currentPhase === "finish" && (
+                              <p className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Selesai.</p>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            {isFullAccess && (
+                              <label className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                                Produksi:
+                                <select
+                                  value={item.needsProduction ? "ya" : "tidak"}
+                                  disabled={savingId === item.id}
+                                  onChange={(e) => handleNeedsProductionToggle(item, e.target.value === "ya")}
+                                  className={cn(INPUT_XS, "text-[11px]")}
+                                >
+                                  <option value="ya">Ya</option>
+                                  <option value="tidak">Tidak</option>
+                                </select>
+                              </label>
+                            )}
+                            <select
+                              value={item.pic ?? ""}
+                              disabled={savingId === item.id}
+                              onChange={(e) => handlePicChange(item, e.target.value || null)}
+                              className={cn(INPUT_XS, "max-w-[9.5rem]")}
+                            >
+                              <option value="">Belum ditugaskan</option>
+                              {picOptions.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.fullName} ({DIVISION_LABEL[p.division] ?? p.division})
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => setHistoryTarget(item)}
+                              title="Lihat riwayat status & PIC"
+                              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 transition-colors hover:border-violet-300 hover:text-violet-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-violet-700 dark:hover:text-violet-300"
+                            >
+                              <History className="h-3 w-3" />
+                              <span className="hidden sm:inline">Riwayat</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDiscussionTarget(item)}
+                              title="Diskusi item ini"
+                              className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 transition-colors hover:border-violet-300 hover:text-violet-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-violet-700 dark:hover:text-violet-300"
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              <span className="hidden sm:inline">Diskusi</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ))}
           </div>
         )}
       </section>
+
+      {items.length > 0 && (
+        <BulkLoadingSection
+          items={items}
+          eventId={event.id}
+          currentUserId={currentUserId}
+          isFullAccess={isFullAccess}
+          onChanged={handleChanged}
+        />
+      )}
 
       {historyTarget && (
         <ChecklistHistoryModal

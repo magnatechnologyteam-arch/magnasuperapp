@@ -44,7 +44,7 @@ export function EventTrackingHighlightWidget({ events }: { events: EventSummary[
         {ongoing.map((ev) => {
           const total = ev.checklistTotal ?? 0;
           const done = ev.checklistDone ?? 0;
-          const pct = total > 0 ? (done / total) * 100 : 0;
+          const pct = ev.checklistProgressPercent ?? 0;
           return (
             <Link
               key={ev.id}

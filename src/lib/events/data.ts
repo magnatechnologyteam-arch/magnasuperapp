@@ -1,15 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
-import type {
-  EventChecklistItem,
-  EventDetail,
-  EventLink,
-  EventSourceType,
-  EventStatus,
-  EventSummary,
-  EventType,
-  EventTypeTemplateItem,
-  PicOption,
-  VendorOption,
+import {
+  computeChecklistItemProgress,
+  type ChecklistPhase,
+  type ChecklistPhaseReview,
+  type ChecklistReviewPhase,
+  type ChecklistSubStatus,
+  type EventChecklistItem,
+  type EventDetail,
+  type EventLink,
+  type EventSourceType,
+  type EventStatus,
+  type EventSummary,
+  type EventType,
+  type EventTypeTemplateItem,
+  type PicOption,
+  type VendorOption,
 } from "./types";
 
 type EventTypeRow = {
@@ -59,6 +64,7 @@ type TemplateItemRow = {
   qty_info: string | null;
   notes: string | null;
   sort_order: number;
+  default_needs_production: boolean;
 };
 
 function mapTemplateItem(row: TemplateItemRow): EventTypeTemplateItem {
@@ -71,6 +77,7 @@ function mapTemplateItem(row: TemplateItemRow): EventTypeTemplateItem {
     qtyInfo: row.qty_info ?? undefined,
     notes: row.notes ?? undefined,
     sortOrder: row.sort_order,
+    defaultNeedsProduction: row.default_needs_production,
   };
 }
 
@@ -84,7 +91,7 @@ export async function getAllEventTypeTemplateItems(): Promise<EventTypeTemplateI
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("event_type_template_items")
-    .select("id, event_type_id, category, item_name, detail, qty_info, notes, sort_order")
+    .select("id, event_type_id, category, item_name, detail, qty_info, notes, sort_order, default_needs_production")
     .order("sort_order", { ascending: true })
     .returns<TemplateItemRow[]>();
 
@@ -168,24 +175,94 @@ async function attachChecklistProgress(
 ): Promise<EventSummary[]> {
   if (events.length === 0) return events;
   const ids = events.map((e) => e.id);
-  const { data, error } = await supabase.from("event_checklist_items").select("event_id, status").in("event_id", ids);
+  const { data, error } = await supabase
+    .from("event_checklist_items")
+    .select("id, event_id, status, needs_production, current_phase")
+    .in("event_id", ids);
   if (error) {
     console.error("[events] attachChecklistProgress gagal:", error.message);
     return events;
   }
+  const rows = data ?? [];
 
-  const countByEvent = new Map<string, { total: number; done: number }>();
-  for (const row of data ?? []) {
-    const bucket = countByEvent.get(row.event_id) ?? { total: 0, done: 0 };
+  // Progres granular (Tahap 51) butuh sub-status Design/Mockup/Sample tiap
+  // item yang masih di salah satu dari 3 fase itu -- satu query tambahan,
+  // BUKAN N+1 (sama pola dengan query utama di atas).
+  const itemIds = rows.map((r) => r.id as string);
+  const reviewsByItem = await fetchPhaseReviewsByItem(supabase, itemIds);
+
+  const countByEvent = new Map<string, { total: number; done: number; percentSum: number }>();
+  for (const row of rows) {
+    const bucket = countByEvent.get(row.event_id) ?? { total: 0, done: 0, percentSum: 0 };
     bucket.total += 1;
-    if (row.status === "Finish") bucket.done += 1;
+    if (row.current_phase === "finish") bucket.done += 1;
+    bucket.percentSum += computeChecklistItemProgress(
+      { needsProduction: row.needs_production as boolean, currentPhase: row.current_phase as ChecklistPhase },
+      reviewsByItem.get(row.id as string) ?? []
+    );
     countByEvent.set(row.event_id, bucket);
   }
 
   return events.map((event) => {
     const counts = countByEvent.get(event.id);
-    return { ...event, checklistTotal: counts?.total ?? 0, checklistDone: counts?.done ?? 0 };
+    return {
+      ...event,
+      checklistTotal: counts?.total ?? 0,
+      checklistDone: counts?.done ?? 0,
+      checklistProgressPercent: counts && counts.total > 0 ? Math.round(counts.percentSum / counts.total) : 0,
+    };
   });
+}
+
+type PhaseReviewRow = {
+  id: string;
+  checklist_item_id: string;
+  phase: ChecklistReviewPhase;
+  sub_status: ChecklistSubStatus;
+  revision_count: number;
+  photo_url: string | null;
+  submitted_by: string | null;
+  approved_by: string | null;
+  approved_at: string | null;
+  updated_at: string;
+};
+
+/** Ambil `event_checklist_phase_reviews` untuk sekumpulan item sekaligus
+ * (bukan N+1), dikelompokkan per `checklist_item_id` -- dipakai
+ * `attachChecklistProgress` (ringkas, bukan resolusi nama) & `getEventById`
+ * (lengkap, dengan nama, lihat pembungkus `fetchPhaseReviewsWithNames`). */
+async function fetchPhaseReviewsByItem(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  itemIds: string[]
+): Promise<Map<string, ChecklistPhaseReview[]>> {
+  const map = new Map<string, ChecklistPhaseReview[]>();
+  if (itemIds.length === 0) return map;
+  const { data, error } = await supabase
+    .from("event_checklist_phase_reviews")
+    .select("id, checklist_item_id, phase, sub_status, revision_count, photo_url, submitted_by, approved_by, approved_at, updated_at")
+    .in("checklist_item_id", itemIds)
+    .returns<PhaseReviewRow[]>();
+  if (error) {
+    console.error("[events] fetchPhaseReviewsByItem gagal:", error.message);
+    return map;
+  }
+  for (const row of data ?? []) {
+    const bucket = map.get(row.checklist_item_id) ?? [];
+    bucket.push({
+      id: row.id,
+      checklistItemId: row.checklist_item_id,
+      phase: row.phase,
+      subStatus: row.sub_status,
+      revisionCount: row.revision_count,
+      photoUrl: row.photo_url ?? undefined,
+      submittedBy: row.submitted_by ?? undefined,
+      approvedBy: row.approved_by ?? undefined,
+      approvedAt: row.approved_at ?? undefined,
+      updatedAt: row.updated_at,
+    });
+    map.set(row.checklist_item_id, bucket);
+  }
+  return map;
 }
 
 type ChecklistItemRow = {
@@ -202,7 +279,27 @@ type ChecklistItemRow = {
   vendor_id: string | null;
   team: string | null;
   due_date: string | null;
+  needs_production: boolean;
+  current_phase: ChecklistPhase;
+  production_qty: string | null;
+  production_notes: string | null;
+  production_photo_url: string | null;
+  production_done_at: string | null;
+  production_done_by: string | null;
+  completed_at: string | null;
+  completed_by: string | null;
+  loading_in_at: string | null;
+  loading_in_by: string | null;
+  loading_out_at: string | null;
+  loading_out_by: string | null;
+  finished_at: string | null;
+  finished_by: string | null;
 };
+
+const CHECKLIST_ITEM_SELECT =
+  "id, event_id, category, item_name, detail, qty_info, notes, status, pic, sort_order, vendor_id, team, due_date, " +
+  "needs_production, current_phase, production_qty, production_notes, production_photo_url, production_done_at, production_done_by, " +
+  "completed_at, completed_by, loading_in_at, loading_in_by, loading_out_at, loading_out_by, finished_at, finished_by";
 
 function mapChecklistItem(row: ChecklistItemRow): EventChecklistItem {
   return {
@@ -219,6 +316,21 @@ function mapChecklistItem(row: ChecklistItemRow): EventChecklistItem {
     vendorId: row.vendor_id ?? undefined,
     team: row.team ?? undefined,
     dueDate: row.due_date ?? undefined,
+    needsProduction: row.needs_production,
+    currentPhase: row.current_phase,
+    productionQty: row.production_qty ?? undefined,
+    productionNotes: row.production_notes ?? undefined,
+    productionPhotoUrl: row.production_photo_url ?? undefined,
+    productionDoneAt: row.production_done_at ?? undefined,
+    productionDoneBy: row.production_done_by ?? undefined,
+    completedAt: row.completed_at ?? undefined,
+    completedBy: row.completed_by ?? undefined,
+    loadingInAt: row.loading_in_at ?? undefined,
+    loadingInBy: row.loading_in_by ?? undefined,
+    loadingOutAt: row.loading_out_at ?? undefined,
+    loadingOutBy: row.loading_out_by ?? undefined,
+    finishedAt: row.finished_at ?? undefined,
+    finishedBy: row.finished_by ?? undefined,
   };
 }
 
@@ -271,7 +383,7 @@ export async function getEventById(id: string): Promise<EventDetail | null> {
   const [{ data: itemRows, error: itemsError }, { data: linkRows, error: linksError }] = await Promise.all([
     supabase
       .from("event_checklist_items")
-      .select("id, event_id, category, item_name, detail, qty_info, notes, status, pic, sort_order, vendor_id, team, due_date")
+      .select(CHECKLIST_ITEM_SELECT)
       .eq("event_id", id)
       .order("sort_order", { ascending: true })
       .returns<ChecklistItemRow[]>(),
@@ -310,16 +422,44 @@ export async function getEventById(id: string): Promise<EventDetail | null> {
     createdAt: row.created_at,
   }));
 
-  const picIds = Array.from(new Set((itemRows ?? []).map((r) => r.pic).filter((v): v is string => !!v)));
+  const actorIds = new Set<string>();
+  for (const r of itemRows ?? []) {
+    for (const v of [r.pic, r.production_done_by, r.completed_by, r.loading_in_by, r.loading_out_by, r.finished_by]) {
+      if (v) actorIds.add(v);
+    }
+  }
   const vendorIds = Array.from(new Set((itemRows ?? []).map((r) => r.vendor_id).filter((v): v is string => !!v)));
-  const [picNameById, vendorNameById] = await Promise.all([
-    resolvePicNames(supabase, picIds),
+  const itemIds = (itemRows ?? []).map((r) => r.id);
+  const [actorNameById, vendorNameById, reviewsByItem] = await Promise.all([
+    resolvePicNames(supabase, Array.from(actorIds)),
     resolveVendorNames(supabase, vendorIds),
+    fetchPhaseReviewsByItem(supabase, itemIds),
   ]);
+  // Nama untuk `submittedBy`/`approvedBy` tiap phase review -- sama daftar
+  // profil dengan `actorNameById` di atas (PIC self-approve, jadi hampir
+  // selalu overlap), diresolusi ulang di sini kalau ada id yang tidak
+  // kebetulan sudah ada di situ (mis. review dibuat orang lain).
+  const reviewActorIds = Array.from(reviewsByItem.values())
+    .flat()
+    .flatMap((r) => [r.submittedBy, r.approvedBy])
+    .filter((v): v is string => !!v && !actorNameById.has(v));
+  const extraNameById = reviewActorIds.length > 0 ? await resolvePicNames(supabase, reviewActorIds) : new Map<string, string>();
+  const nameOf = (id?: string) => (id ? actorNameById.get(id) ?? extraNameById.get(id) : undefined);
+
   const checklistItems: EventChecklistItem[] = (itemRows ?? []).map((row) => ({
     ...mapChecklistItem(row),
-    picName: row.pic ? picNameById.get(row.pic) : undefined,
+    picName: nameOf(row.pic ?? undefined),
     vendorName: row.vendor_id ? vendorNameById.get(row.vendor_id) : undefined,
+    productionDoneByName: nameOf(row.production_done_by ?? undefined),
+    completedByName: nameOf(row.completed_by ?? undefined),
+    loadingInByName: nameOf(row.loading_in_by ?? undefined),
+    loadingOutByName: nameOf(row.loading_out_by ?? undefined),
+    finishedByName: nameOf(row.finished_by ?? undefined),
+    phaseReviews: (reviewsByItem.get(row.id) ?? []).map((r) => ({
+      ...r,
+      submittedByName: nameOf(r.submittedBy),
+      approvedByName: nameOf(r.approvedBy),
+    })),
   }));
 
   return {

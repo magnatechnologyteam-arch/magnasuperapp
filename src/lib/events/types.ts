@@ -26,6 +26,9 @@ export type EventTypeTemplateItem = {
   qtyInfo?: string;
   notes?: string;
   sortOrder: number;
+  /** Default "Perlu Produksi Ya/Tidak" (Tahap 51) untuk item hasil clone
+   * dari template ini -- bisa dioverride per item di event nyatanya. */
+  defaultNeedsProduction: boolean;
 };
 
 export type CreateEventTypeInput = {
@@ -100,6 +103,141 @@ export const EVENT_CHECKLIST_STATUSES: EventChecklistStatus[] = [
   "Finish",
 ];
 
+/**
+ * Redesain besar model checklist (Tahap 51, permintaan Owner) -- 8 fase
+ * pengganti `EventChecklistStatus` di atas (yang TETAP DIPERTAHANKAN cuma
+ * sebagai arsip data lama, lihat migrasi `event_checklist_phase_model`).
+ * Urutan persis dari diskusi ulang dengan Owner:
+ * Design -> Mockup -> Sample -> Production -> Completed -> Loading In
+ * (mulai dibawa ke lokasi event) -> Loading Out (pulang dari lokasi event)
+ * -> Finish. Item yang `needsProduction=false` melompati Design/Mockup/
+ * Sample/Production dan mulai langsung dari Completed.
+ */
+export type ChecklistPhase =
+  | "design"
+  | "mockup"
+  | "sample"
+  | "production"
+  | "completed"
+  | "loading_in"
+  | "loading_out"
+  | "finish";
+
+export const CHECKLIST_PHASES: ChecklistPhase[] = [
+  "design",
+  "mockup",
+  "sample",
+  "production",
+  "completed",
+  "loading_in",
+  "loading_out",
+  "finish",
+];
+
+export const CHECKLIST_PHASE_LABELS: Record<ChecklistPhase, string> = {
+  design: "Design",
+  mockup: "Mockup",
+  sample: "Sample",
+  production: "Production",
+  completed: "Completed",
+  loading_in: "Loading In",
+  loading_out: "Loading Out",
+  finish: "Finish",
+};
+
+/** Fase yang punya siklus sub-status Proposed -> Revised -> Approved
+ * (dengan foto wajib) -- cuma 3 dari 8 fase di atas. */
+export type ChecklistReviewPhase = "design" | "mockup" | "sample";
+export const CHECKLIST_REVIEW_PHASES: ChecklistReviewPhase[] = ["design", "mockup", "sample"];
+
+/** Monoton -- begitu lewat Proposed tidak pernah mundur, tetap "Revised"
+ * sampai akhirnya "Approved" walau berkali-kali revisi (revisionCount naik
+ * tiap kali, sub-statusnya sendiri tidak berubah dari "revised"). */
+export type ChecklistSubStatus = "proposed" | "revised" | "approved";
+export const CHECKLIST_SUB_STATUS_LABELS: Record<ChecklistSubStatus, string> = {
+  proposed: "Proposed",
+  revised: "Revised",
+  approved: "Approved",
+};
+
+/** State SAAT INI submission Design/Mockup/Sample satu item -- maksimal 1
+ * baris per fase per item (bukan log penuh, itu tugas
+ * `event_checklist_status_log`). Approval untuk sementara oleh PIC item itu
+ * sendiri (approvedBy = submittedBy), akan dipisah nanti. */
+export type ChecklistPhaseReview = {
+  id: string;
+  checklistItemId: string;
+  phase: ChecklistReviewPhase;
+  subStatus: ChecklistSubStatus;
+  revisionCount: number;
+  photoUrl?: string;
+  submittedBy?: string;
+  submittedByName?: string;
+  approvedBy?: string;
+  approvedByName?: string;
+  approvedAt?: string;
+  updatedAt: string;
+};
+
+/**
+ * Urutan tetap dipakai untuk hitung progres granular (Tahap 51) -- diminta
+ * Owner supaya progres pakai detail sub-fase, bukan cuma posisi fase.
+ * Item `needsProduction=true`: 14 posisi (0-13) -- design/mockup/sample
+ * masing-masing 3 sub-status (proposed/revised/approved) = 9, + production
+ * selesai + completed + loading in + loading out + finish = 14.
+ * Item `needsProduction=false`: 5 posisi (0-4) -- langsung dari completed.
+ */
+export function computeChecklistItemProgress(
+  item: { needsProduction: boolean; currentPhase: ChecklistPhase },
+  reviews: Pick<ChecklistPhaseReview, "phase" | "subStatus">[]
+): number {
+  const subIdx = (phase: ChecklistReviewPhase) => {
+    const found = reviews.find((r) => r.phase === phase);
+    if (!found) return 0;
+    return found.subStatus === "approved" ? 2 : found.subStatus === "revised" ? 1 : 0;
+  };
+
+  if (!item.needsProduction) {
+    const MAX = 4;
+    const order: ChecklistPhase[] = ["completed", "loading_in", "loading_out", "finish"];
+    const idx = order.indexOf(item.currentPhase);
+    const step = idx === -1 ? 0 : idx;
+    return Math.round((step / MAX) * 100);
+  }
+
+  const MAX = 13;
+  let step: number;
+  switch (item.currentPhase) {
+    case "design":
+      step = 0 + subIdx("design");
+      break;
+    case "mockup":
+      step = 3 + subIdx("mockup");
+      break;
+    case "sample":
+      step = 6 + subIdx("sample");
+      break;
+    case "production":
+      step = 9;
+      break;
+    case "completed":
+      step = 10;
+      break;
+    case "loading_in":
+      step = 11;
+      break;
+    case "loading_out":
+      step = 12;
+      break;
+    case "finish":
+      step = 13;
+      break;
+    default:
+      step = 0;
+  }
+  return Math.round((step / MAX) * 100);
+}
+
 export type EventSourceType = "magnarent_booking" | "magnative_project" | "production_booth_project";
 
 export const EVENT_SOURCE_LABELS: Record<EventSourceType, string> = {
@@ -126,6 +264,11 @@ export type EventSummary = {
    * belum minta dihitung (lihat `getEvents({ withProgress: true })`). */
   checklistTotal?: number;
   checklistDone?: number;
+  /** Rata-rata progres granular (0-100) seluruh item checklist event ini,
+   * lihat `computeChecklistItemProgress` -- BUKAN cuma checklistDone/Total
+   * (itu tetap dihitung terpisah untuk label "x/y item selesai"), dipakai
+   * ChecklistProgressRing di kartu event & widget Dashboard Hub (Tahap 51). */
+  checklistProgressPercent?: number;
 };
 
 export type EventChecklistItem = {
@@ -159,6 +302,35 @@ export type EventChecklistItem = {
    * event secara keseluruhan) -- rekomendasi 5 laporan gap-event vs SOP,
    * migrasi 0063. */
   dueDate?: string;
+  /** Apakah item ini perlu melalui Design/Mockup/Sample/Production (Tahap
+   * 51) -- default dari `EventTypeTemplateItem.defaultNeedsProduction` saat
+   * di-clone, bisa diubah Admin kapan saja di Papan Tracking. `false` =
+   * item langsung mulai dari fase Completed. */
+  needsProduction: boolean;
+  /** Posisi fase saat ini di alur 8-fase baru -- pengganti `status` di atas
+   * untuk logika Papan Tracking (status lama tetap disimpan sebagai arsip). */
+  currentPhase: ChecklistPhase;
+  productionQty?: string;
+  productionNotes?: string;
+  productionPhotoUrl?: string;
+  productionDoneAt?: string;
+  productionDoneBy?: string;
+  productionDoneByName?: string;
+  completedAt?: string;
+  completedBy?: string;
+  completedByName?: string;
+  loadingInAt?: string;
+  loadingInBy?: string;
+  loadingInByName?: string;
+  loadingOutAt?: string;
+  loadingOutBy?: string;
+  loadingOutByName?: string;
+  finishedAt?: string;
+  finishedBy?: string;
+  finishedByName?: string;
+  /** Cuma diisi `getEventById` (Papan Tracking) -- state Design/Mockup/
+   * Sample saat ini, maksimal 3 baris (lihat `ChecklistPhaseReview`). */
+  phaseReviews?: ChecklistPhaseReview[];
 };
 
 export type EventLink = {

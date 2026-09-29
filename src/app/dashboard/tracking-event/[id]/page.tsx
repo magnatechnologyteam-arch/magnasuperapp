@@ -3,6 +3,7 @@ import { ClipboardList } from "lucide-react";
 import { getAssignablePics, getEventById } from "@/lib/events/data";
 import { EventTrackingBoard } from "@/components/events/EventTrackingBoard";
 import { ToastProvider } from "@/components/ui/ToastProvider";
+import { createClient } from "@/lib/supabase/server";
 
 /**
  * Papan Tracking satu event (Tahap D) — lihat komentar guard divisi di
@@ -16,6 +17,21 @@ export default async function TrackingEventDetailPage({ params }: { params: Prom
   const [detail, picOptions] = await Promise.all([getEventById(id), getAssignablePics()]);
   if (!detail) {
     redirect("/dashboard/tracking-event");
+  }
+
+  // Tahap 51: konfirmasi tiap fase dibatasi "PIC yang bertanggung jawab"
+  // (keputusan Owner) -- board butuh tahu siapa pengguna saat ini & apakah
+  // dia akses penuh, supaya tombol per-item bisa dinonaktifkan di client
+  // tanpa perlu round-trip gagal ke server dulu (server action tetap jadi
+  // penjaga utama, ini cuma UX).
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  let isFullAccess = false;
+  if (user) {
+    const { data: profile } = await supabase.from("profiles").select("division").eq("id", user.id).maybeSingle();
+    isFullAccess = profile?.division === "all";
   }
 
   return (
@@ -50,6 +66,8 @@ export default async function TrackingEventDetailPage({ params }: { params: Prom
             initialChecklistItems={detail.checklistItems}
             links={detail.links}
             picOptions={picOptions}
+            currentUserId={user?.id ?? null}
+            isFullAccess={isFullAccess}
           />
         </ToastProvider>
       </div>

@@ -109,11 +109,7 @@ export function EventTrackingList({ events }: { events: EventSummary[] }) {
               </div>
               {typeof ev.checklistTotal === "number" && ev.checklistTotal > 0 && (
                 <div className="mt-3 flex items-center gap-3 border-t border-zinc-100 pt-3 dark:border-white/10">
-                  <ChecklistProgressRing
-                    percent={((ev.checklistDone ?? 0) / ev.checklistTotal) * 100}
-                    size={36}
-                    strokeWidth={4}
-                  />
+                  <ChecklistProgressRing percent={ev.checklistProgressPercent ?? 0} size={36} strokeWidth={4} />
                   <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">
                     {ev.checklistDone ?? 0}/{ev.checklistTotal} item checklist selesai
                   </p>
