@@ -31,10 +31,11 @@ function emptyForm() {
  * melihat halaman daftar ini sendiri.
  *
  * Tahap E (dashboard ringkasan): tiga kartu statistik di atas + progress
- * bar per event, dihitung dari `checklistTotal`/`checklistDone` yang
+ * bar per event, dihitung dari `checklistProgressPercent` granular (Tahap
+ * 51, sama sumbernya dengan Papan Tracking & widget Dashboard Hub) yang
  * ikut dikirim `page.tsx` lewat `getEvents({ withProgress: true })` --
  * supaya Owner/Finance bisa lihat progres semua event sekilas tanpa buka
- * satu-satu.
+ * satu-satu, dan angkanya selalu sama di semua halaman.
  */
 export function EventList({ events, eventTypes }: { events: EventSummary[]; eventTypes: EventType[] }) {
   const router = useRouter();
@@ -44,15 +45,16 @@ export function EventList({ events, eventTypes }: { events: EventSummary[]; even
   const stats = useMemo(() => {
     const running = events.filter((e) => e.status === "Berjalan");
     const withTotal = running.filter((e) => (e.checklistTotal ?? 0) > 0);
+    // Tahap 51: pakai checklistProgressPercent yang granular (sama dengan
+    // yang dipakai Papan Tracking & widget Dashboard Hub) -- SEBELUMNYA di
+    // sini masih hitung ulang dari checklistDone/checklistTotal mentah,
+    // jadi angkanya beda sendiri dari halaman lain walau sama-sama "progres
+    // event ini" (laporan Owner: data belum tersinkronisasi).
     const avgProgress =
       withTotal.length === 0
         ? 0
-        : Math.round(
-            (withTotal.reduce((sum, e) => sum + (e.checklistDone ?? 0) / (e.checklistTotal ?? 1), 0) /
-              withTotal.length) *
-              100
-          );
-    const noProgressCount = running.filter((e) => (e.checklistDone ?? 0) === 0).length;
+        : Math.round(withTotal.reduce((sum, e) => sum + (e.checklistProgressPercent ?? 0), 0) / withTotal.length);
+    const noProgressCount = running.filter((e) => (e.checklistProgressPercent ?? 0) === 0).length;
     return { runningCount: running.length, avgProgress, noProgressCount };
   }, [events]);
 
@@ -174,14 +176,14 @@ export function EventList({ events, eventTypes }: { events: EventSummary[]; even
                 <div className="mt-3">
                   <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-400 dark:text-zinc-500">
                     <span>
-                      {ev.checklistDone ?? 0}/{ev.checklistTotal} item
+                      {ev.checklistDone ?? 0}/{ev.checklistTotal} item selesai
                     </span>
-                    <span>{Math.round(((ev.checklistDone ?? 0) / ev.checklistTotal) * 100)}%</span>
+                    <span>{ev.checklistProgressPercent ?? 0}%</span>
                   </div>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-zinc-100 dark:bg-white/10">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500"
-                      style={{ width: `${Math.round(((ev.checklistDone ?? 0) / ev.checklistTotal) * 100)}%` }}
+                      style={{ width: `${ev.checklistProgressPercent ?? 0}%` }}
                     />
                   </div>
                 </div>

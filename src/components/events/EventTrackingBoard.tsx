@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, History, Link2, MapPin, MessageSquare } from "lucide-react";
+import { ChevronDown, ClipboardList, History, Link2, MapPin, MessageSquare, Search } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/cn";
@@ -534,9 +534,23 @@ export function EventTrackingBoard({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [historyTarget, setHistoryTarget] = useState<EventChecklistItem | null>(null);
   const [discussionTarget, setDiscussionTarget] = useState<EventChecklistItem | null>(null);
+  // Owner: checklist per kategori dibuat "laci" (dropdown/accordion) --
+  // dengan puluhan item per event, tampilan flat lama jadi berantakan.
+  // Default semua tertutup, staf buka kategori yang relevan saja.
+  const [search, setSearch] = useState("");
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => new Set());
 
   function handleChanged() {
     router.refresh();
+  }
+
+  function toggleCategory(category: string) {
+    setExpandedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) next.delete(category);
+      else next.add(category);
+      return next;
+    });
   }
 
   const groupedItems = useMemo(() => {
@@ -552,6 +566,25 @@ export function EventTrackingBoard({
       done: list.filter((i) => i.currentPhase === "finish").length,
     }));
   }, [items]);
+
+  // Pencarian (Owner: "tambahkan fungsi search agar mudah mencari suatu
+  // barang") -- saat aktif, kategori yang punya hasil otomatis terbuka
+  // (override state manual expandedCategories) dan cuma item yang cocok
+  // yang dirender; kategori tanpa hasil disembunyikan seluruhnya.
+  const searchQuery = search.trim().toLowerCase();
+  const isSearching = searchQuery.length > 0;
+  const visibleGroups = useMemo(() => {
+    const withFiltered = groupedItems.map((g) => ({
+      ...g,
+      filteredList: isSearching
+        ? g.list.filter((item) => {
+            const haystack = `${item.itemName} ${item.detail ?? ""} ${item.qtyInfo ?? ""} ${item.notes ?? ""}`.toLowerCase();
+            return haystack.includes(searchQuery);
+          })
+        : g.list,
+    }));
+    return isSearching ? withFiltered.filter((g) => g.filteredList.length > 0) : withFiltered;
+  }, [groupedItems, isSearching, searchQuery]);
 
   const progressPct = useMemo(() => {
     if (items.length === 0) return 0;
@@ -643,10 +676,37 @@ export function EventTrackingBoard({
       )}
 
       <section className={cn("rounded-2xl border p-5", GLASS_SURFACE, GLASS_BORDER)}>
-        <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Checklist</h2>
-        <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
-          Isi tiap fase sesuai progres pekerjaan divisimu -- foto konfirmasi wajib sebelum fase berikutnya terbuka.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Checklist</h2>
+            <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
+              Isi tiap fase sesuai progres pekerjaan divisimu -- foto konfirmasi wajib sebelum fase berikutnya terbuka.
+            </p>
+          </div>
+          {groupedItems.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Cari item..."
+                  className={cn(INPUT_XS, "w-40 pl-8 sm:w-52")}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpandedCategories(new Set(groupedItems.map((g) => g.category)))}
+                className={BTN}
+              >
+                Buka Semua
+              </button>
+              <button type="button" onClick={() => setExpandedCategories(new Set())} className={BTN}>
+                Tutup Semua
+              </button>
+            </div>
+          )}
+        </div>
 
         {groupedItems.length === 0 ? (
           <EmptyState
@@ -654,27 +714,50 @@ export function EventTrackingBoard({
             title="Checklist masih kosong"
             description="Admin belum mengisi checklist untuk event ini."
           />
+        ) : visibleGroups.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title="Tidak ditemukan"
+            description={`Tidak ada item yang cocok dengan "${search}".`}
+          />
         ) : (
-          <div className="mt-4 space-y-6">
-            {groupedItems.map(({ category, list, done }) => (
-              <div key={category}>
-                <div className="mb-2 flex items-center gap-2">
-                  <p className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
-                    {category}
-                  </p>
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[10px] font-bold",
-                      done === list.length
-                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
-                        : "bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400"
-                    )}
+          <div className="mt-4 space-y-3">
+            {visibleGroups.map(({ category, list, filteredList, done }) => {
+              const isOpen = isSearching || expandedCategories.has(category);
+              const renderList = isSearching ? filteredList : list;
+              return (
+                <div key={category} className="rounded-xl border border-zinc-100 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(category)}
+                    disabled={isSearching}
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left disabled:cursor-default"
                   >
-                    {done}/{list.length}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {list.map((item) => {
+                    <span className="flex items-center gap-2">
+                      <ChevronDown
+                        className={cn(
+                          "h-3.5 w-3.5 shrink-0 text-zinc-400 transition-transform",
+                          !isOpen && "-rotate-90"
+                        )}
+                      />
+                      <span className="text-xs font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+                        {category}
+                      </span>
+                    </span>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                        done === list.length
+                          ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                          : "bg-zinc-100 text-zinc-500 dark:bg-white/10 dark:text-zinc-400"
+                      )}
+                    >
+                      {done}/{list.length}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="space-y-2 px-3 pb-3">
+                      {renderList.map((item) => {
                     const canAct = canActOnItem(item, currentUserId, isFullAccess);
                     const activeReview = CHECKLIST_REVIEW_PHASES.includes(item.currentPhase as ChecklistReviewPhase)
                       ? item.phaseReviews?.find((r) => r.phase === item.currentPhase)
@@ -772,10 +855,12 @@ export function EventTrackingBoard({
                         </div>
                       </div>
                     );
-                  })}
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
