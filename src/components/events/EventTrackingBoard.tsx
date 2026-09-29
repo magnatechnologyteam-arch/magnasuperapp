@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ClipboardList, History, Link2, MapPin, MessageSquare, Search } from "lucide-react";
+import { Camera, ChevronDown, ClipboardList, History, Link2, MapPin, MessageSquare, Search } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/cn";
@@ -62,6 +62,48 @@ function canActOnItem(item: EventChecklistItem, currentUserId: string | null, is
   if (isFullAccess) return true;
   if (!currentUserId) return false;
   return item.pic === currentUserId;
+}
+
+/** Tombol kamera terintegrasi -- input file disembunyikan, tombol
+ * bergaya memicu `capture="environment"` supaya langsung buka kamera
+ * di HP dan tidak terasa seperti dialog cari file biasa. */
+function PhotoCaptureButton({
+  file,
+  onSelect,
+  disabled,
+  label,
+}: {
+  file: File | null;
+  onSelect: (file: File | null) => void;
+  disabled?: boolean;
+  label?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        disabled={disabled}
+        onChange={(e) => {
+          onSelect(e.target.files?.[0] ?? null);
+          e.target.value = "";
+        }}
+        className="hidden"
+      />
+      <button type="button" onClick={() => inputRef.current?.click()} disabled={disabled} className={BTN}>
+        <Camera className="h-3.5 w-3.5" />
+        {label ?? "Ambil Foto"}
+      </button>
+      {file && (
+        <span className="max-w-[9rem] truncate text-[11px] text-zinc-500 dark:text-zinc-400" title={file.name}>
+          {file.name}
+        </span>
+      )}
+    </div>
+  );
 }
 
 /** Ringkasan visual posisi item di alur 8-fase (atau 4-fase kalau
@@ -174,13 +216,11 @@ function ReviewPhaseCard({
         <p className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Disetujui.</p>
       ) : (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
+          <PhotoCaptureButton
+            file={file}
+            onSelect={setFile}
             disabled={pending}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="text-xs text-zinc-500 dark:text-zinc-400"
+            label={review ? "Ambil Ulang Foto" : "Ambil Foto"}
           />
           <button type="button" onClick={submit} disabled={pending || !file} className={BTN}>
             {review ? "Simpan Revisi" : "Kirim"}
@@ -271,14 +311,7 @@ function ProductionCard({
           disabled={pending}
           className={cn(INPUT_XS, "min-w-[8rem] flex-1")}
         />
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          disabled={pending}
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="text-xs text-zinc-500 dark:text-zinc-400"
-        />
+        <PhotoCaptureButton file={file} onSelect={setFile} disabled={pending} label="Ambil Foto Produksi" />
       </div>
       {item.productionPhotoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
