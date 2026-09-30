@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Modal } from "./Modal";
 import { cn } from "@/lib/cn";
 
@@ -24,6 +24,7 @@ export function ConfirmDialog({
   description,
   confirmLabel = "Hapus",
   cancelLabel = "Batal",
+  confirmVariant = "danger",
   blocked = false,
   blockedMessage,
 }: {
@@ -34,14 +35,25 @@ export function ConfirmDialog({
   description?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** "danger" (default, merah) buat aksi merusak seperti hapus -- "primary"
+   * (violet, warna BTN_PRIMARY di seluruh app) buat konfirmasi aksi maju
+   * yang WAJAR/tidak merusak (setujui, tandai selesai, dsb) supaya tombolnya
+   * tidak terasa seperti peringatan bahaya padahal cuma progres biasa. */
+  confirmVariant?: "danger" | "primary";
   blocked?: boolean;
   blockedMessage?: ReactNode;
 }) {
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
+  // Reset `submitting` begitu dialog ditutup -- disesuaikan LANGSUNG saat
+  // render (pola resmi React "adjust state when a prop changes"), bukan
+  // lewat useEffect seperti sebelumnya (dilarang linter react-hooks
+  // versi terbaru, react-hooks/set-state-in-effect):
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) setSubmitting(false);
-  }, [open]);
+  }
 
   function handleConfirm() {
     if (submitting) return;
@@ -77,7 +89,10 @@ export function ConfirmDialog({
               onClick={handleConfirm}
               disabled={submitting}
               className={cn(
-                "rounded-full bg-rose-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
+                "rounded-full px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                confirmVariant === "primary"
+                  ? "bg-violet-600 hover:bg-violet-500"
+                  : "bg-rose-600 hover:bg-rose-500"
               )}
             >
               {submitting ? "Memproses…" : confirmLabel}

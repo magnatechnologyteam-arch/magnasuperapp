@@ -1533,6 +1533,102 @@ export async function bulkAdvanceChecklistPhase(
   return { ok: true, advanced: eligible.length, skipped: itemIds.length - eligible.length };
 }
 
+/**
+ * Kembalikan item checklist ke fase SEBELUMNYA -- permintaan Owner
+ * (staf sering "kepencet" salah pindah fase, terutama tombol bulk Loading
+ * In/Out/Finish yang checkbox-nya sudah tercentang semua dari awal, dan
+ * sebelumnya SAMA SEKALI tidak ada cara membalikkan selain edit database
+ * manual). HANYA Admin/akses penuh (division "all") yang boleh, sama
+ * seperti approve/reject fase review.
+ *
+ * Membalikkan = membatalkan PERSIS transisi TERAKHIR yang membawa item ke
+ * fase saat ini -- kebalikan `approveChecklistPhaseReview` /
+ * `markProductionDone` / `confirmChecklistCompleted` /
+ * `bulkAdvanceChecklistPhase`: hapus timestamp/pelaku yang tercatat waktu
+ * transisi itu terjadi, dan untuk Mockup/Sample/Production, buka kunci
+ * lagi review fase sebelumnya (approved -> revised, pola sama dengan
+ * cascading di `rejectChecklistPhaseReview`) supaya bisa disetujui ulang.
+ *
+ * Item di fase paling awal (Design untuk `needsProduction=true`, atau
+ * Completed untuk `needsProduction=false` yang tidak pernah lewat
+ * Production) tidak punya fase sebelumnya -- ditolak.
+ */
+export async function revertChecklistPhase(itemId: string, eventId: string): Promise<MutationResult> {
+  const supabase = await createClient();
+  const access = await getCurrentUserAccess(supabase);
+  if (!access.isFullAccess) return { ok: false, error: "Hanya Admin/akses penuh yang bisa mengembalikan fase." };
+
+  const { data: item } = await supabase
+    .from("event_checklist_items")
+    .select("id, item_name, pic, current_phase, production_done_at")
+    .eq("id", itemId)
+    .maybeSingle<{
+      id: string;
+      item_name: string;
+      pic: string | null;
+      current_phase: ChecklistPhase;
+      production_done_at: string | null;
+    }>();
+  if (!item) return { ok: false, error: "Item tidak ditemukan." };
+
+  const phase = item.current_phase;
+  const patch: Record<string, unknown> = {};
+  let targetPhase: ChecklistPhase;
+
+  if (phase === "mockup" || phase === "sample" || phase === "production") {
+    const reviewPhase: ChecklistReviewPhase = phase === "mockup" ? "design" : phase === "sample" ? "mockup" : "sample";
+    const { error: reviewError } = await supabase
+      .from("event_checklist_phase_reviews")
+      .update({ sub_status: "revised", approved_by: null, approved_at: null })
+      .eq("checklist_item_id", itemId)
+      .eq("phase", reviewPhase);
+    if (reviewError) {
+      console.error("[events] revertChecklistPhase: reset review gagal:", reviewError.message);
+      return { ok: false, error: GENERIC_ERROR };
+    }
+    targetPhase = reviewPhase;
+  } else if (phase === "completed") {
+    if (!item.production_done_at) {
+      return { ok: false, error: "Item ini sudah di fase paling awal, tidak ada fase sebelumnya." };
+    }
+    patch.production_done_at = null;
+    patch.production_done_by = null;
+    targetPhase = "production";
+  } else if (phase === "loading_in") {
+    patch.completed_at = null;
+    patch.completed_by = null;
+    targetPhase = "completed";
+  } else if (phase === "loading_out") {
+    patch.loading_in_at = null;
+    patch.loading_in_by = null;
+    targetPhase = "loading_in";
+  } else if (phase === "finish") {
+    patch.loading_out_at = null;
+    patch.loading_out_by = null;
+    targetPhase = "loading_out";
+  } else {
+    return { ok: false, error: "Item ini sudah di fase paling awal, tidak ada fase sebelumnya." };
+  }
+
+  patch.current_phase = targetPhase;
+  const { error } = await supabase.from("event_checklist_items").update(patch).eq("id", itemId);
+  if (error) {
+    console.error("[events] revertChecklistPhase gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  await writeChecklistPhaseLog(supabase, { id: item.id, pic: item.pic }, targetPhase);
+  if (item.pic) {
+    void notifyUsers([item.pic], {
+      title: "Fase Dikembalikan",
+      body: `${item.item_name}: Admin mengembalikan fase ke ${CHECKLIST_PHASE_LABELS[targetPhase]}.`,
+      url: `${TRACKING_PATH}/${eventId}`,
+    });
+  }
+
+  revalidatePath(`${TRACKING_PATH}/${eventId}`);
+  return { ok: true };
+}
+
 /** Admin/akses penuh bisa ubah "Perlu Produksi Ya/Tidak" kapan saja
  * (keputusan Owner: "atur saja") -- histori fase sebelumnya TETAP
  * tersimpan (baris log/phase_reviews tidak dihapus), cuma tidak lagi jadi

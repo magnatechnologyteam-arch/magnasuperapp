@@ -14,6 +14,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Undo2,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -28,6 +29,7 @@ import {
   deleteEventChecklistItem,
   markProductionDone,
   rejectChecklistPhaseReview,
+  revertChecklistPhase,
   setChecklistNeedsProduction,
   submitChecklistPhaseReview,
   updateChecklistProduction,
@@ -365,6 +367,9 @@ function ReviewPhaseCard({
   const { showToast } = useToast();
   const [pending, startTransition] = useTransition();
   const [file, setFile] = useState<File | null>(null);
+  // Owner: dulu approve/reject langsung eksekusi begitu tombol ditekan
+  // (rawan "kepencet") -- sekarang WAJIB konfirmasi dulu lewat ConfirmDialog.
+  const [confirmAction, setConfirmAction] = useState<"approve" | "reject" | null>(null);
   const subStatus = review?.subStatus;
 
   function submit() {
@@ -450,10 +455,10 @@ function ReviewPhaseCard({
           </button>
           {isFullAccess && review?.photoUrl && (
             <>
-              <button type="button" onClick={approve} disabled={pending} className={BTN_PRIMARY}>
+              <button type="button" onClick={() => setConfirmAction("approve")} disabled={pending} className={BTN_PRIMARY}>
                 Setujui
               </button>
-              <button type="button" onClick={reject} disabled={pending} className={BTN_DANGER}>
+              <button type="button" onClick={() => setConfirmAction("reject")} disabled={pending} className={BTN_DANGER}>
                 Tolak
               </button>
             </>
@@ -465,6 +470,26 @@ function ReviewPhaseCard({
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmAction !== null}
+        onClose={() => setConfirmAction(null)}
+        onConfirm={() => {
+          if (confirmAction === "approve") approve();
+          else if (confirmAction === "reject") reject();
+          setConfirmAction(null);
+        }}
+        title={confirmAction === "approve" ? `Setujui ${CHECKLIST_PHASE_LABELS[phase]}?` : `Tolak ${CHECKLIST_PHASE_LABELS[phase]}?`}
+        description={
+          confirmAction === "approve"
+            ? `Fase ${CHECKLIST_PHASE_LABELS[phase]} untuk "${item.itemName}" akan disetujui dan lanjut ke fase berikutnya.`
+            : phase === "design"
+              ? `Fase Design untuk "${item.itemName}" akan ditolak -- PIC perlu unggah ulang foto.`
+              : `Fase ${CHECKLIST_PHASE_LABELS[phase]} untuk "${item.itemName}" akan ditolak -- item dikembalikan ke Design dan PIC harus kerjakan ulang dari awal.`
+        }
+        confirmLabel={confirmAction === "approve" ? "Setujui" : "Tolak"}
+        confirmVariant={confirmAction === "approve" ? "primary" : "danger"}
+      />
     </div>
   );
 }
@@ -487,6 +512,7 @@ function ProductionCard({
   const [qty, setQty] = useState(item.productionQty ?? "");
   const [notes, setNotes] = useState(item.productionNotes ?? "");
   const [file, setFile] = useState<File | null>(null);
+  const [confirmDone, setConfirmDone] = useState(false);
 
   function saveDraft() {
     const fd = new FormData();
@@ -556,7 +582,7 @@ function ProductionCard({
         </button>
         <button
           type="button"
-          onClick={markDone}
+          onClick={() => setConfirmDone(true)}
           disabled={pending || !item.productionPhotoUrl}
           title={!item.productionPhotoUrl ? "Simpan draft dengan foto dulu" : undefined}
           className={BTN_PRIMARY}
@@ -564,6 +590,19 @@ function ProductionCard({
           Tandai Selesai
         </button>
       </div>
+
+      <ConfirmDialog
+        open={confirmDone}
+        onClose={() => setConfirmDone(false)}
+        onConfirm={() => {
+          markDone();
+          setConfirmDone(false);
+        }}
+        title="Tandai Production Selesai?"
+        description={`Item "${item.itemName}" akan lanjut ke fase Completed.`}
+        confirmLabel="Tandai Selesai"
+        confirmVariant="primary"
+      />
     </div>
   );
 }
@@ -583,6 +622,7 @@ function CompletedCard({
 }) {
   const { showToast } = useToast();
   const [pending, startTransition] = useTransition();
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (!canAct) {
     return (
@@ -605,9 +645,23 @@ function CompletedCard({
   }
 
   return (
-    <button type="button" onClick={confirm} disabled={pending} className={cn(BTN_PRIMARY, "mt-2")}>
-      Konfirmasi Completed
-    </button>
+    <>
+      <button type="button" onClick={() => setConfirmOpen(true)} disabled={pending} className={cn(BTN_PRIMARY, "mt-2")}>
+        Konfirmasi Completed
+      </button>
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          confirm();
+          setConfirmOpen(false);
+        }}
+        title="Konfirmasi Completed?"
+        description={`Item "${item.itemName}" akan lanjut ke fase Loading In.`}
+        confirmLabel="Konfirmasi"
+        confirmVariant="primary"
+      />
+    </>
   );
 }
 
@@ -687,6 +741,12 @@ function BulkStageGroup({
   const eligibleKey = eligibleIds.join(",");
   const [selected, setSelected] = useState<Set<string>>(() => new Set(eligibleIds));
   const [lastKey, setLastKey] = useState(eligibleKey);
+  // Owner: checkbox di bawah sudah tercentang OTOMATIS buat semua item yang
+  // siap -- satu tap tombol besar di bawah bisa memindahkan banyak item
+  // sekaligus tanpa sengaja. ConfirmDialog ini WAJIB tampil dulu dan
+  // menyebutkan NAMA-NAMA item yang persis akan berubah (bukan cuma
+  // jumlahnya), supaya "kepencet" kelihatan sebelum benar-benar terjadi.
+  const [confirmOpen, setConfirmOpen] = useState(false);
   if (eligibleKey !== lastKey) {
     setLastKey(eligibleKey);
     setSelected(new Set(eligibleIds));
@@ -758,12 +818,36 @@ function BulkStageGroup({
       </div>
       <button
         type="button"
-        onClick={confirmBulk}
+        onClick={() => setConfirmOpen(true)}
         disabled={pending || selected.size === 0}
         className={cn(BTN_PRIMARY, "mt-2")}
       >
         Tandai {selected.size} item {CHECKLIST_PHASE_LABELS[stage.target]}
       </button>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={() => {
+          confirmBulk();
+          setConfirmOpen(false);
+        }}
+        title={`Tandai ${selected.size} Item ${CHECKLIST_PHASE_LABELS[stage.target]}?`}
+        description={
+          <div className="space-y-1.5">
+            <p>Item berikut akan berpindah fase ke {CHECKLIST_PHASE_LABELS[stage.target]}:</p>
+            <ul className="max-h-40 list-disc space-y-0.5 overflow-y-auto pl-4">
+              {items
+                .filter((i) => selected.has(i.id))
+                .map((i) => (
+                  <li key={i.id}>{i.itemName}</li>
+                ))}
+            </ul>
+          </div>
+        }
+        confirmLabel="Tandai"
+        confirmVariant="primary"
+      />
     </div>
   );
 }
@@ -806,6 +890,11 @@ export function EventTrackingBoard({
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<EventChecklistItem | null>(null);
   const [deleteItemTarget, setDeleteItemTarget] = useState<EventChecklistItem | null>(null);
+  // Owner: sebelumnya TIDAK ADA cara mengembalikan item yang "kepencet"
+  // salah pindah fase selain edit database manual -- tombol ini (khusus
+  // Admin/Owner, lihat `revertChecklistPhase`) mengisi celah itu.
+  const [revertTarget, setRevertTarget] = useState<EventChecklistItem | null>(null);
+  const [reverting, setReverting] = useState(false);
   // Owner: checklist per kategori dibuat "laci" (dropdown/accordion) --
   // dengan puluhan item per event, tampilan flat lama jadi berantakan.
   // Default semua tertutup, staf buka kategori yang relevan saja.
@@ -848,6 +937,30 @@ export function EventTrackingBoard({
     }
     showToast("Item checklist dihapus.");
     setDeleteItemTarget(null);
+    router.refresh();
+  }
+
+  // Fase paling awal (Design untuk item yang perlu produksi, Completed
+  // untuk yang tidak) tidak punya fase sebelumnya -- sembunyikan tombolnya
+  // di kasus itu (server tetap validasi ulang, ini cuma penyaring di UI).
+  function canRevertPhase(item: EventChecklistItem): boolean {
+    if (!isFullAccess) return false;
+    if (item.currentPhase === "design") return false;
+    if (item.currentPhase === "completed" && !item.needsProduction) return false;
+    return true;
+  }
+
+  async function confirmRevertPhase() {
+    if (!revertTarget) return;
+    setReverting(true);
+    const result = await revertChecklistPhase(revertTarget.id, revertTarget.eventId);
+    setReverting(false);
+    setRevertTarget(null);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    showToast("Fase item dikembalikan.");
     router.refresh();
   }
 
@@ -1180,6 +1293,17 @@ export function EventTrackingBoard({
                               <MessageSquare className="h-3 w-3" />
                               <span className="hidden sm:inline">Diskusi</span>
                             </button>
+                            {canRevertPhase(item) && (
+                              <button
+                                type="button"
+                                onClick={() => setRevertTarget(item)}
+                                title="Kembalikan ke fase sebelumnya"
+                                className="inline-flex items-center gap-1 rounded-lg border border-amber-200 px-2 py-1 text-[11px] font-semibold text-amber-600 transition-colors hover:border-amber-300 hover:bg-amber-50 dark:border-amber-500/30 dark:text-amber-400 dark:hover:bg-amber-500/10"
+                              >
+                                <Undo2 className="h-3 w-3" />
+                                <span className="hidden sm:inline">Kembalikan Fase</span>
+                              </button>
+                            )}
                             {canEditItem(item) && (
                               <>
                                 <button
@@ -1259,6 +1383,20 @@ export function EventTrackingBoard({
         title="Hapus Item Checklist"
         description={`Hapus item "${deleteItemTarget?.itemName}" dari checklist event ini?`}
         confirmLabel="Hapus"
+      />
+
+      <ConfirmDialog
+        open={!!revertTarget}
+        onClose={() => setRevertTarget(null)}
+        onConfirm={confirmRevertPhase}
+        title="Kembalikan ke Fase Sebelumnya?"
+        description={
+          revertTarget
+            ? `Item "${revertTarget.itemName}" (sekarang di fase ${CHECKLIST_PHASE_LABELS[revertTarget.currentPhase]}) akan dikembalikan ke fase sebelumnya. Kalau fasenya Mockup/Sample/Production, persetujuan fase sebelumnya juga dibuka lagi supaya bisa disetujui ulang.`
+            : undefined
+        }
+        confirmLabel={reverting ? "Memproses…" : "Kembalikan"}
+        confirmVariant="primary"
       />
     </div>
   );
