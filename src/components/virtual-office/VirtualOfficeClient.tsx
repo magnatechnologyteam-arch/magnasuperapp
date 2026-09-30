@@ -441,6 +441,257 @@ function PropMesh({ prop }: { prop: Prop }) {
           <meshStandardMaterial color="#92400e" />
         </mesh>
       );
+
+    // -- Dekorasi khas per ruangan (permintaan Owner setelah lihat
+    // referensi video game RPG top-down: tiap ruangan lebih "niat" &
+    // punya identitas beda-beda, tetap primitif geometri saja). --
+    case "crate":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 10, 0]}>
+            <boxGeometry args={[22, 20, 22]} />
+            <meshStandardMaterial color="#a16207" />
+          </mesh>
+          <mesh position={[9, 28, 5]}>
+            <boxGeometry args={[18, 16, 18]} />
+            <meshStandardMaterial color="#ca8a04" />
+          </mesh>
+        </group>
+      );
+    case "rack":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 35, 0]}>
+            <boxGeometry args={[40, 70, 16]} />
+            <meshStandardMaterial color="#57534e" />
+          </mesh>
+          <mesh position={[-10, 20, 7]}>
+            <boxGeometry args={[10, 10, 6]} />
+            <meshStandardMaterial color="#0ea5e9" />
+          </mesh>
+          <mesh position={[8, 50, 7]}>
+            <boxGeometry args={[12, 8, 6]} />
+            <meshStandardMaterial color="#f59e0b" />
+          </mesh>
+        </group>
+      );
+    case "moodboard":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 40, 0]}>
+            <boxGeometry args={[36, 26, 2]} />
+            <meshStandardMaterial color="#fbcfe8" />
+          </mesh>
+          <mesh position={[-10, 44, 1.5]}>
+            <boxGeometry args={[8, 6, 1]} />
+            <meshStandardMaterial color="#f9a8d4" />
+          </mesh>
+          <mesh position={[10, 36, 1.5]}>
+            <boxGeometry args={[8, 6, 1]} />
+            <meshStandardMaterial color="#c026d3" />
+          </mesh>
+        </group>
+      );
+    case "ringlight":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 25, 0]}>
+            <cylinderGeometry args={[2, 2, 50, 8]} />
+            <meshStandardMaterial color="#1f2937" />
+          </mesh>
+          <mesh position={[0, 55, 0]} rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[14, 3, 8, 20]} />
+            <meshStandardMaterial color="#fde68a" emissive="#fde68a" emissiveIntensity={0.4} />
+          </mesh>
+        </group>
+      );
+    case "ladder":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[-6, 25, 0]} rotation={[0, 0, 0.15]}>
+            <boxGeometry args={[3, 50, 3]} />
+            <meshStandardMaterial color="#78350f" />
+          </mesh>
+          <mesh position={[6, 25, 0]} rotation={[0, 0, -0.15]}>
+            <boxGeometry args={[3, 50, 3]} />
+            <meshStandardMaterial color="#78350f" />
+          </mesh>
+          <mesh position={[0, 16, 0]}>
+            <boxGeometry args={[16, 3, 3]} />
+            <meshStandardMaterial color="#92400e" />
+          </mesh>
+          <mesh position={[0, 32, 0]}>
+            <boxGeometry args={[13, 3, 3]} />
+            <meshStandardMaterial color="#92400e" />
+          </mesh>
+        </group>
+      );
+    case "planks":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 6, 0]}>
+            <boxGeometry args={[50, 6, 14]} />
+            <meshStandardMaterial color="#b45309" />
+          </mesh>
+          <mesh position={[2, 14, 0]}>
+            <boxGeometry args={[46, 6, 12]} />
+            <meshStandardMaterial color="#a16207" />
+          </mesh>
+          <mesh position={[-2, 22, 0]}>
+            <boxGeometry args={[44, 6, 12]} />
+            <meshStandardMaterial color="#92400e" />
+          </mesh>
+        </group>
+      );
+    case "tv":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 45, 0]}>
+            <boxGeometry args={[46, 28, 3]} />
+            <meshStandardMaterial color="#0f172a" />
+          </mesh>
+          <mesh position={[0, 45, 1.8]}>
+            <boxGeometry args={[40, 22, 1]} />
+            <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={0.3} />
+          </mesh>
+          <mesh position={[0, 26, 0]}>
+            <boxGeometry args={[6, 20, 6]} />
+            <meshStandardMaterial color="#1f2937" />
+          </mesh>
+        </group>
+      );
+    case "whiteboard":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 42, 0]}>
+            <boxGeometry args={[50, 32, 2]} />
+            <meshStandardMaterial color="#f8fafc" />
+          </mesh>
+          <mesh position={[-20, 14, 0]}>
+            <cylinderGeometry args={[1.5, 1.5, 28, 6]} />
+            <meshStandardMaterial color="#94a3b8" />
+          </mesh>
+          <mesh position={[20, 14, 0]}>
+            <cylinderGeometry args={[1.5, 1.5, 28, 6]} />
+            <meshStandardMaterial color="#94a3b8" />
+          </mesh>
+        </group>
+      );
+    case "stool":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 22, 0]}>
+            <cylinderGeometry args={[9, 9, 4, 12]} />
+            <meshStandardMaterial color="#ea580c" />
+          </mesh>
+          <mesh position={[0, 10, 0]}>
+            <cylinderGeometry args={[2, 2, 20, 8]} />
+            <meshStandardMaterial color="#78350f" />
+          </mesh>
+        </group>
+      );
+    case "microwave":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 15, 0]}>
+            <boxGeometry args={[26, 18, 20]} />
+            <meshStandardMaterial color="#e2e8f0" />
+          </mesh>
+          <mesh position={[0, 15, 10.5]}>
+            <boxGeometry args={[18, 12, 1]} />
+            <meshStandardMaterial color="#1e293b" />
+          </mesh>
+        </group>
+      );
+    case "bookshelf":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 45, 0]}>
+            <boxGeometry args={[44, 90, 18]} />
+            <meshStandardMaterial color="#7c2d12" />
+          </mesh>
+          <mesh position={[-10, 20, 10]}>
+            <boxGeometry args={[5, 16, 3]} />
+            <meshStandardMaterial color="#f59e0b" />
+          </mesh>
+          <mesh position={[-4, 45, 10]}>
+            <boxGeometry args={[5, 16, 3]} />
+            <meshStandardMaterial color="#0ea5e9" />
+          </mesh>
+          <mesh position={[2, 70, 10]}>
+            <boxGeometry args={[5, 16, 3]} />
+            <meshStandardMaterial color="#dc2626" />
+          </mesh>
+        </group>
+      );
+    case "sofa":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 12, 0]}>
+            <boxGeometry args={[46, 16, 20]} />
+            <meshStandardMaterial color="#6d28d9" />
+          </mesh>
+          <mesh position={[0, 26, -8]}>
+            <boxGeometry args={[46, 22, 4]} />
+            <meshStandardMaterial color="#6d28d9" />
+          </mesh>
+          <mesh position={[-21, 20, 0]}>
+            <boxGeometry args={[4, 20, 20]} />
+            <meshStandardMaterial color="#5b21b6" />
+          </mesh>
+          <mesh position={[21, 20, 0]}>
+            <boxGeometry args={[4, 20, 20]} />
+            <meshStandardMaterial color="#5b21b6" />
+          </mesh>
+        </group>
+      );
+    case "bench":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 18, 0]}>
+            <boxGeometry args={[50, 4, 16]} />
+            <meshStandardMaterial color="#92400e" />
+          </mesh>
+          <mesh position={[0, 32, -7]}>
+            <boxGeometry args={[50, 20, 3]} />
+            <meshStandardMaterial color="#92400e" />
+          </mesh>
+          <mesh position={[-20, 9, 0]}>
+            <boxGeometry args={[4, 18, 16]} />
+            <meshStandardMaterial color="#3f3f46" />
+          </mesh>
+          <mesh position={[20, 9, 0]}>
+            <boxGeometry args={[4, 18, 16]} />
+            <meshStandardMaterial color="#3f3f46" />
+          </mesh>
+        </group>
+      );
+    case "lamppost":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 45, 0]}>
+            <cylinderGeometry args={[2, 2.5, 90, 8]} />
+            <meshStandardMaterial color="#27272a" />
+          </mesh>
+          <mesh position={[0, 92, 0]}>
+            <sphereGeometry args={[9, 12, 12]} />
+            <meshStandardMaterial color="#fef08a" emissive="#fde047" emissiveIntensity={0.7} />
+          </mesh>
+        </group>
+      );
+    case "pottedplant":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 8, 0]}>
+            <cylinderGeometry args={[9, 7, 16, 10]} />
+            <meshStandardMaterial color="#b45309" />
+          </mesh>
+          <mesh position={[0, 24, 0]}>
+            <sphereGeometry args={[13, 10, 10]} />
+            <meshStandardMaterial color="#22c55e" />
+          </mesh>
+        </group>
+      );
     default:
       return null;
   }

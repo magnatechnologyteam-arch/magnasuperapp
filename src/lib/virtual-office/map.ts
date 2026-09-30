@@ -159,7 +159,25 @@ export type PropType =
   | "dispenser"
   | "cabinet"
   | "tree"
-  | "bush";
+  | "bush"
+  // -- Dekorasi KHAS tiap ruangan (permintaan Owner: ruangan lebih "niat"
+  // & beda identitas per divisi, terinspirasi referensi video game RPG
+  // top-down) -- tetap primitif geometri, TANPA aset gambar/sprite. --
+  | "crate" // tumpukan kotak inventaris -- Magnarent (sewa alat)
+  | "rack" // rak terbuka -- Magnarent
+  | "moodboard" // papan mood/foto tertempel -- Magnativ (kreatif)
+  | "ringlight" // ring light + tripod -- Magnativ
+  | "ladder" // tangga lipat -- Production
+  | "planks" // tumpukan papan kayu -- Production
+  | "tv" // TV di kaki penyangga -- Ruang Meeting
+  | "whiteboard" // papan tulis -- Ruang Meeting
+  | "stool" // kursi bar pendek -- Pantry
+  | "microwave" // microwave -- Pantry
+  | "bookshelf" // rak buku -- Ruang Owner/Admin
+  | "sofa" // sofa santai -- Ruang Owner/Admin
+  | "bench" // bangku taman -- halaman luar
+  | "lamppost" // lampu taman -- halaman luar
+  | "pottedplant"; // tanaman pot -- halaman luar
 
 export type Prop = { id: string; type: PropType; x: number; y: number };
 
@@ -227,6 +245,34 @@ export const PROPS: Prop[] = [
     x: WORLD_W + OUTDOOR_MARGIN / 2,
     y: 40 + i * 180,
   })),
+
+  // Dekorasi KHAS tiap ruangan -- biar tiap divisi kerasa beda identitas
+  // (bukan cuma beda warna lantai), terinspirasi referensi video Owner:
+  // ruangan RPG top-down yang tiap sudutnya "niat" didekor.
+  { id: "magnarent-crate", type: "crate", x: COL1_X + 230, y: ROW1_Y + 40 },
+  { id: "magnarent-rack", type: "rack", x: COL1_X + 20, y: ROW1_Y + 20 },
+  { id: "magnativ-ringlight", type: "ringlight", x: COL2_X + 230, y: ROW1_Y + 240 },
+  { id: "magnativ-moodboard", type: "moodboard", x: COL2_X + 20, y: ROW1_Y + 20 },
+  { id: "production-ladder", type: "ladder", x: COL3_X + 230, y: ROW1_Y + 240 },
+  { id: "production-planks", type: "planks", x: COL3_X + 20, y: ROW1_Y + 240 },
+  { id: "meeting-tv", type: "tv", x: COL1_X + 130, y: ROW2_Y + 20 },
+  { id: "meeting-whiteboard", type: "whiteboard", x: COL1_X + 20, y: ROW2_Y + 240 },
+  { id: "pantry-stool-1", type: "stool", x: COL2_X + 120, y: ROW2_Y + 90 },
+  { id: "pantry-stool-2", type: "stool", x: COL2_X + 160, y: ROW2_Y + 90 },
+  { id: "pantry-microwave", type: "microwave", x: COL2_X + 190, y: ROW2_Y + 20 },
+  { id: "owner-bookshelf", type: "bookshelf", x: COL3_X + 20, y: ROW2_Y + 20 },
+  { id: "owner-sofa", type: "sofa", x: COL3_X + 230, y: ROW2_Y + 220 },
+
+  // Halaman/taman depan -- bangku, lampu taman & tanaman pot (selain
+  // pohon keliling yang sudah ada di atas), dikelompokkan di sisi utara
+  // supaya kerasa ada "teras/courtyard" seperti referensi video.
+  { id: "courtyard-bench-1", type: "bench", x: 120, y: -OUTDOOR_MARGIN / 2 + 55 },
+  { id: "courtyard-bench-2", type: "bench", x: 450, y: -OUTDOOR_MARGIN / 2 + 55 },
+  { id: "courtyard-bench-3", type: "bench", x: 780, y: -OUTDOOR_MARGIN / 2 + 55 },
+  { id: "courtyard-lamppost-1", type: "lamppost", x: 280, y: -OUTDOOR_MARGIN / 2 + 55 },
+  { id: "courtyard-lamppost-2", type: "lamppost", x: 610, y: -OUTDOOR_MARGIN / 2 + 55 },
+  { id: "courtyard-pottedplant-1", type: "pottedplant", x: 30, y: -OUTDOOR_MARGIN / 2 + 20 },
+  { id: "courtyard-pottedplant-2", type: "pottedplant", x: 870, y: -OUTDOOR_MARGIN / 2 + 20 },
 ];
 
 function clamp(value: number, min: number, max: number): number {
