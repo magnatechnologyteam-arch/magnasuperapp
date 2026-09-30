@@ -6,10 +6,12 @@ import {
   Camera,
   ChevronDown,
   ClipboardList,
+  FileText,
   History,
   Link2,
   MapPin,
   MessageSquare,
+  Paperclip,
   Pencil,
   Plus,
   Search,
@@ -275,25 +277,75 @@ function AddOrEditItemModal({
   );
 }
 
-/** Tombol kamera terintegrasi -- input file disembunyikan, tombol
- * bergaya memicu `capture="environment"` supaya langsung buka kamera
- * di HP dan tidak terasa seperti dialog cari file biasa. */
-function PhotoCaptureButton({
+/** Ekstensi umum untuk gambar -- dipakai `isImageAttachment` menebak
+ * balik dari URL lampiran (foto atau file) apakah dia gambar (dirender
+ * jadi thumbnail) atau file dokumen biasa (dirender jadi kartu link). */
+const IMAGE_EXT_RE = /\.(png|jpe?g|gif|webp|bmp|avif|heic)$/i;
+function isImageAttachment(url: string): boolean {
+  return IMAGE_EXT_RE.test(url.split("?")[0]);
+}
+
+/** Nama file dari URL lampiran (fallback "file" kalau gagal parse) --
+ * dipakai label kartu link lampiran non-gambar. */
+function attachmentFileName(url: string): string {
+  try {
+    const last = url.split("?")[0].split("/").pop();
+    return last ? decodeURIComponent(last) : "file";
+  } catch {
+    return "file";
+  }
+}
+
+/** Thumbnail (gambar) atau kartu link (file dokumen) untuk satu lampiran
+ * yang sudah tersimpan -- dipakai di kartu review fase & Production. */
+function AttachmentPreview({ url, alt }: { url: string; alt: string }) {
+  if (isImageAttachment(url)) {
+    return (
+      <a href={url} target="_blank" rel="noreferrer" className="mt-2 inline-block">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={url} alt={alt} className="h-16 w-16 rounded-lg object-cover" />
+      </a>
+    );
+  }
+  const name = attachmentFileName(url);
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      title={name}
+      className="mt-2 inline-flex max-w-[10rem] items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-[11px] font-medium text-zinc-600 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300"
+    >
+      <FileText className="h-3.5 w-3.5 shrink-0" />
+      <span className="truncate">{name}</span>
+    </a>
+  );
+}
+
+/** Dua tombol pilihan mode lampiran -- "Ambil Foto" (langsung buka kamera
+ * HP lewat `capture="environment"`) ATAU "Pilih File" (dialog file biasa,
+ * bisa dokumen/PDF/dll) -- PIC tinggal pilih salah satu, keduanya menulis
+ * ke state `file` yang sama karena server (lihat actions.ts) tidak lagi
+ * membedakan tipe, cuma menyimpan sebagai satu lampiran. */
+function AttachmentPickerButtons({
   file,
   onSelect,
   disabled,
-  label,
+  photoLabel,
+  fileLabel,
 }: {
   file: File | null;
   onSelect: (file: File | null) => void;
   disabled?: boolean;
-  label?: string;
+  photoLabel?: string;
+  fileLabel?: string;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="flex flex-wrap items-center gap-2">
       <input
-        ref={inputRef}
+        ref={photoInputRef}
         type="file"
         accept="image/*"
         capture="environment"
@@ -304,9 +356,23 @@ function PhotoCaptureButton({
         }}
         className="hidden"
       />
-      <button type="button" onClick={() => inputRef.current?.click()} disabled={disabled} className={BTN}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        disabled={disabled}
+        onChange={(e) => {
+          onSelect(e.target.files?.[0] ?? null);
+          e.target.value = "";
+        }}
+        className="hidden"
+      />
+      <button type="button" onClick={() => photoInputRef.current?.click()} disabled={disabled} className={BTN}>
         <Camera className="h-3.5 w-3.5" />
-        {label ?? "Ambil Foto"}
+        {photoLabel ?? "Ambil Foto"}
+      </button>
+      <button type="button" onClick={() => fileInputRef.current?.click()} disabled={disabled} className={BTN}>
+        <Paperclip className="h-3.5 w-3.5" />
+        {fileLabel ?? "Pilih File"}
       </button>
       {file && (
         <span className="max-w-[9rem] truncate text-[11px] text-zinc-500 dark:text-zinc-400" title={file.name}>
@@ -385,7 +451,7 @@ function ReviewPhaseCard({
         showToast(result.error, "error");
         return;
       }
-      showToast("Foto tersimpan.");
+      showToast("Lampiran tersimpan.");
       setFile(null);
       onChanged();
     });
@@ -429,12 +495,7 @@ function ReviewPhaseCard({
         )}
       </div>
 
-      {review?.photoUrl && (
-        <a href={review.photoUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={review.photoUrl} alt="Foto konfirmasi" className="h-16 w-16 rounded-lg object-cover" />
-        </a>
-      )}
+      {review?.photoUrl && <AttachmentPreview url={review.photoUrl} alt="Lampiran konfirmasi" />}
 
       {!canAct ? (
         <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
@@ -444,11 +505,12 @@ function ReviewPhaseCard({
         <p className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Disetujui.</p>
       ) : (
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <PhotoCaptureButton
+          <AttachmentPickerButtons
             file={file}
             onSelect={setFile}
             disabled={pending}
-            label={review ? "Ambil Ulang Foto" : "Ambil Foto"}
+            photoLabel={review ? "Ambil Ulang Foto" : "Ambil Foto"}
+            fileLabel={review ? "Ganti File" : "Pilih File"}
           />
           <button type="button" onClick={submit} disabled={pending || !file} className={BTN}>
             {review ? "Simpan Revisi" : "Kirim"}
@@ -570,12 +632,15 @@ function ProductionCard({
           disabled={pending}
           className={cn(INPUT_XS, "min-w-[8rem] flex-1")}
         />
-        <PhotoCaptureButton file={file} onSelect={setFile} disabled={pending} label="Ambil Foto Produksi" />
+        <AttachmentPickerButtons
+          file={file}
+          onSelect={setFile}
+          disabled={pending}
+          photoLabel="Ambil Foto Produksi"
+          fileLabel="Pilih File Produksi"
+        />
       </div>
-      {item.productionPhotoUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.productionPhotoUrl} alt="Foto produksi" className="h-16 w-16 rounded-lg object-cover" />
-      )}
+      {item.productionPhotoUrl && <AttachmentPreview url={item.productionPhotoUrl} alt="Lampiran produksi" />}
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={saveDraft} disabled={pending} className={BTN}>
           Simpan Draft
@@ -584,7 +649,7 @@ function ProductionCard({
           type="button"
           onClick={() => setConfirmDone(true)}
           disabled={pending || !item.productionPhotoUrl}
-          title={!item.productionPhotoUrl ? "Simpan draft dengan foto dulu" : undefined}
+          title={!item.productionPhotoUrl ? "Simpan draft dengan foto/file dulu" : undefined}
           className={BTN_PRIMARY}
         >
           Tandai Selesai

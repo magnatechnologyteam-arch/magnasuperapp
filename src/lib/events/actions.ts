@@ -1111,10 +1111,12 @@ function notifyItemPic(item: { pic: string | null; item_name: string }, nextPhas
 }
 
 /**
- * Submit/revisi foto konfirmasi Design/Mockup/Sample (Tahap 51) -- foto
- * WAJIB sebelum bisa disetujui (`approveChecklistPhaseReview`). Submit
- * ulang sebelum disetujui otomatis naik jadi "revised" + revisionCount++
- * (monoton, lihat types.ts), TIDAK bisa lagi kalau sudah "approved".
+ * Submit/revisi lampiran konfirmasi Design/Mockup/Sample (Tahap 51) --
+ * lampiran (foto ATAU file dokumen, PIC pilih salah satu lewat
+ * AttachmentPickerButtons di UI) WAJIB sebelum bisa disetujui
+ * (`approveChecklistPhaseReview`). Submit ulang sebelum disetujui otomatis
+ * naik jadi "revised" + revisionCount++ (monoton, lihat types.ts), TIDAK
+ * bisa lagi kalau sudah "approved".
  */
 export async function submitChecklistPhaseReview(formData: FormData): Promise<MutationResult> {
   const itemId = String(formData.get("itemId") ?? "");
@@ -1137,9 +1139,13 @@ export async function submitChecklistPhaseReview(formData: FormData): Promise<Mu
 
   let photoUrl: string | undefined;
   if (file instanceof File && file.size > 0) {
-    if (file.size > MAX_PHOTO_SIZE_BYTES) return { ok: false, error: "Ukuran foto maksimal 10MB." };
-    if (!file.type.startsWith("image/")) return { ok: false, error: "File harus berupa foto." };
-    const ext = file.name.includes(".") ? file.name.split(".").pop()! : "jpg";
+    if (file.size > MAX_PHOTO_SIZE_BYTES) return { ok: false, error: "Ukuran lampiran maksimal 10MB." };
+    // Foto ATAU file dokumen -- PIC pilih salah satu mode lewat
+    // AttachmentPickerButtons di UI, server tidak lagi membatasi tipe
+    // MIME di sini (cuma ukuran) supaya kedua mode sama-sama lewat jalur
+    // upload yang sama. Tipe file ditebak balik dari ekstensi URL saat
+    // ditampilkan (lihat isImageAttachment di EventTrackingBoard.tsx).
+    const ext = file.name.includes(".") ? file.name.split(".").pop()! : "bin";
     const storagePath = `${crypto.randomUUID()}.${ext.toLowerCase()}`;
     const { error: uploadError } = await supabase.storage
       .from(CHECKLIST_PHOTO_BUCKET)
@@ -1165,7 +1171,7 @@ export async function submitChecklistPhaseReview(formData: FormData): Promise<Mu
     return { ok: false, error: "Fase ini sudah disetujui, tidak bisa diubah lagi." };
   }
   if (!photoUrl && !existing?.photo_url) {
-    return { ok: false, error: "Unggah foto konfirmasi." };
+    return { ok: false, error: "Unggah foto atau file konfirmasi." };
   }
 
   const { error } = await supabase.from("event_checklist_phase_reviews").upsert(
@@ -1324,7 +1330,7 @@ export async function rejectChecklistPhaseReview(
       title: "Perlu Revisi",
       body: isCascading
         ? `${item.item_name}: fase ${CHECKLIST_PHASE_LABELS[phase]} ditolak, item dikembalikan ke Design -- kerjakan ulang dari awal.`
-        : `${item.item_name}: fase ${CHECKLIST_PHASE_LABELS[phase]} ditolak, unggah ulang foto konfirmasi.`,
+        : `${item.item_name}: fase ${CHECKLIST_PHASE_LABELS[phase]} ditolak, unggah ulang foto/file konfirmasi.`,
       url: `${TRACKING_PATH}/${eventId}`,
     });
   }
@@ -1333,9 +1339,9 @@ export async function rejectChecklistPhaseReview(
   return { ok: true };
 }
 
-/** Simpan draft Production (qty/catatan/foto) -- BELUM menandai selesai,
- * lihat `markProductionDone` untuk itu. Bisa dipanggil berkali-kali
- * (autosave-style) selama masih di fase Production. */
+/** Simpan draft Production (qty/catatan/lampiran foto ATAU file) -- BELUM
+ * menandai selesai, lihat `markProductionDone` untuk itu. Bisa dipanggil
+ * berkali-kali (autosave-style) selama masih di fase Production. */
 export async function updateChecklistProduction(formData: FormData): Promise<MutationResult> {
   const itemId = String(formData.get("itemId") ?? "");
   const eventId = String(formData.get("eventId") ?? "");
@@ -1353,9 +1359,9 @@ export async function updateChecklistProduction(formData: FormData): Promise<Mut
 
   let photoUrl: string | undefined;
   if (file instanceof File && file.size > 0) {
-    if (file.size > MAX_PHOTO_SIZE_BYTES) return { ok: false, error: "Ukuran foto maksimal 10MB." };
-    if (!file.type.startsWith("image/")) return { ok: false, error: "File harus berupa foto." };
-    const ext = file.name.includes(".") ? file.name.split(".").pop()! : "jpg";
+    if (file.size > MAX_PHOTO_SIZE_BYTES) return { ok: false, error: "Ukuran lampiran maksimal 10MB." };
+    // Foto ATAU file dokumen -- lihat catatan sama di submitChecklistPhaseReview.
+    const ext = file.name.includes(".") ? file.name.split(".").pop()! : "bin";
     const storagePath = `${crypto.randomUUID()}.${ext.toLowerCase()}`;
     const { error: uploadError } = await supabase.storage
       .from(CHECKLIST_PHOTO_BUCKET)
@@ -1382,9 +1388,9 @@ export async function updateChecklistProduction(formData: FormData): Promise<Mut
   return { ok: true };
 }
 
-/** Tandai Production selesai -- WAJIB sudah ada foto (di draft atau
- * disertakan sekaligus lewat `updateChecklistProduction` sebelumnya).
- * Fase maju ke Completed. */
+/** Tandai Production selesai -- WAJIB sudah ada lampiran foto/file (di
+ * draft atau disertakan sekaligus lewat `updateChecklistProduction`
+ * sebelumnya). Fase maju ke Completed. */
 export async function markProductionDone(itemId: string, eventId: string): Promise<MutationResult> {
   const supabase = await createClient();
   const access = await getCurrentUserAccess(supabase);
@@ -1392,7 +1398,8 @@ export async function markProductionDone(itemId: string, eventId: string): Promi
   if (!item) return { ok: false, error: "Item tidak ditemukan." };
   if (!canActOnItem(item.pic, access)) return { ok: false, error: "Hanya PIC item ini yang bisa menandai selesai." };
   if (item.current_phase !== "production") return { ok: false, error: "Item ini bukan di fase Production." };
-  if (!item.production_photo_url) return { ok: false, error: "Unggah foto produksi dulu sebelum menandai selesai." };
+  if (!item.production_photo_url)
+    return { ok: false, error: "Unggah foto atau file produksi dulu sebelum menandai selesai." };
 
   const { error } = await supabase
     .from("event_checklist_items")
