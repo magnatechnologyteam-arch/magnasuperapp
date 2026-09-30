@@ -275,6 +275,7 @@ type ChecklistItemRow = {
   notes: string | null;
   status: string;
   pic: string | null;
+  pic_lapangan: string | null;
   sort_order: number;
   vendor_id: string | null;
   team: string | null;
@@ -298,7 +299,7 @@ type ChecklistItemRow = {
 };
 
 const CHECKLIST_ITEM_SELECT =
-  "id, event_id, category, item_name, detail, qty_info, notes, status, pic, sort_order, vendor_id, team, due_date, " +
+  "id, event_id, category, item_name, detail, qty_info, notes, status, pic, pic_lapangan, sort_order, vendor_id, team, due_date, " +
   "needs_production, current_phase, production_qty, production_notes, production_photo_url, production_done_at, production_done_by, " +
   "completed_at, completed_by, loading_in_at, loading_in_by, loading_out_at, loading_out_by, finished_at, finished_by, created_by";
 
@@ -313,6 +314,7 @@ function mapChecklistItem(row: ChecklistItemRow): EventChecklistItem {
     notes: row.notes ?? undefined,
     status: row.status as EventChecklistItem["status"],
     pic: row.pic ?? undefined,
+    picLapangan: row.pic_lapangan ?? undefined,
     sortOrder: row.sort_order,
     vendorId: row.vendor_id ?? undefined,
     team: row.team ?? undefined,
@@ -428,6 +430,7 @@ export async function getEventById(id: string): Promise<EventDetail | null> {
   for (const r of itemRows ?? []) {
     for (const v of [
       r.pic,
+      r.pic_lapangan,
       r.production_done_by,
       r.completed_by,
       r.loading_in_by,
@@ -459,6 +462,7 @@ export async function getEventById(id: string): Promise<EventDetail | null> {
   const checklistItems: EventChecklistItem[] = (itemRows ?? []).map((row) => ({
     ...mapChecklistItem(row),
     picName: nameOf(row.pic ?? undefined),
+    picLapanganName: nameOf(row.pic_lapangan ?? undefined),
     vendorName: row.vendor_id ? vendorNameById.get(row.vendor_id) : undefined,
     productionDoneByName: nameOf(row.production_done_by ?? undefined),
     completedByName: nameOf(row.completed_by ?? undefined),

@@ -6,7 +6,6 @@ import { logActivity } from "@/lib/activity/log";
 import { notifyDivision, notifyUsers } from "@/lib/push/notify";
 import {
   CHECKLIST_PHASE_LABELS,
-  CHECKLIST_REVIEW_PHASES,
   type ChecklistComment,
   type ChecklistItemExtraInput,
   type ChecklistPhase,
@@ -1027,10 +1026,20 @@ type ChecklistItemCore = {
   id: string;
   item_name: string;
   pic: string | null;
+  pic_lapangan: string | null;
   needs_production: boolean;
   current_phase: ChecklistPhase;
   production_photo_url: string | null;
 };
+
+/** Fase Design/Mockup/Sample/Production tanggung jawab "PIC Produksi"
+ * (`pic`); Completed/Loading In/Loading Out/Finish tanggung jawab
+ * "PIC Lapangan" (`pic_lapangan`) -- keputusan Owner Tahap 52. */
+function picFieldForPhase(phase: ChecklistPhase): "pic" | "pic_lapangan" {
+  return phase === "completed" || phase === "loading_in" || phase === "loading_out" || phase === "finish"
+    ? "pic_lapangan"
+    : "pic";
+}
 
 const PHASE_ORDER: ChecklistPhase[] = [
   "design",
@@ -1069,7 +1078,7 @@ async function getChecklistItemCore(
 ): Promise<ChecklistItemCore | null> {
   const { data } = await supabase
     .from("event_checklist_items")
-    .select("id, item_name, pic, needs_production, current_phase, production_photo_url")
+    .select("id, item_name, pic, pic_lapangan, needs_production, current_phase, production_photo_url")
     .eq("id", id)
     .maybeSingle<ChecklistItemCore>();
   return data ?? null;
@@ -1085,13 +1094,17 @@ function canActOnItem(itemPic: string | null, access: { userId: string | null; i
 
 async function writeChecklistPhaseLog(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  item: { id: string; pic: string | null },
+  item: { id: string; pic: string | null; pic_lapangan: string | null },
   phase: ChecklistPhase
 ) {
+  // Kolom `pic` di log ini catat PIC yang tanggung jawab fase yang SEDANG
+  // dicatat (Produksi atau Lapangan, lihat `picFieldForPhase`) -- bukan
+  // selalu `item.pic` lagi sejak PIC dipisah 2 (Tahap 52).
+  const relevantPic = picFieldForPhase(phase) === "pic_lapangan" ? item.pic_lapangan : item.pic;
   const { error } = await supabase.from("event_checklist_status_log").insert({
     checklist_item_id: item.id,
     status: CHECKLIST_PHASE_LABELS[phase],
-    pic: item.pic,
+    pic: relevantPic,
     phase,
     sub_status: null,
   });
@@ -1099,11 +1112,17 @@ async function writeChecklistPhaseLog(
 }
 
 /** Notifikasi personal ke PIC item (pola `notifyUsers`, sama seperti
- * @mention Chat) -- fase baru terbuka, PIC perlu tahu tanpa harus buka
- * Papan Tracking berkala cuma untuk cek. */
-function notifyItemPic(item: { pic: string | null; item_name: string }, nextPhase: ChecklistPhase, eventId: string) {
-  if (!item.pic) return;
-  void notifyUsers([item.pic], {
+ * @mention Chat) -- fase baru terbuka, PIC (Produksi atau Lapangan,
+ * tergantung fase berikutnya, lihat `picFieldForPhase`) perlu tahu tanpa
+ * harus buka Papan Tracking berkala cuma untuk cek. */
+function notifyItemPic(
+  item: { pic: string | null; pic_lapangan: string | null; item_name: string },
+  nextPhase: ChecklistPhase,
+  eventId: string
+) {
+  const targetPic = picFieldForPhase(nextPhase) === "pic_lapangan" ? item.pic_lapangan : item.pic;
+  if (!targetPic) return;
+  void notifyUsers([targetPic], {
     title: "Fase Berikutnya Terbuka",
     body: `${item.item_name}: fase ${CHECKLIST_PHASE_LABELS[nextPhase]} sudah bisa dikerjakan.`,
     url: `${TRACKING_PATH}/${eventId}`,
@@ -1252,17 +1271,14 @@ export async function approveChecklistPhaseReview(
  * dihapus sekalian (reset total, bukan cuma ubah sub_status), jadi begitu
  * PIC mengunggah foto lagi itu dihitung ulang sebagai "Proposed".
  *
- * "Perputaran" (Tahap 52 lanjutan) -- kalau yang ditolak itu Mockup atau
- * Sample, diagram use case Owner gambarkan panah balik bukan cuma ke fase
- * itu sendiri tapi "restart total dari awal": item.current_phase MUNDUR
- * ke Design lagi, PIC wajib kerjakan ulang Design->Mockup(->Sample) dari
- * Proposed. Fase-fase SEBELUMNYA yang sudah "approved" TIDAK dihapus
- * (riwayat foto lama tetap kelihatan sampai ditimpa), cuma sub_status-nya
- * dikembalikan ke "revised" supaya bisa disubmit ulang (lihat guard
- * monoton di `submitChecklistPhaseReview`). Reject di Design sendiri
- * (tidak ada fase sebelumnya) tetap seperti semula: reset fase itu saja.
- * Tidak bisa dipakai kalau sudah "approved" (kunci akhir, lihat
- * `approveChecklistPhaseReview`). */
+ * Disederhanakan (Tahap 52, keputusan Owner: mekanisme dirasa masih
+ * rumit) -- SEBELUMNYA reject Mockup/Sample "restart total" balik ke
+ * Design (fase sebelumnya yang sudah "approved" ikut direset). Sekarang
+ * TETAP 3 fase review terpisah, tapi reject cuma mundurkan 1 langkah:
+ * cuma fase yang ditolak itu sendiri yang reset, `current_phase` TIDAK
+ * pernah berubah (guard di atas sudah memastikan `current_phase` = fase
+ * yang ditolak), fase-fase lain tidak tersentuh. Tidak bisa dipakai kalau
+ * sudah "approved" (kunci akhir, lihat `approveChecklistPhaseReview`). */
 export async function rejectChecklistPhaseReview(
   itemId: string,
   eventId: string,
@@ -1292,45 +1308,13 @@ export async function rejectChecklistPhaseReview(
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  const earlierPhases = CHECKLIST_REVIEW_PHASES.slice(0, CHECKLIST_REVIEW_PHASES.indexOf(phase));
-  const isCascading = earlierPhases.length > 0;
-
-  if (isCascading) {
-    const { data: earlierReviews } = await supabase
-      .from("event_checklist_phase_reviews")
-      .select("id, sub_status")
-      .eq("checklist_item_id", itemId)
-      .in("phase", earlierPhases)
-      .returns<{ id: string; sub_status: string }[]>();
-    const approvedIds = (earlierReviews ?? []).filter((r) => r.sub_status === "approved").map((r) => r.id);
-    if (approvedIds.length > 0) {
-      const { error: resetError } = await supabase
-        .from("event_checklist_phase_reviews")
-        .update({ sub_status: "revised", approved_by: null, approved_at: null })
-        .in("id", approvedIds);
-      if (resetError) {
-        console.error("[events] rejectChecklistPhaseReview: reset fase sebelumnya gagal:", resetError.message);
-        return { ok: false, error: GENERIC_ERROR };
-      }
-    }
-
-    const { error: itemError } = await supabase
-      .from("event_checklist_items")
-      .update({ current_phase: "design" })
-      .eq("id", itemId);
-    if (itemError) {
-      console.error("[events] rejectChecklistPhaseReview: mundurkan fase gagal:", itemError.message);
-      return { ok: false, error: GENERIC_ERROR };
-    }
-    await writeChecklistPhaseLog(supabase, item, "design");
-  }
-
+  // `current_phase` TIDAK diubah -- guard di atas sudah memastikan
+  // `current_phase === phase` yang ditolak, jadi tidak perlu di-set ulang,
+  // dan tidak ada lagi cascade ke fase-fase lain (Tahap 52).
   if (item.pic) {
     void notifyUsers([item.pic], {
       title: "Perlu Revisi",
-      body: isCascading
-        ? `${item.item_name}: fase ${CHECKLIST_PHASE_LABELS[phase]} ditolak, item dikembalikan ke Design -- kerjakan ulang dari awal.`
-        : `${item.item_name}: fase ${CHECKLIST_PHASE_LABELS[phase]} ditolak, unggah ulang foto/file konfirmasi.`,
+      body: `${item.item_name}: fase ${CHECKLIST_PHASE_LABELS[phase]} ditolak, unggah ulang foto/file konfirmasi.`,
       url: `${TRACKING_PATH}/${eventId}`,
     });
   }
@@ -1424,7 +1408,8 @@ export async function confirmChecklistCompleted(itemId: string, eventId: string)
   const access = await getCurrentUserAccess(supabase);
   const item = await getChecklistItemCore(supabase, itemId);
   if (!item) return { ok: false, error: "Item tidak ditemukan." };
-  if (!canActOnItem(item.pic, access)) return { ok: false, error: "Hanya PIC item ini yang bisa konfirmasi." };
+  if (!canActOnItem(item.pic_lapangan, access))
+    return { ok: false, error: "Hanya PIC Lapangan item ini yang bisa konfirmasi." };
   if (item.current_phase !== "completed") return { ok: false, error: "Item ini bukan di fase Completed." };
 
   const { error } = await supabase
@@ -1476,19 +1461,22 @@ export async function bulkAdvanceChecklistPhase(
 
   const { data: items, error } = await supabase
     .from("event_checklist_items")
-    .select("id, item_name, pic, current_phase")
+    .select("id, item_name, pic, pic_lapangan, current_phase")
     .in("id", itemIds)
     .eq("event_id", eventId)
-    .returns<{ id: string; item_name: string; pic: string | null; current_phase: ChecklistPhase }[]>();
+    .returns<
+      { id: string; item_name: string; pic: string | null; pic_lapangan: string | null; current_phase: ChecklistPhase }[]
+    >();
   if (error || !items) {
     console.error("[events] bulkAdvanceChecklistPhase: gagal ambil item:", error?.message);
     return { ok: false, error: GENERIC_ERROR };
   }
 
   const predecessor = LOADING_PREDECESSOR[targetPhase];
-  const eligible = items.filter((it) => it.current_phase === predecessor && canActOnItem(it.pic, access));
+  // Loading In/Out/Finish semuanya fase "PIC Lapangan" (Tahap 52).
+  const eligible = items.filter((it) => it.current_phase === predecessor && canActOnItem(it.pic_lapangan, access));
   if (eligible.length === 0) {
-    return { ok: false, error: "Tidak ada item yang bisa diproses (bukan PIC-nya, atau fase belum sesuai)." };
+    return { ok: false, error: "Tidak ada item yang bisa diproses (bukan PIC Lapangan-nya, atau fase belum sesuai)." };
   }
 
   const now = new Date().toISOString();
@@ -1511,7 +1499,9 @@ export async function bulkAdvanceChecklistPhase(
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  await Promise.all(eligible.map((it) => writeChecklistPhaseLog(supabase, { id: it.id, pic: it.pic }, targetPhase)));
+  await Promise.all(
+    eligible.map((it) => writeChecklistPhaseLog(supabase, { id: it.id, pic: it.pic, pic_lapangan: it.pic_lapangan }, targetPhase))
+  );
 
   revalidatePath(`${TRACKING_PATH}/${eventId}`);
 
@@ -1567,12 +1557,13 @@ export async function revertChecklistPhase(itemId: string, eventId: string): Pro
 
   const { data: item } = await supabase
     .from("event_checklist_items")
-    .select("id, item_name, pic, current_phase, production_done_at")
+    .select("id, item_name, pic, pic_lapangan, current_phase, production_done_at")
     .eq("id", itemId)
     .maybeSingle<{
       id: string;
       item_name: string;
       pic: string | null;
+      pic_lapangan: string | null;
       current_phase: ChecklistPhase;
       production_done_at: string | null;
     }>();
@@ -1623,9 +1614,12 @@ export async function revertChecklistPhase(itemId: string, eventId: string): Pro
     console.error("[events] revertChecklistPhase gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
-  await writeChecklistPhaseLog(supabase, { id: item.id, pic: item.pic }, targetPhase);
-  if (item.pic) {
-    void notifyUsers([item.pic], {
+  await writeChecklistPhaseLog(supabase, { id: item.id, pic: item.pic, pic_lapangan: item.pic_lapangan }, targetPhase);
+  // Beritahu PIC yang tanggung jawab fase TUJUAN (Produksi atau Lapangan,
+  // lihat `picFieldForPhase`) -- dia yang harus kerjakan ulang dari sana.
+  const notifyPicId = picFieldForPhase(targetPhase) === "pic_lapangan" ? item.pic_lapangan : item.pic;
+  if (notifyPicId) {
+    void notifyUsers([notifyPicId], {
       title: "Fase Dikembalikan",
       body: `${item.item_name}: Admin mengembalikan fase ke ${CHECKLIST_PHASE_LABELS[targetPhase]}.`,
       url: `${TRACKING_PATH}/${eventId}`,
@@ -1661,6 +1655,30 @@ export async function setChecklistNeedsProduction(
   const { error } = await supabase.from("event_checklist_items").update(patch).eq("id", itemId);
   if (error) {
     console.error("[events] setChecklistNeedsProduction gagal:", error.message);
+    return { ok: false, error: GENERIC_ERROR };
+  }
+  revalidatePath(`${TRACKING_PATH}/${eventId}`);
+  return { ok: true };
+}
+
+/**
+ * Tugaskan/ubah "PIC Lapangan" satu item checklist (Tahap 52) -- pasangan
+ * `handlePicChange`/`updateEventChecklistProgress` di atas yang menangani
+ * "PIC Produksi" (kolom `pic` lama). Dipisah supaya Admin/PIC bisa
+ * menugaskan 2 orang berbeda untuk produksi vs hari-H di lapangan, sesuai
+ * keputusan Owner. TIDAK menulis ke `event_checklist_status_log` (log itu
+ * tetap fokus riwayat status/PIC Produksi lama) -- kalau nanti histori
+ * PIC Lapangan juga dibutuhkan, tabel log itu perlu kolom terpisah dulu.
+ */
+export async function updateChecklistPicLapangan(
+  id: string,
+  eventId: string,
+  picLapanganId: string | null
+): Promise<MutationResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("event_checklist_items").update({ pic_lapangan: picLapanganId }).eq("id", id);
+  if (error) {
+    console.error("[events] updateChecklistPicLapangan gagal:", error.message);
     return { ok: false, error: GENERIC_ERROR };
   }
   revalidatePath(`${TRACKING_PATH}/${eventId}`);

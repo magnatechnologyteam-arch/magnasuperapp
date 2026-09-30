@@ -288,12 +288,22 @@ export type EventChecklistItem = {
   qtyInfo?: string;
   notes?: string;
   status: EventChecklistStatus;
-  /** id profil (uuid) staf yang ditugaskan -- diisi/diubah lewat Papan
-   * Tracking (Tahap D), bukan di halaman detail Admin (Tahap C). */
+  /** "PIC Produksi" -- id profil (uuid) staf yang tanggung jawab fase
+   * Design/Mockup/Sample/Production, diisi/diubah lewat Papan Tracking
+   * (Tahap D), bukan di halaman detail Admin (Tahap C). Sebelum Tahap 52
+   * ini satu-satunya PIC untuk seluruh 8 fase; sekarang dipisah dari
+   * `picLapangan` di bawah (keputusan Owner: mekanisme dirasa rumit kalau
+   * 1 orang dipaksa tanggung jawab dari produksi sampai lapangan). */
   pic?: string;
   /** Nama tampilan untuk `pic` di atas, diresolusi di data.ts (Tahap D) --
    * dipisah dari `pic` (uuid) supaya UI tidak perlu query profiles sendiri. */
   picName?: string;
+  /** "PIC Lapangan" (Tahap 52, migrasi `event_checklist_dual_pic`) -- id
+   * profil (uuid) staf yang tanggung jawab fase Completed/Loading In/
+   * Loading Out/Finish, terpisah dari `pic` ("PIC Produksi") di atas. */
+  picLapangan?: string;
+  /** Nama tampilan untuk `picLapangan`, pola sama dengan `picName`. */
+  picLapanganName?: string;
   sortOrder: number;
   /** Kaitan opsional ke `magnative_vendors` (rekomendasi 3 laporan gap-
    * event vs SOP, migrasi 0063) -- sourcing (harga/kategori vendor)

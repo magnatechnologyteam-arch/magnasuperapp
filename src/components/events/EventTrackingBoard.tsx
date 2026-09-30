@@ -34,6 +34,7 @@ import {
   revertChecklistPhase,
   setChecklistNeedsProduction,
   submitChecklistPhaseReview,
+  updateChecklistPicLapangan,
   updateChecklistProduction,
   updateEventChecklistItem,
   updateEventChecklistProgress,
@@ -81,11 +82,14 @@ const INPUT_XS =
   "rounded-lg border border-zinc-300 bg-transparent px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-950";
 
 /** "PIC yang bertanggung jawab" (keputusan Owner) -- akses penuh selalu
- * boleh override, dipakai di semua kartu aksi fase + seleksi bulk loading. */
-function canActOnItem(item: EventChecklistItem, currentUserId: string | null, isFullAccess: boolean): boolean {
+ * boleh override. Tahap 52: PIC dipisah 2 (Produksi vs Lapangan), jadi
+ * fungsi ini generik menerima id PIC yang relevan langsung (`item.pic`
+ * untuk kartu Design/Mockup/Sample/Production, `item.picLapangan` untuk
+ * Completed s/d Finish) -- bukan lagi selalu `item.pic`. */
+function canActOnItem(itemPicId: string | undefined, currentUserId: string | null, isFullAccess: boolean): boolean {
   if (isFullAccess) return true;
   if (!currentUserId) return false;
-  return item.pic === currentUserId;
+  return itemPicId === currentUserId;
 }
 
 function emptyTrackingItemForm() {
@@ -499,7 +503,7 @@ function ReviewPhaseCard({
 
       {!canAct ? (
         <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
-          Menunggu PIC ({item.picName ?? "belum ditugaskan"}).
+          Menunggu PIC Produksi ({item.picName ?? "belum ditugaskan"}).
         </p>
       ) : subStatus === "approved" ? (
         <p className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Disetujui.</p>
@@ -545,9 +549,10 @@ function ReviewPhaseCard({
         description={
           confirmAction === "approve"
             ? `Fase ${CHECKLIST_PHASE_LABELS[phase]} untuk "${item.itemName}" akan disetujui dan lanjut ke fase berikutnya.`
-            : phase === "design"
-              ? `Fase Design untuk "${item.itemName}" akan ditolak -- PIC perlu unggah ulang foto.`
-              : `Fase ${CHECKLIST_PHASE_LABELS[phase]} untuk "${item.itemName}" akan ditolak -- item dikembalikan ke Design dan PIC harus kerjakan ulang dari awal.`
+            // Disederhanakan (Tahap 52) -- reject SEKARANG cuma mundurkan
+            // fase ini sendiri (bukan lagi cascading balik ke Design),
+            // jadi pesannya sama untuk ketiga fase review.
+            : `Fase ${CHECKLIST_PHASE_LABELS[phase]} untuk "${item.itemName}" akan ditolak -- PIC perlu unggah ulang foto/file konfirmasi.`
         }
         confirmLabel={confirmAction === "approve" ? "Setujui" : "Tolak"}
         confirmVariant={confirmAction === "approve" ? "primary" : "danger"}
@@ -610,7 +615,7 @@ function ProductionCard({
   if (!canAct) {
     return (
       <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
-        Menunggu PIC ({item.picName ?? "belum ditugaskan"}) mengisi Production.
+        Menunggu PIC Produksi ({item.picName ?? "belum ditugaskan"}) mengisi Production.
       </p>
     );
   }
@@ -692,7 +697,7 @@ function CompletedCard({
   if (!canAct) {
     return (
       <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
-        Menunggu konfirmasi PIC ({item.picName ?? "belum ditugaskan"}).
+        Menunggu konfirmasi PIC Lapangan ({item.picLapanganName ?? "belum ditugaskan"}).
       </p>
     );
   }
@@ -796,10 +801,11 @@ function BulkStageGroup({
   const [pending, startTransition] = useTransition();
   const predecessorIdx = CHECKLIST_PHASES.indexOf(stage.predecessor);
 
+  // Loading In/Out/Finish semuanya fase "PIC Lapangan" (Tahap 52).
   const eligibleIds = useMemo(
     () =>
       items
-        .filter((i) => i.currentPhase === stage.predecessor && canActOnItem(i, currentUserId, isFullAccess))
+        .filter((i) => i.currentPhase === stage.predecessor && canActOnItem(i.picLapangan, currentUserId, isFullAccess))
         .map((i) => i.id),
     [items, stage.predecessor, currentUserId, isFullAccess]
   );
@@ -853,7 +859,7 @@ function BulkStageGroup({
         {items.map((item) => {
           const itemIdx = CHECKLIST_PHASES.indexOf(item.currentPhase);
           const isEligible = item.currentPhase === stage.predecessor;
-          const canAct = canActOnItem(item, currentUserId, isFullAccess);
+          const canAct = canActOnItem(item.picLapangan, currentUserId, isFullAccess);
           const alreadyPast = itemIdx > predecessorIdx;
           return (
             <label
@@ -875,7 +881,7 @@ function BulkStageGroup({
               ) : !isEligible ? (
                 <span className="text-[10px] text-zinc-400">belum sampai</span>
               ) : !canAct ? (
-                <span className="text-[10px] text-zinc-400">PIC: {item.picName ?? "-"}</span>
+                <span className="text-[10px] text-zinc-400">PIC Lapangan: {item.picLapanganName ?? "-"}</span>
               ) : null}
             </label>
           );
@@ -1096,7 +1102,22 @@ export function EventTrackingBoard({
       showToast(result.error, "error");
       return;
     }
-    showToast("PIC disimpan.");
+    showToast("PIC Produksi disimpan.");
+    router.refresh();
+  }
+
+  /** Pasangan `handlePicChange` di atas -- Tahap 52, "PIC Lapangan"
+   * (Completed s/d Finish) dipisah dari "PIC Produksi" (Design/Mockup/
+   * Sample/Production). */
+  async function handlePicLapanganChange(item: EventChecklistItem, picId: string | null) {
+    setSavingId(item.id);
+    const result = await updateChecklistPicLapangan(item.id, item.eventId, picId);
+    setSavingId(null);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      return;
+    }
+    showToast("PIC Lapangan disimpan.");
     router.refresh();
   }
 
@@ -1264,7 +1285,13 @@ export function EventTrackingBoard({
                   {isOpen && (
                     <div className="space-y-2 px-3 pb-3">
                       {renderList.map((item) => {
-                    const canAct = canActOnItem(item, currentUserId, isFullAccess);
+                    // Tahap 52: PIC dipisah 2 -- "PIC Produksi" (`pic`)
+                    // tanggung jawab Design/Mockup/Sample/Production,
+                    // "PIC Lapangan" (`picLapangan`) tanggung jawab
+                    // Completed s/d Finish. Masing-masing dicek terpisah,
+                    // bukan lagi satu `canAct` dipakai untuk semua kartu.
+                    const canActProduksi = canActOnItem(item.pic, currentUserId, isFullAccess);
+                    const canActLapangan = canActOnItem(item.picLapangan, currentUserId, isFullAccess);
                     const activeReview = CHECKLIST_REVIEW_PHASES.includes(item.currentPhase as ChecklistReviewPhase)
                       ? item.phaseReviews?.find((r) => r.phase === item.currentPhase)
                       : undefined;
@@ -1290,17 +1317,17 @@ export function EventTrackingBoard({
                                 item={item}
                                 phase={item.currentPhase as ChecklistReviewPhase}
                                 review={activeReview}
-                                canAct={canAct}
+                                canAct={canActProduksi}
                                 isFullAccess={isFullAccess}
                                 eventId={item.eventId}
                                 onChanged={handleChanged}
                               />
                             )}
                             {item.currentPhase === "production" && (
-                              <ProductionCard item={item} eventId={item.eventId} canAct={canAct} onChanged={handleChanged} />
+                              <ProductionCard item={item} eventId={item.eventId} canAct={canActProduksi} onChanged={handleChanged} />
                             )}
                             {item.currentPhase === "completed" && (
-                              <CompletedCard item={item} eventId={item.eventId} canAct={canAct} onChanged={handleChanged} />
+                              <CompletedCard item={item} eventId={item.eventId} canAct={canActLapangan} onChanged={handleChanged} />
                             )}
                             {(item.currentPhase === "loading_in" || item.currentPhase === "loading_out") && (
                               <p className="mt-2 text-xs text-zinc-400 dark:text-zinc-500">
@@ -1327,19 +1354,38 @@ export function EventTrackingBoard({
                                 </select>
                               </label>
                             )}
-                            <select
-                              value={item.pic ?? ""}
-                              disabled={savingId === item.id}
-                              onChange={(e) => handlePicChange(item, e.target.value || null)}
-                              className={cn(INPUT_XS, "max-w-[9.5rem]")}
-                            >
-                              <option value="">Belum ditugaskan</option>
-                              {picOptions.map((p) => (
-                                <option key={p.id} value={p.id}>
-                                  {p.fullName} ({DIVISION_LABEL[p.division] ?? p.division})
-                                </option>
-                              ))}
-                            </select>
+                            <label className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                              PIC Produksi:
+                              <select
+                                value={item.pic ?? ""}
+                                disabled={savingId === item.id}
+                                onChange={(e) => handlePicChange(item, e.target.value || null)}
+                                className={cn(INPUT_XS, "max-w-[9.5rem]")}
+                              >
+                                <option value="">Belum ditugaskan</option>
+                                {picOptions.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.fullName} ({DIVISION_LABEL[p.division] ?? p.division})
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <label className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400">
+                              PIC Lapangan:
+                              <select
+                                value={item.picLapangan ?? ""}
+                                disabled={savingId === item.id}
+                                onChange={(e) => handlePicLapanganChange(item, e.target.value || null)}
+                                className={cn(INPUT_XS, "max-w-[9.5rem]")}
+                              >
+                                <option value="">Belum ditugaskan</option>
+                                {picOptions.map((p) => (
+                                  <option key={p.id} value={p.id}>
+                                    {p.fullName} ({DIVISION_LABEL[p.division] ?? p.division})
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
                             <button
                               type="button"
                               onClick={() => setHistoryTarget(item)}
