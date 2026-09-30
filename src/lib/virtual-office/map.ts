@@ -33,6 +33,12 @@ export const WORLD_H = 620;
 /** Margin tembok luar -- pusat avatar tidak boleh melewati batas ini. */
 const WALL_MARGIN = 20;
 
+/** Lebar area "taman" di luar gedung (Tahap 3D) -- murni dekorasi latar
+ * (rumput + pohon keliling), avatar TIDAK PERNAH sampai situ karena
+ * `resolveMove` tetap membatasi gerak ke dalam WORLD_W x WORLD_H seperti
+ * semula. */
+export const OUTDOOR_MARGIN = 140;
+
 export const PLAYER_RADIUS = 14;
 /** Piksel per detik -- dipakai VirtualOfficeClient dikali delta-time frame,
  * BUKAN dikali langsung per-frame, supaya kecepatan gerak konsisten walau
@@ -134,6 +140,93 @@ export const OBSTACLES: Rect[] = [
   { x: COL2_X + 20, y: ROW2_Y + 20, w: 220, h: 40 },
   // Meja kerja Owner/Admin, satu meja besar
   { x: COL3_X + 70, y: ROW2_Y + 40, w: 120, h: 50 },
+];
+
+/**
+ * Perabot/dekorasi (Tahap 3D, permintaan Owner: "pepohonan dan isi
+ * kantor") -- BEDA dari `OBSTACLES` di atas: murni VISUAL, TIDAK
+ * menghalangi jalan avatar (`resolveMove` tidak membaca array ini sama
+ * sekali). Meja kerja/meja rapat/counter yang MEMANG menghalangi jalan
+ * sudah ada sendiri di `OBSTACLES` -- dirender sebagai kotak meja di
+ * VirtualOfficeClient, array ini cuma menambah detail DI ATAS/DI SEKITAR
+ * posisi itu (komputer di atas meja, kursi di sisi meja, dst).
+ */
+export type PropType =
+  | "chair"
+  | "computer"
+  | "meetingChair"
+  | "fridge"
+  | "dispenser"
+  | "cabinet"
+  | "tree"
+  | "bush";
+
+export type Prop = { id: string; type: PropType; x: number; y: number };
+
+export const PROPS: Prop[] = [
+  // Komputer di atas + kursi di sisi tiap meja kerja divisi (posisi
+  // mengikuti persis meja di OBSTACLES: 60x30, dipusatkan y+120).
+  ...(["magnarent-desk", "magnativ-desk", "production-desk"] as const).flatMap((roomId) => {
+    const room = ROOMS.find((r) => r.id === roomId)!;
+    const deskY = room.rect.y + 120;
+    return [0, 1, 2].flatMap((i) => {
+      const deskCenterX = room.rect.x + 20 + i * 80 + 30;
+      return [
+        { id: `${roomId}-computer-${i}`, type: "computer" as const, x: deskCenterX, y: deskY + 12 },
+        { id: `${roomId}-chair-${i}`, type: "chair" as const, x: deskCenterX, y: deskY + 50 },
+      ];
+    });
+  }),
+
+  // 6 kursi keliling meja rapat (meja rapat di OBSTACLES: COL1_X+60,
+  // ROW2_Y+90, 140x90 -- 3 kursi di sisi atas, 3 di sisi bawah).
+  ...[0, 1, 2].flatMap((i) => [
+    { id: `meeting-chair-top-${i}`, type: "meetingChair" as const, x: COL1_X + 85 + i * 45, y: ROW2_Y + 78 },
+    { id: `meeting-chair-bottom-${i}`, type: "meetingChair" as const, x: COL1_X + 85 + i * 45, y: ROW2_Y + 192 },
+  ]),
+
+  // Pantry: kulkas + dispenser di dekat counter (counter di OBSTACLES:
+  // COL2_X+20, ROW2_Y+20, 220x40).
+  { id: "pantry-fridge", type: "fridge", x: COL2_X + 245, y: ROW2_Y + 40 },
+  { id: "pantry-dispenser", type: "dispenser", x: COL2_X + 30, y: ROW2_Y + 40 },
+
+  // Lemari arsip di Ruang Owner/Admin (meja di OBSTACLES: COL3_X+70,
+  // ROW2_Y+40, 120x50).
+  { id: "owner-cabinet", type: "cabinet", x: COL3_X + 230, y: ROW2_Y + 40 },
+
+  // Beberapa semak kecil di sudut tiap ruangan (sentuhan hijau di dalam
+  // gedung, tidak menghalangi jalan) + pohon KELILING gedung di area
+  // taman luar (OUTDOOR_MARGIN) yang tidak pernah dilewati avatar.
+  ...ROOMS.map((room) => ({
+    id: `${room.id}-bush`,
+    type: "bush" as const,
+    x: room.rect.x + room.rect.w - 18,
+    y: room.rect.y + 18,
+  })),
+  ...Array.from({ length: 6 }, (_, i) => ({
+    id: `tree-north-${i}`,
+    type: "tree" as const,
+    x: 40 + i * 165,
+    y: -OUTDOOR_MARGIN / 2,
+  })),
+  ...Array.from({ length: 6 }, (_, i) => ({
+    id: `tree-south-${i}`,
+    type: "tree" as const,
+    x: 40 + i * 165,
+    y: WORLD_H + OUTDOOR_MARGIN / 2,
+  })),
+  ...Array.from({ length: 4 }, (_, i) => ({
+    id: `tree-west-${i}`,
+    type: "tree" as const,
+    x: -OUTDOOR_MARGIN / 2,
+    y: 40 + i * 180,
+  })),
+  ...Array.from({ length: 4 }, (_, i) => ({
+    id: `tree-east-${i}`,
+    type: "tree" as const,
+    x: WORLD_W + OUTDOOR_MARGIN / 2,
+    y: 40 + i * 180,
+  })),
 ];
 
 function clamp(value: number, min: number, max: number): number {

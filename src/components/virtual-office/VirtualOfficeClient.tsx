@@ -1,21 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, MapPin, MessageSquare, Users } from "lucide-react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { Billboard, Edges, Text } from "@react-three/drei";
+import * as THREE from "three";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/cn";
 import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
-import { getInitials } from "@/lib/shared/utils";
 import type { ChatRoom } from "@/lib/chat/rooms";
 import type { Division } from "@/lib/supabase/types";
 import type { OfficeRosterEntry } from "@/lib/virtual-office/data";
+import type { OfficeRoom, Prop, Rect } from "@/lib/virtual-office/map";
 import {
   DIVISION_COLORS,
   OBSTACLES,
+  OUTDOOR_MARGIN,
   PLAYER_RADIUS,
   PLAYER_SPEED,
+  PROPS,
   ROOMS,
   SPAWN,
   WORLD_H,
@@ -25,24 +30,59 @@ import {
 } from "@/lib/virtual-office/map";
 
 /**
- * Tahap H -- "Kantor Virtual" (permintaan Owner: model kantor virtual 2D
- * ala Gather.town). Komponen ini SATU-SATUNYA yang menyentuh canvas/game
- * loop/Supabase Realtime -- map.ts murni data & geometri, data.ts murni
- * fetch roster server-side.
+ * Tahap H+ -- "Kantor Virtual" versi 3D (permintaan Owner: "ubah bentuk
+ * virtual gamenya ... di buat 3d ... pepohonan dan isi kantor"). Render
+ * pakai React Three Fiber (WebGL sungguhan, bukan isometrik 2D) --
+ * geometri dasar (box/cylinder/cone/sphere), BUKAN model 3D siap pakai,
+ * supaya tidak menambah file asset.
  *
- * Multiplayer TANPA tabel database sama sekali -- posisi avatar cuma
- * hidup selama koneksi (Realtime Broadcast), dan "siapa online" dari
- * Realtime Presence. Sengaja begini (bukan disimpan ke Postgres per
- * gerakan) karena posisi jalan-jalan bukan data yang perlu awet -- kalau
- * disimpan tiap gerakan, itu ratusan write/detik per orang, sia-sia.
+ * Logika non-visual (koneksi Realtime, kontrol keyboard, matematika
+ * gerak/collision di map.ts) SENGAJA TIDAK diubah dari versi 2D --
+ * hanya lapisan render yang diganti dari <canvas> 2D ke <Canvas> R3F.
+ * Posisi avatar tiap frame diubah langsung lewat ref Three.js
+ * (group.position.set), BUKAN lewat React state, supaya tidak ada
+ * re-render React per frame gerakan (sama seperti filosofi versi 2D).
+ *
+ * Kamera "mengikuti dari belakang-atas" dengan offset TETAP (bukan
+ * orbit bebas) supaya arah selalu bisa diprediksi pemain.
  */
 
 type Dir = "up" | "down" | "left" | "right";
 type RemotePos = { x: number; y: number; dir: Dir };
+type Pos = { x: number; y: number };
 
 const CHANNEL_NAME = "kantor-virtual";
 const BROADCAST_INTERVAL_MS = 70;
 const CHAT_PROXIMITY_PX = 72;
+const CAMERA_OFFSET = { x: 0, y: 340, z: 300 };
+
+const DIR_VECTORS: Record<Dir, { x: number; z: number }> = {
+  up: { x: 0, z: -1 },
+  down: { x: 0, z: 1 },
+  left: { x: -1, z: 0 },
+  right: { x: 1, z: 0 },
+};
+
+function dirToRadians(dir: Dir): number {
+  const v = DIR_VECTORS[dir];
+  return Math.atan2(v.x, v.z);
+}
+
+/** Konversi koordinat "peta 2D" (x,y piksel, y makin besar = makin ke
+ * bawah) jadi koordinat scene 3D (X kanan, Y atas, Z depan) -- dipusatkan
+ * di tengah dunia supaya kamera default (0,0,0) pas di tengah kantor. */
+function toScene(x: number, y: number): [number, number, number] {
+  return [x - WORLD_W / 2, 0, y - WORLD_H / 2];
+}
+
+/** "#RRGGBBAA" -> warna solid + opacity 0..1 (Three.js material tidak
+ * baca alpha dari string hex 8-digit seperti canvas 2D). */
+function hex8ToRgbAlpha(hex: string): { color: string; opacity: number } {
+  if (hex.length === 9) {
+    return { color: hex.slice(0, 7), opacity: parseInt(hex.slice(7, 9), 16) / 255 };
+  }
+  return { color: hex, opacity: 1 };
+}
 
 type CurrentUser = { id: string; fullName: string; username: string | null; division: Division };
 
@@ -67,8 +107,7 @@ export function VirtualOfficeClient({
 }) {
   const rosterById = useMemo(() => new Map(roster.map((r) => [r.id, r])), [roster]);
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const posRef = useRef({ ...SPAWN });
+  const posRef = useRef<Pos>({ ...SPAWN });
   const dirRef = useRef<Dir>("down");
   const keysRef = useRef<Set<string>>(new Set());
   const remoteRef = useRef<Map<string, RemotePos>>(new Map());
@@ -153,94 +192,6 @@ export function VirtualOfficeClient({
     else keysRef.current.delete(key);
   }, []);
 
-  // ---- Game loop -- SENGAJA dependency cuma currentUser.id (mount sekali)
-  // supaya rAF loop tidak restart tiap kali onlineIds berubah (orang
-  // lain keluar/masuk) -- state terbaru dibaca lewat ref (onlineIdsRef),
-  // bukan lewat closure yang butuh effect di-restart. ----
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const maybeCtx = canvas.getContext("2d");
-    if (!maybeCtx) return;
-    // Dipindah ke const baru yang bertipe non-null EKSPLISIT -- TypeScript
-    // tidak selalu mempertahankan penyempitan null-check di atas begitu
-    // dipakai di dalam nested `function frame(...)` closure di bawah.
-    const ctx: CanvasRenderingContext2D = maybeCtx;
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = WORLD_W * dpr;
-    canvas.height = WORLD_H * dpr;
-    ctx.scale(dpr, dpr);
-
-    let raf = 0;
-    let last = performance.now();
-
-    function frame(now: number) {
-      const dt = Math.min((now - last) / 1000, 0.05);
-      last = now;
-
-      const keys = keysRef.current;
-      let vx = 0;
-      let vy = 0;
-      if (keys.has("arrowup") || keys.has("w")) vy -= 1;
-      if (keys.has("arrowdown") || keys.has("s")) vy += 1;
-      if (keys.has("arrowleft") || keys.has("a")) vx -= 1;
-      if (keys.has("arrowright") || keys.has("d")) vx += 1;
-
-      if (vx !== 0 || vy !== 0) {
-        const len = Math.hypot(vx, vy) || 1;
-        const dx = (vx / len) * PLAYER_SPEED * dt;
-        const dy = (vy / len) * PLAYER_SPEED * dt;
-        posRef.current = resolveMove(posRef.current.x, posRef.current.y, dx, dy);
-        dirRef.current = Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? "right" : "left") : vy > 0 ? "down" : "up";
-      }
-
-      if (now - lastBroadcastRef.current > BROADCAST_INTERVAL_MS) {
-        lastBroadcastRef.current = now;
-        channelRef.current?.send({
-          type: "broadcast",
-          event: "move",
-          payload: { id: currentUser.id, x: posRef.current.x, y: posRef.current.y, dir: dirRef.current },
-        });
-      }
-
-      const room = getRoomAt(posRef.current.x, posRef.current.y);
-      const label = room?.label ?? "Koridor";
-      if (label !== lastRoomLabelRef.current) {
-        lastRoomLabelRef.current = label;
-        setRoomLabel(label);
-      }
-
-      let closestId: string | null = null;
-      let closestDist = CHAT_PROXIMITY_PX;
-      for (const [id, rp] of remoteRef.current.entries()) {
-        const d = Math.hypot(rp.x - posRef.current.x, rp.y - posRef.current.y);
-        if (d < closestDist) {
-          closestDist = d;
-          closestId = id;
-        }
-      }
-      if (closestId !== lastNearbyIdRef.current) {
-        lastNearbyIdRef.current = closestId;
-        setNearby(closestId ? rosterById.get(closestId) ?? null : null);
-      }
-
-      drawScene(ctx, {
-        onlineIds: onlineIdsRef.current,
-        remotePositions: remoteRef.current,
-        selfPos: posRef.current,
-        currentUser,
-        rosterById,
-      });
-
-      raf = requestAnimationFrame(frame);
-    }
-
-    raf = requestAnimationFrame(frame);
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser.id]);
-
   const chatTarget = nearby ? pickChatTarget(currentUser.division, nearby) : null;
 
   return (
@@ -272,7 +223,53 @@ export function VirtualOfficeClient({
         className="relative overflow-hidden rounded-2xl border border-zinc-200 shadow-sm dark:border-white/10"
         style={{ aspectRatio: `${WORLD_W} / ${WORLD_H}` }}
       >
-        <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
+        <Canvas
+          style={{ width: "100%", height: "100%", display: "block" }}
+          dpr={[1, 2]}
+          gl={{ antialias: true }}
+          camera={{ fov: 42, near: 1, far: 3000 }}
+        >
+          <color attach="background" args={["#dbeafe"]} />
+          <ambientLight intensity={0.75} />
+          <directionalLight position={[250, 400, 150]} intensity={1} />
+          <hemisphereLight args={["#bae6fd", "#3f6212", 0.4]} />
+
+          <GardenGround />
+          <BuildingFloor />
+          {ROOMS.map((room) => (
+            <RoomFloor key={room.id} room={room} />
+          ))}
+          {OBSTACLES.map((rect, i) => (
+            <Desk key={i} rect={rect} />
+          ))}
+          {PROPS.map((prop) => (
+            <PropMesh key={prop.id} prop={prop} />
+          ))}
+
+          <SelfAvatar posRef={posRef} dirRef={dirRef} currentUser={currentUser} />
+          {onlineIds
+            .filter((id) => id !== currentUser.id)
+            .map((id) => {
+              const entry = rosterById.get(id);
+              if (!entry) return null;
+              return <RemoteAvatar key={id} id={id} remoteRef={remoteRef} entry={entry} />;
+            })}
+
+          <GameLoop
+            keysRef={keysRef}
+            posRef={posRef}
+            dirRef={dirRef}
+            channelRef={channelRef}
+            lastBroadcastRef={lastBroadcastRef}
+            lastRoomLabelRef={lastRoomLabelRef}
+            lastNearbyIdRef={lastNearbyIdRef}
+            remoteRef={remoteRef}
+            currentUser={currentUser}
+            rosterById={rosterById}
+            setRoomLabel={setRoomLabel}
+            setNearby={setNearby}
+          />
+        </Canvas>
 
         {chatTarget && nearby && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2">
@@ -320,94 +317,315 @@ function DpadButton({ icon: Icon, onPress }: { icon: typeof ChevronUp; onPress: 
   );
 }
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r);
-  ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r);
-  ctx.closePath();
-}
+/* ------------------------------------------------------------------ */
+/* Scene 3D -- semua yang di bawah ini dirender DI DALAM <Canvas>.     */
+/* ------------------------------------------------------------------ */
 
-function drawAvatar(ctx: CanvasRenderingContext2D, x: number, y: number, color: string, label: string, isSelf: boolean) {
-  ctx.beginPath();
-  ctx.arc(x, y, PLAYER_RADIUS, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.fill();
-  ctx.lineWidth = isSelf ? 3 : 2;
-  ctx.strokeStyle = isSelf ? "#ffffff" : "rgba(255,255,255,0.85)";
-  ctx.stroke();
-
-  ctx.fillStyle = "#ffffff";
-  ctx.font = "bold 11px system-ui, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(getInitials(label), x, y + 1);
-
-  ctx.font = "600 10px system-ui, sans-serif";
-  const text = label.length > 18 ? `${label.slice(0, 17)}…` : label;
-  const padding = 6;
-  const textW = ctx.measureText(text).width;
-  const plateW = textW + padding * 2;
-  const plateY = y + PLAYER_RADIUS + 4;
-  ctx.fillStyle = isSelf ? "rgba(124,58,237,0.92)" : "rgba(15,23,42,0.78)";
-  roundRect(ctx, x - plateW / 2, plateY, plateW, 16, 8);
-  ctx.fill();
-  ctx.fillStyle = "#ffffff";
-  ctx.fillText(text, x, plateY + 8);
-}
-
-function drawScene(
-  ctx: CanvasRenderingContext2D,
-  opts: {
-    onlineIds: string[];
-    remotePositions: Map<string, RemotePos>;
-    selfPos: { x: number; y: number };
-    currentUser: CurrentUser;
-    rosterById: Map<string, OfficeRosterEntry>;
-  }
-) {
-  ctx.clearRect(0, 0, WORLD_W, WORLD_H);
-  ctx.fillStyle = "#eef2f7";
-  ctx.fillRect(0, 0, WORLD_W, WORLD_H);
-
-  for (const room of ROOMS) {
-    ctx.fillStyle = room.floorColor;
-    ctx.fillRect(room.rect.x, room.rect.y, room.rect.w, room.rect.h);
-    ctx.strokeStyle = room.accentColor;
-    ctx.lineWidth = 2;
-    ctx.strokeRect(room.rect.x + 1, room.rect.y + 1, room.rect.w - 2, room.rect.h - 2);
-    ctx.fillStyle = room.accentColor;
-    ctx.font = "bold 12px system-ui, sans-serif";
-    ctx.textAlign = "left";
-    ctx.textBaseline = "top";
-    ctx.fillText(room.label.toUpperCase(), room.rect.x + 10, room.rect.y + 8);
-  }
-
-  ctx.fillStyle = "#b45309";
-  ctx.strokeStyle = "#78350f";
-  ctx.lineWidth = 1.5;
-  for (const rect of OBSTACLES) {
-    roundRect(ctx, rect.x, rect.y, rect.w, rect.h, 6);
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  for (const id of opts.onlineIds) {
-    if (id === opts.currentUser.id) continue;
-    const entry = opts.rosterById.get(id);
-    if (!entry) continue;
-    const pos = opts.remotePositions.get(id);
-    drawAvatar(ctx, pos?.x ?? SPAWN.x, pos?.y ?? SPAWN.y, DIVISION_COLORS[entry.division], entry.fullName, false);
-  }
-
-  drawAvatar(
-    ctx,
-    opts.selfPos.x,
-    opts.selfPos.y,
-    DIVISION_COLORS[opts.currentUser.division],
-    `${opts.currentUser.fullName} (Kamu)`,
-    true
+function GardenGround() {
+  const [x, , z] = toScene(WORLD_W / 2, WORLD_H / 2);
+  return (
+    <mesh position={[x, -1, z]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[WORLD_W + OUTDOOR_MARGIN * 2, WORLD_H + OUTDOOR_MARGIN * 2]} />
+      <meshStandardMaterial color="#65a30d" side={THREE.DoubleSide} />
+    </mesh>
   );
+}
+
+function BuildingFloor() {
+  const [x, , z] = toScene(WORLD_W / 2, WORLD_H / 2);
+  return (
+    <mesh position={[x, 0, z]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[WORLD_W, WORLD_H]} />
+      <meshStandardMaterial color="#e4e7eb" side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+function RoomFloor({ room }: { room: OfficeRoom }) {
+  const [x, , z] = toScene(room.rect.x + room.rect.w / 2, room.rect.y + room.rect.h / 2);
+  const { color, opacity } = hex8ToRgbAlpha(room.floorColor);
+  return (
+    <mesh position={[x, 0.5, z]} rotation={[-Math.PI / 2, 0, 0]}>
+      <planeGeometry args={[room.rect.w, room.rect.h]} />
+      <meshStandardMaterial color={color} transparent opacity={Math.max(opacity, 0.35)} side={THREE.DoubleSide} />
+      <Edges color={room.accentColor} />
+    </mesh>
+  );
+}
+
+function Desk({ rect }: { rect: Rect }) {
+  const [x, , z] = toScene(rect.x + rect.w / 2, rect.y + rect.h / 2);
+  return (
+    <mesh position={[x, 20, z]}>
+      <boxGeometry args={[rect.w, 40, rect.h]} />
+      <meshStandardMaterial color="#b45309" />
+    </mesh>
+  );
+}
+
+function PropMesh({ prop }: { prop: Prop }) {
+  const [x, , z] = toScene(prop.x, prop.y);
+  switch (prop.type) {
+    case "tree":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 20, 0]}>
+            <cylinderGeometry args={[4, 5, 40, 8]} />
+            <meshStandardMaterial color="#78350f" />
+          </mesh>
+          <mesh position={[0, 58, 0]}>
+            <coneGeometry args={[28, 60, 8]} />
+            <meshStandardMaterial color="#15803d" />
+          </mesh>
+        </group>
+      );
+    case "bush":
+      return (
+        <mesh position={[x, 10, z]}>
+          <sphereGeometry args={[14, 8, 8]} />
+          <meshStandardMaterial color="#16a34a" />
+        </mesh>
+      );
+    case "chair":
+    case "meetingChair":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 10, 0]}>
+            <boxGeometry args={[16, 4, 16]} />
+            <meshStandardMaterial color="#334155" />
+          </mesh>
+          <mesh position={[0, 20, -7]}>
+            <boxGeometry args={[16, 20, 3]} />
+            <meshStandardMaterial color="#334155" />
+          </mesh>
+        </group>
+      );
+
+    case "computer":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 22, 0]}>
+            <boxGeometry args={[16, 12, 2]} />
+            <meshStandardMaterial color="#0f172a" />
+          </mesh>
+          <mesh position={[0, 15, 4]}>
+            <boxGeometry args={[10, 2, 8]} />
+            <meshStandardMaterial color="#475569" />
+          </mesh>
+        </group>
+      );
+    case "fridge":
+      return (
+        <mesh position={[x, 30, z]}>
+          <boxGeometry args={[26, 60, 24]} />
+          <meshStandardMaterial color="#e2e8f0" />
+        </mesh>
+      );
+    case "dispenser":
+      return (
+        <group position={[x, 0, z]}>
+          <mesh position={[0, 20, 0]}>
+            <cylinderGeometry args={[8, 10, 40, 12]} />
+            <meshStandardMaterial color="#38bdf8" />
+          </mesh>
+          <mesh position={[0, 44, 0]}>
+            <cylinderGeometry args={[7, 7, 8, 12]} />
+            <meshStandardMaterial color="#0ea5e9" />
+          </mesh>
+        </group>
+      );
+    case "cabinet":
+      return (
+        <mesh position={[x, 35, z]}>
+          <boxGeometry args={[40, 70, 24]} />
+          <meshStandardMaterial color="#92400e" />
+        </mesh>
+      );
+    default:
+      return null;
+  }
+}
+
+const AvatarMesh = forwardRef<THREE.Group, { color: string; label: string; isSelf: boolean }>(function AvatarMesh(
+  { color, label, isSelf },
+  ref
+) {
+  return (
+    <group ref={ref}>
+      <mesh position={[0, 16, 0]}>
+        <cylinderGeometry args={[PLAYER_RADIUS - 3, PLAYER_RADIUS, 32, 12]} />
+        <meshStandardMaterial color={color} />
+      </mesh>
+      <mesh position={[0, 40, 0]}>
+        <sphereGeometry args={[10, 16, 16]} />
+        <meshStandardMaterial color="#fde68a" />
+      </mesh>
+      <mesh position={[0, 16, 13]}>
+        <boxGeometry args={[6, 6, 6]} />
+        <meshStandardMaterial color="#ffffff" />
+      </mesh>
+      <Billboard position={[0, 62, 0]}>
+        <Text
+          fontSize={11}
+          color="#ffffff"
+          outlineWidth={0.6}
+          outlineColor={isSelf ? "#7c3aed" : "#0f172a"}
+          anchorX="center"
+          anchorY="middle"
+        >
+          {label}
+        </Text>
+      </Billboard>
+    </group>
+  );
+});
+
+function SelfAvatar({
+  posRef,
+  dirRef,
+  currentUser,
+}: {
+  posRef: { current: Pos };
+  dirRef: { current: Dir };
+  currentUser: CurrentUser;
+}) {
+  const groupRef = useRef<THREE.Group | null>(null);
+  useFrame(() => {
+    const g = groupRef.current;
+    if (!g) return;
+    const [x, y, z] = toScene(posRef.current.x, posRef.current.y);
+    g.position.set(x, y, z);
+    g.rotation.y = dirToRadians(dirRef.current);
+  });
+  return (
+    <AvatarMesh
+      ref={groupRef}
+      color={DIVISION_COLORS[currentUser.division]}
+      label={`${currentUser.fullName} (Kamu)`}
+      isSelf
+    />
+  );
+}
+
+function RemoteAvatar({
+  id,
+  remoteRef,
+  entry,
+}: {
+  id: string;
+  remoteRef: { current: Map<string, RemotePos> };
+  entry: OfficeRosterEntry;
+}) {
+  const groupRef = useRef<THREE.Group | null>(null);
+  useFrame(() => {
+    const g = groupRef.current;
+    if (!g) return;
+    const rp = remoteRef.current.get(id);
+    const [x, y, z] = toScene(rp?.x ?? SPAWN.x, rp?.y ?? SPAWN.y);
+    g.position.set(x, y, z);
+    if (rp) g.rotation.y = dirToRadians(rp.dir);
+  });
+  return <AvatarMesh ref={groupRef} color={DIVISION_COLORS[entry.division]} label={entry.fullName} isSelf={false} />;
+}
+
+/** Komponen "tak kasat mata" (return null) yang isinya SATU-SATUNYA
+ * `useFrame` untuk logika non-visual -- baca input keyboard, gerakkan
+ * posRef lewat resolveMove, broadcast posisi (throttle), deteksi ruangan
+ * & rekan terdekat (buat tombol Chat), dan gerakkan kamera "mengikuti"
+ * avatar sendiri dengan offset tetap (BUKAN orbit bebas). Dipisah dari
+ * SelfAvatar/RemoteAvatar supaya render posisi avatar tidak numpuk
+ * dengan logika input/network di satu tempat. */
+function GameLoop({
+  keysRef,
+  posRef,
+  dirRef,
+  channelRef,
+  lastBroadcastRef,
+  lastRoomLabelRef,
+  lastNearbyIdRef,
+  remoteRef,
+  currentUser,
+  rosterById,
+  setRoomLabel,
+  setNearby,
+}: {
+  keysRef: { current: Set<string> };
+  posRef: { current: Pos };
+  dirRef: { current: Dir };
+  channelRef: { current: RealtimeChannel | null };
+  lastBroadcastRef: { current: number };
+  lastRoomLabelRef: { current: string };
+  lastNearbyIdRef: { current: string | null };
+  remoteRef: { current: Map<string, RemotePos> };
+  currentUser: CurrentUser;
+  rosterById: Map<string, OfficeRosterEntry>;
+  setRoomLabel: (label: string) => void;
+  setNearby: (entry: OfficeRosterEntry | null) => void;
+}) {
+  const { camera } = useThree();
+  const cameraReadyRef = useRef(false);
+
+  useFrame((_, delta) => {
+    const dt = Math.min(delta, 0.05);
+    const keys = keysRef.current;
+    let vx = 0;
+    let vy = 0;
+    if (keys.has("arrowup") || keys.has("w")) vy -= 1;
+    if (keys.has("arrowdown") || keys.has("s")) vy += 1;
+    if (keys.has("arrowleft") || keys.has("a")) vx -= 1;
+    if (keys.has("arrowright") || keys.has("d")) vx += 1;
+
+    if (vx !== 0 || vy !== 0) {
+      const len = Math.hypot(vx, vy) || 1;
+      const dx = (vx / len) * PLAYER_SPEED * dt;
+      const dy = (vy / len) * PLAYER_SPEED * dt;
+      posRef.current = resolveMove(posRef.current.x, posRef.current.y, dx, dy);
+      dirRef.current = Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? "right" : "left") : vy > 0 ? "down" : "up";
+    }
+
+    const now = performance.now();
+    if (now - lastBroadcastRef.current > BROADCAST_INTERVAL_MS) {
+      lastBroadcastRef.current = now;
+      channelRef.current?.send({
+        type: "broadcast",
+        event: "move",
+        payload: { id: currentUser.id, x: posRef.current.x, y: posRef.current.y, dir: dirRef.current },
+      });
+    }
+
+    const room = getRoomAt(posRef.current.x, posRef.current.y);
+    const label = room?.label ?? "Koridor";
+    if (label !== lastRoomLabelRef.current) {
+      lastRoomLabelRef.current = label;
+      setRoomLabel(label);
+    }
+
+    let closestId: string | null = null;
+    let closestDist = CHAT_PROXIMITY_PX;
+    for (const [id, rp] of remoteRef.current.entries()) {
+      const d = Math.hypot(rp.x - posRef.current.x, rp.y - posRef.current.y);
+      if (d < closestDist) {
+        closestDist = d;
+        closestId = id;
+      }
+    }
+    if (closestId !== lastNearbyIdRef.current) {
+      lastNearbyIdRef.current = closestId;
+      setNearby(closestId ? rosterById.get(closestId) ?? null : null);
+    }
+
+    const [sx, sy, sz] = toScene(posRef.current.x, posRef.current.y);
+    const targetX = sx + CAMERA_OFFSET.x;
+    const targetY = sy + CAMERA_OFFSET.y;
+    const targetZ = sz + CAMERA_OFFSET.z;
+    if (!cameraReadyRef.current) {
+      camera.position.set(targetX, targetY, targetZ);
+      cameraReadyRef.current = true;
+    } else {
+      camera.position.lerp(new THREE.Vector3(targetX, targetY, targetZ), 0.12);
+    }
+    camera.lookAt(sx, sy + 30, sz);
+  });
+
+  return null;
 }
