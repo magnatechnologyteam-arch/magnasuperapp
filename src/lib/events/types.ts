@@ -52,6 +52,14 @@ export type ChecklistItemExtraInput = {
   vendorId?: string | null;
   team?: string;
   dueDate?: string;
+  /** Cuma dibaca `addEventChecklistItem` (Tahap F) -- default `true` kalau
+   * tidak diisi. Menentukan `current_phase` awal item: "design" kalau
+   * perlu produksi, langsung "completed" kalau tidak (lompat Design/
+   * Mockup/Sample/Production, sama seperti clone dari template). Diabaikan
+   * `updateEventChecklistItem` -- ubah item yang SUDAH ada tetap lewat
+   * `setChecklistNeedsProduction` (satu-satunya jalur, supaya current_phase
+   * ikut disesuaikan konsisten). */
+  needsProduction?: boolean;
 };
 
 /**
@@ -328,6 +336,14 @@ export type EventChecklistItem = {
   finishedAt?: string;
   finishedBy?: string;
   finishedByName?: string;
+  /** id staf yang MENAMBAHKAN item ini (bukan PIC) -- Tahap F, diisi
+   * otomatis waktu ditambahkan lewat Papan Tracking maupun halaman Admin.
+   * NULL untuk item lama sebelum kolom ini ada, atau hasil clone template.
+   * Staf HANYA bisa edit/hapus item yang `createdBy`-nya dirinya sendiri
+   * dari Papan Tracking (lihat guard di actions.ts) -- Admin/Owner selalu
+   * bebas, sama seperti sebelumnya. */
+  createdBy?: string;
+  createdByName?: string;
   /** Cuma diisi `getEventById` (Papan Tracking) -- state Design/Mockup/
    * Sample saat ini, maksimal 3 baris (lihat `ChecklistPhaseReview`). */
   phaseReviews?: ChecklistPhaseReview[];

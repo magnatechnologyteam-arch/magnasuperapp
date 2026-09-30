@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { CalendarClock } from "lucide-react";
 import { getCurrentProfile } from "@/lib/supabase/server";
-import { getEvents, getEventTypes } from "@/lib/events/data";
-import { EventList } from "@/components/events/EventList";
+import { getAllEventTypeTemplateItems, getEvents, getEventTypes } from "@/lib/events/data";
+import { EventAdminTabs } from "@/components/events/EventAdminTabs";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 
 /**
@@ -11,6 +11,10 @@ import { ToastProvider } from "@/components/ui/ToastProvider";
  * di atasnya (Tahap E). HANYA akses penuh (RLS `events_insert`) -- staf 3
  * divisi operasional update status/PIC lewat halaman terpisah "Papan
  * Tracking" (Tahap D, `/dashboard/tracking-event`), bukan di sini.
+ *
+ * Tahap G: sekarang juga merangkap kelola "Jenis Event" (dulu halaman
+ * terpisah `/dashboard/admin/jenis-event`, lihat `EventAdminTabs`) --
+ * Owner: "untuk event den jenis event, alangkah baiknya disatukan saja".
  */
 export default async function EventsPage() {
   const profile = await getCurrentProfile();
@@ -18,7 +22,11 @@ export default async function EventsPage() {
     redirect("/dashboard");
   }
 
-  const [events, eventTypes] = await Promise.all([getEvents({ withProgress: true }), getEventTypes()]);
+  const [events, eventTypes, templateItems] = await Promise.all([
+    getEvents({ withProgress: true }),
+    getEventTypes(),
+    getAllEventTypeTemplateItems(),
+  ]);
 
   return (
     <div className="p-4 md:p-8">
@@ -46,7 +54,7 @@ export default async function EventsPage() {
 
       <div className="mt-6">
         <ToastProvider>
-          <EventList events={events} eventTypes={eventTypes} />
+          <EventAdminTabs events={events} eventTypes={eventTypes} templateItems={templateItems} />
         </ToastProvider>
       </div>
     </div>

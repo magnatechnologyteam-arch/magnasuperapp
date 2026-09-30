@@ -1,20 +1,37 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { Camera, ChevronDown, ClipboardList, History, Link2, MapPin, MessageSquare, Search } from "lucide-react";
+import {
+  Camera,
+  ChevronDown,
+  ClipboardList,
+  History,
+  Link2,
+  MapPin,
+  MessageSquare,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useToast } from "@/components/ui/ToastProvider";
 import { cn } from "@/lib/cn";
 import {
+  addEventChecklistItem,
   approveChecklistPhaseReview,
   bulkAdvanceChecklistPhase,
   confirmChecklistCompleted,
+  deleteEventChecklistItem,
   markProductionDone,
   rejectChecklistPhaseReview,
   setChecklistNeedsProduction,
   submitChecklistPhaseReview,
   updateChecklistProduction,
+  updateEventChecklistItem,
   updateEventChecklistProgress,
 } from "@/lib/events/actions";
 import { ChecklistHistoryModal } from "./ChecklistHistoryModal";
@@ -65,6 +82,195 @@ function canActOnItem(item: EventChecklistItem, currentUserId: string | null, is
   if (isFullAccess) return true;
   if (!currentUserId) return false;
   return item.pic === currentUserId;
+}
+
+function emptyTrackingItemForm() {
+  return { category: "", itemName: "", detail: "", qtyInfo: "", notes: "", needsProduction: true };
+}
+
+/**
+ * Modal tambah/edit item checklist -- Tahap F: SENGAJA form ringkas (tanpa
+ * vendor/tim/tanggal target, beda dari form lengkap di EventDetailManager)
+ * karena ini dipakai staf lapangan langsung dari Papan Tracking untuk
+ * menambah item yang mendadak diperlukan, bukan pengganti pengelolaan
+ * lengkap Admin. Toggle "Perlu Produksi" cuma tampil waktu MENAMBAH (bukan
+ * edit) -- ubah item yang sudah ada tetap lewat `setChecklistNeedsProduction`
+ * (satu-satunya jalur, supaya current_phase ikut disesuaikan konsisten).
+ */
+function AddOrEditItemModal({
+  open,
+  onClose,
+  eventId,
+  editingItem,
+  categoryOptions,
+  nextSortOrder,
+  onSaved,
+}: {
+  open: boolean;
+  onClose: () => void;
+  eventId: string;
+  editingItem: EventChecklistItem | null;
+  categoryOptions: string[];
+  nextSortOrder: number;
+  onSaved: () => void;
+}) {
+  const { showToast } = useToast();
+  const [form, setForm] = useState(emptyTrackingItemForm);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [lastEditingId, setLastEditingId] = useState<string | null | undefined>(undefined);
+
+  // Sinkronisasi form ke item yang diedit (atau kosong kalau tambah baru)
+  // -- dilakukan di sini (bukan `useEffect`) supaya form sudah terisi
+  // benar di render pertama saat modal dibuka, tanpa kedipan.
+  const editingKey = editingItem?.id ?? null;
+  if (open && editingKey !== lastEditingId) {
+    setLastEditingId(editingKey);
+    setForm(
+      editingItem
+        ? {
+            category: editingItem.category,
+            itemName: editingItem.itemName,
+            detail: editingItem.detail ?? "",
+            qtyInfo: editingItem.qtyInfo ?? "",
+            notes: editingItem.notes ?? "",
+            needsProduction: editingItem.needsProduction,
+          }
+        : emptyTrackingItemForm()
+    );
+    setError(null);
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!form.category.trim() || !form.itemName.trim()) {
+      setError("Kategori dan nama item wajib diisi.");
+      return;
+    }
+    setSubmitting(true);
+    const result = editingItem
+      ? await updateEventChecklistItem(editingItem.id, eventId, form)
+      : await addEventChecklistItem(eventId, form, nextSortOrder);
+    setSubmitting(false);
+
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    showToast(editingItem ? "Item checklist diperbarui." : "Item checklist ditambahkan.");
+    onClose();
+    onSaved();
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title={editingItem ? "Edit Item Checklist" : "Tambah Item Checklist"}>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Kategori</label>
+          <input
+            value={form.category}
+            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+            placeholder="mis. A. VENUE"
+            list="tracking-category-options"
+            className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
+          />
+          <datalist id="tracking-category-options">
+            {categoryOptions.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">Nama Item</label>
+          <input
+            value={form.itemName}
+            onChange={(e) => setForm((f) => ({ ...f, itemName: e.target.value }))}
+            className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Detail <span className="font-normal text-zinc-400">(opsional)</span>
+            </label>
+            <input
+              value={form.detail}
+              onChange={(e) => setForm((f) => ({ ...f, detail: e.target.value }))}
+              className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Qty/Durasi <span className="font-normal text-zinc-400">(opsional)</span>
+            </label>
+            <input
+              value={form.qtyInfo}
+              onChange={(e) => setForm((f) => ({ ...f, qtyInfo: e.target.value }))}
+              className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+            Keterangan <span className="font-normal text-zinc-400">(opsional)</span>
+          </label>
+          <input
+            value={form.notes}
+            onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+            className="w-full rounded-lg border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
+          />
+        </div>
+        {!editingItem && (
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Perlu Produksi?
+            </label>
+            <div className="flex gap-2">
+              {[
+                { value: true, label: "Ya -- lewat Design/Mockup/Sample/Production dulu" },
+                { value: false, label: "Tidak -- langsung mulai dari Completed" },
+              ].map((opt) => (
+                <button
+                  key={String(opt.value)}
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, needsProduction: opt.value }))}
+                  className={cn(
+                    "flex-1 rounded-lg border px-2.5 py-2 text-left text-[11px] font-medium transition-colors",
+                    form.needsProduction === opt.value
+                      ? "border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-400 dark:bg-violet-500/10 dark:text-violet-300"
+                      : "border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {error && (
+          <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10"
+          >
+            Batal
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-full bg-zinc-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 dark:bg-white dark:text-zinc-900"
+          >
+            {editingItem ? "Simpan" : "Tambah"}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
 }
 
 /** Tombol kamera terintegrasi -- input file disembunyikan, tombol
@@ -594,6 +800,12 @@ export function EventTrackingBoard({
   const [savingId, setSavingId] = useState<string | null>(null);
   const [historyTarget, setHistoryTarget] = useState<EventChecklistItem | null>(null);
   const [discussionTarget, setDiscussionTarget] = useState<EventChecklistItem | null>(null);
+  // Tahap F: staf (bukan cuma Admin) sekarang bisa menambah item sendiri
+  // selagi event masih "Berjalan", dan hanya boleh edit/hapus item yang
+  // dia buat sendiri -- lihat guard di actions.ts (`getCurrentUserAccess`).
+  const [itemFormOpen, setItemFormOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<EventChecklistItem | null>(null);
+  const [deleteItemTarget, setDeleteItemTarget] = useState<EventChecklistItem | null>(null);
   // Owner: checklist per kategori dibuat "laci" (dropdown/accordion) --
   // dengan puluhan item per event, tampilan flat lama jadi berantakan.
   // Default semua tertutup, staf buka kategori yang relevan saja.
@@ -601,6 +813,41 @@ export function EventTrackingBoard({
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(() => new Set());
 
   function handleChanged() {
+    router.refresh();
+  }
+
+  // Staf boleh nambah item selagi event "Berjalan"; akses penuh selalu
+  // boleh (mengikuti guard `getCurrentUserAccess` di actions.ts).
+  const canAddItem = isFullAccess || event.status === "Berjalan";
+
+  // Edit/hapus cuma untuk pembuat item sendiri + event masih Berjalan,
+  // akses penuh selalu boleh override -- pola yang sama dengan
+  // `canActOnItem` di atas.
+  function canEditItem(item: EventChecklistItem): boolean {
+    if (isFullAccess) return true;
+    return item.createdBy === currentUserId && event.status === "Berjalan";
+  }
+
+  function openAddItem() {
+    setEditingItem(null);
+    setItemFormOpen(true);
+  }
+
+  function openEditItem(item: EventChecklistItem) {
+    setEditingItem(item);
+    setItemFormOpen(true);
+  }
+
+  async function confirmDeleteItem() {
+    if (!deleteItemTarget) return;
+    const result = await deleteEventChecklistItem(deleteItemTarget.id, deleteItemTarget.eventId);
+    if (!result.ok) {
+      showToast(result.error, "error");
+      setDeleteItemTarget(null);
+      return;
+    }
+    showToast("Item checklist dihapus.");
+    setDeleteItemTarget(null);
     router.refresh();
   }
 
@@ -626,6 +873,15 @@ export function EventTrackingBoard({
       done: list.filter((i) => i.currentPhase === "finish").length,
     }));
   }, [items]);
+
+  // Opsi kategori (buat datalist di modal tambah/edit) + urutan berikut
+  // buat item baru -- dilempar ke bawah antrean supaya tidak menyerobot
+  // urutan item Admin yang sudah ada.
+  const categoryOptions = useMemo(() => Array.from(new Set(items.map((i) => i.category))).sort(), [items]);
+  const nextSortOrder = useMemo(
+    () => (items.length === 0 ? 10 : Math.max(...items.map((i) => i.sortOrder)) + 10),
+    [items]
+  );
 
   // Pencarian (Owner: "tambahkan fungsi search agar mudah mencari suatu
   // barang") -- saat aktif, kategori yang punya hasil otomatis terbuka
@@ -743,36 +999,48 @@ export function EventTrackingBoard({
               Isi tiap fase sesuai progres pekerjaan divisimu -- foto konfirmasi wajib sebelum fase berikutnya terbuka.
             </p>
           </div>
-          {groupedItems.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Cari item..."
-                  className={cn(INPUT_XS, "w-40 pl-8 sm:w-52")}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => setExpandedCategories(new Set(groupedItems.map((g) => g.category)))}
-                className={BTN}
-              >
-                Buka Semua
+          <div className="flex flex-wrap items-center gap-2">
+            {groupedItems.length > 0 && (
+              <>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Cari item..."
+                    className={cn(INPUT_XS, "w-40 pl-8 sm:w-52")}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExpandedCategories(new Set(groupedItems.map((g) => g.category)))}
+                  className={BTN}
+                >
+                  Buka Semua
+                </button>
+                <button type="button" onClick={() => setExpandedCategories(new Set())} className={BTN}>
+                  Tutup Semua
+                </button>
+              </>
+            )}
+            {canAddItem && (
+              <button type="button" onClick={openAddItem} className={BTN_PRIMARY}>
+                <Plus className="h-3.5 w-3.5" />
+                Tambah Item
               </button>
-              <button type="button" onClick={() => setExpandedCategories(new Set())} className={BTN}>
-                Tutup Semua
-              </button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {groupedItems.length === 0 ? (
           <EmptyState
             icon={ClipboardList}
             title="Checklist masih kosong"
-            description="Admin belum mengisi checklist untuk event ini."
+            description={
+              canAddItem
+                ? 'Belum ada item checklist untuk event ini -- klik "Tambah Item" untuk mulai menambahkan.'
+                : "Admin belum mengisi checklist untuk event ini."
+            }
           />
         ) : visibleGroups.length === 0 ? (
           <EmptyState
@@ -912,6 +1180,28 @@ export function EventTrackingBoard({
                               <MessageSquare className="h-3 w-3" />
                               <span className="hidden sm:inline">Diskusi</span>
                             </button>
+                            {canEditItem(item) && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => openEditItem(item)}
+                                  title="Edit item ini"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] font-semibold text-zinc-500 transition-colors hover:border-violet-300 hover:text-violet-600 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-violet-700 dark:hover:text-violet-300"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                  <span className="hidden sm:inline">Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteItemTarget(item)}
+                                  title="Hapus item ini"
+                                  className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2 py-1 text-[11px] font-semibold text-rose-600 transition-colors hover:border-rose-300 hover:bg-rose-50 dark:border-rose-500/30 dark:text-rose-400 dark:hover:bg-rose-500/10"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                  <span className="hidden sm:inline">Hapus</span>
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -951,6 +1241,25 @@ export function EventTrackingBoard({
           onClose={() => setDiscussionTarget(null)}
         />
       )}
+
+      <AddOrEditItemModal
+        open={itemFormOpen}
+        onClose={() => setItemFormOpen(false)}
+        eventId={event.id}
+        editingItem={editingItem}
+        categoryOptions={categoryOptions}
+        nextSortOrder={nextSortOrder}
+        onSaved={handleChanged}
+      />
+
+      <ConfirmDialog
+        open={!!deleteItemTarget}
+        onClose={() => setDeleteItemTarget(null)}
+        onConfirm={confirmDeleteItem}
+        title="Hapus Item Checklist"
+        description={`Hapus item "${deleteItemTarget?.itemName}" dari checklist event ini?`}
+        confirmLabel="Hapus"
+      />
     </div>
   );
 }

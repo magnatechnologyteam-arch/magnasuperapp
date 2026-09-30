@@ -156,7 +156,6 @@ export const ADMIN_LINKS: QuickLink[] = [
   { href: "/dashboard/admin/klien", label: "Klien Terpadu", shortLabel: "Klien", icon: Users2 },
   { href: "/dashboard/admin/keuangan", label: "Piutang & Pendapatan", shortLabel: "Piutang", icon: Wallet2 },
   { href: "/dashboard/admin/akuntansi", label: "Akuntansi", shortLabel: "Akuntansi", icon: BookOpenText },
-  { href: "/dashboard/admin/jenis-event", label: "Jenis Event", shortLabel: "Jenis Event", icon: ClipboardList },
   { href: "/dashboard/admin/events", label: "Event", shortLabel: "Event", icon: CalendarClock },
   { href: "/dashboard/admin/laba-rugi", label: "Laba-Rugi", shortLabel: "Laba-Rugi", icon: TrendingUp },
   { href: "/dashboard/admin/neraca", label: "Neraca", shortLabel: "Neraca", icon: Scale },

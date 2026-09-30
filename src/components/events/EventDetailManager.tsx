@@ -50,7 +50,17 @@ import {
 import { GLASS_BORDER, GLASS_SURFACE } from "@/lib/glass";
 
 function emptyItemForm() {
-  return { category: "", itemName: "", detail: "", qtyInfo: "", notes: "", vendorId: "", team: "", dueDate: "" };
+  return {
+    category: "",
+    itemName: "",
+    detail: "",
+    qtyInfo: "",
+    notes: "",
+    vendorId: "",
+    team: "",
+    dueDate: "",
+    needsProduction: true,
+  };
 }
 
 const STATUS_BADGE: Record<EventStatus, string> = {
@@ -155,6 +165,7 @@ export function EventDetailManager({
       vendorId: item.vendorId ?? "",
       team: item.team ?? "",
       dueDate: item.dueDate ?? "",
+      needsProduction: item.needsProduction,
     });
     setItemError(null);
     setItemFormOpen(true);
@@ -702,6 +713,33 @@ export function EventDetailManager({
               ))}
             </datalist>
           </div>
+          {!editingItem && (
+            <div>
+              <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Perlu Produksi?
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { value: true, label: "Ya -- lewat Design/Mockup/Sample/Production dulu" },
+                  { value: false, label: "Tidak -- langsung mulai dari Completed" },
+                ].map((opt) => (
+                  <button
+                    key={String(opt.value)}
+                    type="button"
+                    onClick={() => setItemForm((f) => ({ ...f, needsProduction: opt.value }))}
+                    className={cn(
+                      "flex-1 rounded-lg border px-2.5 py-2 text-left text-[11px] font-medium transition-colors",
+                      itemForm.needsProduction === opt.value
+                        ? "border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-400 dark:bg-violet-500/10 dark:text-violet-300"
+                        : "border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           {itemError && (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
               {itemError}

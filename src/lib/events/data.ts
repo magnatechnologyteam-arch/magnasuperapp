@@ -294,12 +294,13 @@ type ChecklistItemRow = {
   loading_out_by: string | null;
   finished_at: string | null;
   finished_by: string | null;
+  created_by: string | null;
 };
 
 const CHECKLIST_ITEM_SELECT =
   "id, event_id, category, item_name, detail, qty_info, notes, status, pic, sort_order, vendor_id, team, due_date, " +
   "needs_production, current_phase, production_qty, production_notes, production_photo_url, production_done_at, production_done_by, " +
-  "completed_at, completed_by, loading_in_at, loading_in_by, loading_out_at, loading_out_by, finished_at, finished_by";
+  "completed_at, completed_by, loading_in_at, loading_in_by, loading_out_at, loading_out_by, finished_at, finished_by, created_by";
 
 function mapChecklistItem(row: ChecklistItemRow): EventChecklistItem {
   return {
@@ -331,6 +332,7 @@ function mapChecklistItem(row: ChecklistItemRow): EventChecklistItem {
     loadingOutBy: row.loading_out_by ?? undefined,
     finishedAt: row.finished_at ?? undefined,
     finishedBy: row.finished_by ?? undefined,
+    createdBy: row.created_by ?? undefined,
   };
 }
 
@@ -424,7 +426,15 @@ export async function getEventById(id: string): Promise<EventDetail | null> {
 
   const actorIds = new Set<string>();
   for (const r of itemRows ?? []) {
-    for (const v of [r.pic, r.production_done_by, r.completed_by, r.loading_in_by, r.loading_out_by, r.finished_by]) {
+    for (const v of [
+      r.pic,
+      r.production_done_by,
+      r.completed_by,
+      r.loading_in_by,
+      r.loading_out_by,
+      r.finished_by,
+      r.created_by,
+    ]) {
       if (v) actorIds.add(v);
     }
   }
@@ -455,6 +465,7 @@ export async function getEventById(id: string): Promise<EventDetail | null> {
     loadingInByName: nameOf(row.loading_in_by ?? undefined),
     loadingOutByName: nameOf(row.loading_out_by ?? undefined),
     finishedByName: nameOf(row.finished_by ?? undefined),
+    createdByName: nameOf(row.created_by ?? undefined),
     phaseReviews: (reviewsByItem.get(row.id) ?? []).map((r) => ({
       ...r,
       submittedByName: nameOf(r.submittedBy),

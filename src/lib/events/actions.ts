@@ -23,7 +23,10 @@ import {
   type UpdateChecklistProgressInput,
 } from "./types";
 
-const MODULE_PATH = "/dashboard/admin/jenis-event";
+// Tahap G: halaman "Jenis Event" sudah digabung jadi tab di dalam
+// "/dashboard/admin/events" (`EventAdminTabs`), jadi dulu ada MODULE_PATH
+// terpisah yang menunjuk ke halaman jenis-event lama -- sekarang sama
+// dengan EVENTS_PATH, jadi cukup satu konstanta ini saja.
 const EVENTS_PATH = "/dashboard/admin/events";
 /** Papan Tracking (Tahap D) -- halaman terpisah dari EVENTS_PATH di atas,
  * dibuka untuk 3 divisi operasional + akses penuh (lihat page.tsx-nya). */
@@ -58,7 +61,7 @@ export async function createEventType(input: CreateEventTypeInput): Promise<Muta
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  revalidatePath(MODULE_PATH);
+  revalidatePath(EVENTS_PATH);
   void logActivity({ module: "admin", action: "create", entityType: "jenis event", entityLabel: name });
   return { ok: true };
 }
@@ -81,7 +84,7 @@ export async function updateEventType(id: string, input: CreateEventTypeInput): 
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  revalidatePath(MODULE_PATH);
+  revalidatePath(EVENTS_PATH);
   void logActivity({ module: "admin", action: "update", entityType: "jenis event", entityLabel: name });
   return { ok: true };
 }
@@ -107,7 +110,7 @@ export async function setEventTypeActive(id: string, isActive: boolean): Promise
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  revalidatePath(MODULE_PATH);
+  revalidatePath(EVENTS_PATH);
   void logActivity({
     module: "admin",
     action: "update",
@@ -157,7 +160,7 @@ export async function deleteEventType(id: string): Promise<MutationResult> {
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  revalidatePath(MODULE_PATH);
+  revalidatePath(EVENTS_PATH);
   void logActivity({ module: "admin", action: "delete", entityType: "jenis event", entityLabel: existing.name });
   return { ok: true };
 }
@@ -184,7 +187,7 @@ export async function addTemplateItem(eventTypeId: string, input: TemplateItemIn
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  revalidatePath(MODULE_PATH);
+  revalidatePath(EVENTS_PATH);
   return { ok: true };
 }
 
@@ -211,7 +214,7 @@ export async function updateTemplateItem(id: string, input: TemplateItemInput): 
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  revalidatePath(MODULE_PATH);
+  revalidatePath(EVENTS_PATH);
   return { ok: true };
 }
 
@@ -223,7 +226,7 @@ export async function deleteTemplateItem(id: string): Promise<MutationResult> {
     return { ok: false, error: GENERIC_ERROR };
   }
 
-  revalidatePath(MODULE_PATH);
+  revalidatePath(EVENTS_PATH);
   return { ok: true };
 }
 
@@ -313,7 +316,7 @@ export async function bulkImportTemplateItems(
   }
   summary.inserted = toInsert.length;
 
-  revalidatePath(MODULE_PATH);
+  revalidatePath(EVENTS_PATH);
   void logActivity({
     module: "admin",
     action: "create",
@@ -519,6 +522,28 @@ export async function addEventChecklistItem(
   if (!itemName) return { ok: false, error: "Nama item wajib diisi." };
 
   const supabase = await createClient();
+  const access = await getCurrentUserAccess(supabase);
+
+  // Tahap F: staf 3 divisi operasional kini boleh menambah item SENDIRI
+  // langsung dari Papan Tracking (RLS event_checklist_items_insert sudah
+  // terbuka ke mereka sejak migrasi 0053), TAPI cuma selama event masih
+  // "Berjalan" (keputusan Owner: "terbuka sampai event selesai"). Admin/
+  // Owner (akses penuh) TIDAK dibatasi status ini -- tetap bisa kelola
+  // checklist event yang sudah Selesai/Dibatalkan dari halaman Admin
+  // untuk keperluan koreksi/arsip, sama seperti sebelumnya.
+  if (!access.isFullAccess) {
+    const { data: eventRow } = await supabase
+      .from("events")
+      .select("status")
+      .eq("id", eventId)
+      .maybeSingle<{ status: string }>();
+    if (!eventRow) return { ok: false, error: "Event tidak ditemukan." };
+    if (eventRow.status !== "Berjalan") {
+      return { ok: false, error: "Event ini sudah selesai/dibatalkan, tidak bisa menambah item lagi." };
+    }
+  }
+
+  const needsProduction = input.needsProduction ?? true;
   const { error } = await supabase.from("event_checklist_items").insert({
     event_id: eventId,
     category,
@@ -533,6 +558,17 @@ export async function addEventChecklistItem(
     vendor_id: input.vendorId || null,
     team: input.team?.trim() || null,
     due_date: input.dueDate || null,
+    // Tahap 51/F: titik mulai alur fase ditentukan dari toggle "Perlu
+    // Produksi" (default Ya kalau tidak diisi) -- sebelumnya form Admin
+    // tidak punya toggle ini sama sekali, item baru selalu diam-diam pakai
+    // default kolom DB, jadi item yang sebetulnya tidak perlu produksi
+    // tetap harus lewat Design/Mockup/Sample/Production dulu.
+    needs_production: needsProduction,
+    current_phase: needsProduction ? "design" : "completed",
+    // Tahap F: siapa yang menambahkan (bukan PIC) -- dipakai guard
+    // update/delete di bawah supaya staf cuma bisa ubah/hapus item
+    // buatannya sendiri, Admin/Owner selalu bebas.
+    created_by: access.userId,
   });
 
   if (error) {
@@ -541,6 +577,7 @@ export async function addEventChecklistItem(
   }
 
   revalidatePath(`${EVENTS_PATH}/${eventId}`);
+  revalidatePath(`${TRACKING_PATH}/${eventId}`);
   return { ok: true };
 }
 
@@ -555,6 +592,26 @@ export async function updateEventChecklistItem(
   if (!itemName) return { ok: false, error: "Nama item wajib diisi." };
 
   const supabase = await createClient();
+  const access = await getCurrentUserAccess(supabase);
+
+  // Tahap F: staf (bukan akses penuh) cuma boleh edit item yang DIA
+  // SENDIRI tambahkan (lihat `created_by` di addEventChecklistItem), dan
+  // cuma selama event masih "Berjalan" -- Admin/Owner tetap bebas edit
+  // item siapapun kapan saja, sama seperti sebelumnya.
+  if (!access.isFullAccess) {
+    const [{ data: itemRow }, { data: eventRow }] = await Promise.all([
+      supabase.from("event_checklist_items").select("created_by").eq("id", id).maybeSingle<{ created_by: string | null }>(),
+      supabase.from("events").select("status").eq("id", eventId).maybeSingle<{ status: string }>(),
+    ]);
+    if (!itemRow) return { ok: false, error: "Item tidak ditemukan." };
+    if (!access.userId || itemRow.created_by !== access.userId) {
+      return { ok: false, error: "Anda hanya bisa mengedit item yang anda tambahkan sendiri." };
+    }
+    if (!eventRow || eventRow.status !== "Berjalan") {
+      return { ok: false, error: "Event ini sudah selesai/dibatalkan, tidak bisa diedit lagi." };
+    }
+  }
+
   const { error } = await supabase
     .from("event_checklist_items")
     .update({
@@ -575,6 +632,7 @@ export async function updateEventChecklistItem(
   }
 
   revalidatePath(`${EVENTS_PATH}/${eventId}`);
+  revalidatePath(`${TRACKING_PATH}/${eventId}`);
   return { ok: true };
 }
 
@@ -677,6 +735,25 @@ export async function getChecklistStatusLog(checklistItemId: string): Promise<Ch
 
 export async function deleteEventChecklistItem(id: string, eventId: string): Promise<MutationResult> {
   const supabase = await createClient();
+  const access = await getCurrentUserAccess(supabase);
+
+  // Tahap F: sama persis aturannya dengan `updateEventChecklistItem` di
+  // atas -- staf cuma boleh hapus item buatannya sendiri, selama event
+  // masih "Berjalan"; Admin/Owner tetap bebas.
+  if (!access.isFullAccess) {
+    const [{ data: itemRow }, { data: eventRow }] = await Promise.all([
+      supabase.from("event_checklist_items").select("created_by").eq("id", id).maybeSingle<{ created_by: string | null }>(),
+      supabase.from("events").select("status").eq("id", eventId).maybeSingle<{ status: string }>(),
+    ]);
+    if (!itemRow) return { ok: false, error: "Item tidak ditemukan." };
+    if (!access.userId || itemRow.created_by !== access.userId) {
+      return { ok: false, error: "Anda hanya bisa menghapus item yang anda tambahkan sendiri." };
+    }
+    if (!eventRow || eventRow.status !== "Berjalan") {
+      return { ok: false, error: "Event ini sudah selesai/dibatalkan, tidak bisa dihapus lagi." };
+    }
+  }
+
   const { error } = await supabase.from("event_checklist_items").delete().eq("id", id);
   if (error) {
     console.error("[events] deleteEventChecklistItem gagal:", error.message);
@@ -684,6 +761,7 @@ export async function deleteEventChecklistItem(id: string, eventId: string): Pro
   }
 
   revalidatePath(`${EVENTS_PATH}/${eventId}`);
+  revalidatePath(`${TRACKING_PATH}/${eventId}`);
   return { ok: true };
 }
 
