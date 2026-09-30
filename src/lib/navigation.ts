@@ -8,6 +8,7 @@ import {
   CalendarClock,
   ClipboardList,
   Factory,
+  Gamepad2,
   HandCoins,
   History,
   LayoutGrid,
@@ -221,6 +222,22 @@ export const TRACKING_EVENT_LINK: QuickLink = {
   label: "Papan Tracking",
   shortLabel: "Tracking",
   icon: ClipboardList,
+};
+
+/**
+ * Tautan "Kantor Virtual" (Tahap H, permintaan Owner: model kantor virtual
+ * 2D yang lagi viral) — beda dari CHAT_LINK/REALISASI_EVENT_LINK/
+ * TRACKING_EVENT_LINK di atas: SENGAJA terbuka untuk LITERALLY SEMUA
+ * divisi TERMASUK investor & finance (jadi dirender TANPA embel-embel
+ * `showChat`/`isInvestor` di Sidebar.tsx & MobileNav.tsx) — ini murni
+ * kolaborasi & suasana kantor, bukan modul data operasional, tidak ada
+ * alasan menutup siapa pun.
+ */
+export const VIRTUAL_OFFICE_LINK: QuickLink = {
+  href: "/dashboard/kantor-virtual",
+  label: "Kantor Virtual",
+  shortLabel: "Kantor",
+  icon: Gamepad2,
 };
 
 /** Tautan halaman Investor (division "investor" atau "all") — sama alasannya dengan ADMIN_LINKS di atas. */

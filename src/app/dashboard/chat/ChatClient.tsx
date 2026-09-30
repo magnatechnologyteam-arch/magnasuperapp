@@ -153,11 +153,13 @@ export function ChatClient({
   rooms,
   initialRoom,
   initialMessages,
+  initialMention,
   currentUser,
 }: {
   rooms: ChatRoom[];
   initialRoom: ChatRoom;
   initialMessages: ChatMessage[];
+  initialMention?: string | null;
   currentUser: CurrentUser;
 }) {
   const router = useRouter();
@@ -165,7 +167,11 @@ export function ChatClient({
   const [messagesByRoom, setMessagesByRoom] = useState<Partial<Record<ChatRoom, ChatMessage[]>>>({
     [initialRoom]: initialMessages,
   });
-  const [composerText, setComposerText] = useState("");
+  // "?mention=username" dari Kantor Virtual -- diisi lewat NILAI AWAL
+  // state (bukan setState di dalam effect, yang dilarang linter
+  // react-hooks/set-state-in-effect versi terbaru), jadi composer sudah
+  // terisi "@username " tepat di render pertama.
+  const [composerText, setComposerText] = useState(initialMention ? `@${initialMention} ` : "");
   const [sending, setSending] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -181,10 +187,14 @@ export function ChatClient({
   const [savingEdit, setSavingEdit] = useState(false);
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [clearing, setClearing] = useState(false);
-  // Cuma dipakai untuk MEMAKSA re-render tiap 30 detik, supaya tombol
-  // edit/hapus pesan sendiri otomatis hilang begitu lewat jendela 15 menit
-  // (EDIT_DELETE_WINDOW_MS) tanpa perlu pengguna berinteraksi apa pun dulu.
-  const [, forceTick] = useState(0);
+  // "Waktu sekarang" buat canEditOwn di bawah -- WAJIB lewat state (bukan
+  // baca Date.now() langsung saat render, dan bukan pula baca ref.current
+  // saat render -- dua-duanya baru dilarang linter react-hooks versi
+  // terbaru: purity & refs). Nilai awal dari lazy initializer (cuma jalan
+  // SEKALI saat mount, jadi aman), lalu di-refresh tiap 30 detik lewat
+  // effect di bawah supaya tombol edit/hapus otomatis hilang begitu lewat
+  // jendela 15 menit (EDIT_DELETE_WINDOW_MS) tanpa pengguna perlu berinteraksi.
+  const [now, setNow] = useState(() => Date.now());
 
   const cursorRef = useRef<Partial<Record<ChatRoom, string | null>>>({
     [initialRoom]: initialMessages.length > 0 ? initialMessages.reduce((max, m) => {
@@ -235,15 +245,29 @@ export function ChatClient({
     return () => clearInterval(interval);
   }, [activeRoom]);
 
-  // Lihat komentar di deklarasi state `forceTick` di atas.
+  // Lihat komentar di deklarasi state `now` di atas.
   useEffect(() => {
-    const interval = setInterval(() => forceTick((n) => n + 1), 30_000);
+    const interval = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messages.length, activeRoom]);
+
+  // Deep-link "?mention=username" dari Kantor Virtual -- isi teksnya sudah
+  // lewat nilai awal state `composerText` di atas (bukan di sini), effect
+  // ini cuma bagian imperatifnya (fokus + taruh kursor di akhir teks),
+  // jalan SEKALI saat mount.
+  useEffect(() => {
+    if (!initialMention) return;
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      const pos = textareaRef.current?.value.length ?? 0;
+      textareaRef.current?.setSelectionRange(pos, pos);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleRoomChange(room: ChatRoom) {
     if (room === activeRoom) return;
@@ -352,7 +376,7 @@ export function ChatClient({
     return (
       msg.senderId === currentUser.id &&
       !msg.deletedAt &&
-      Date.now() - new Date(msg.createdAt).getTime() < EDIT_DELETE_WINDOW_MS
+      now - new Date(msg.createdAt).getTime() < EDIT_DELETE_WINDOW_MS
     );
   }
   function canDeleteMsg(msg: ChatMessage): boolean {

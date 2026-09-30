@@ -13,6 +13,7 @@ import {
   INVESTOR_LINKS,
   REALISASI_EVENT_LINK,
   TRACKING_EVENT_LINK,
+  VIRTUAL_OFFICE_LINK,
   getVisibleModules,
 } from "@/lib/navigation";
 import { BrandLogo } from "@/components/layout/BrandLogo";
@@ -43,10 +44,16 @@ export function MobileNav({ division }: { division?: Division | null }) {
   const showChat = division !== "investor";
 
   // Laci otomatis tertutup begitu pindah halaman (klik salah satu link di
-  // dalamnya) — tidak perlu onClick manual di tiap Link.
-  useEffect(() => {
+  // dalamnya) -- disesuaikan LANGSUNG saat render (bukan lewat useEffect
+  // seperti sebelumnya), ini pola resmi React "adjust state when a prop
+  // changes" (bukan anti-pattern setState-in-effect yang baru dilarang
+  // linter react-hooks versi terbaru):
+  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
     setOpen(false);
-  }, [pathname]);
+  }
 
   // Escape buat menutup (pola sama dengan Modal.tsx) + kunci scroll body
   // selagi laci terbuka supaya halaman di belakangnya tidak ikut kescroll.
@@ -87,6 +94,9 @@ export function MobileNav({ division }: { division?: Division | null }) {
     showChat &&
     (pathname === TRACKING_EVENT_LINK.href || pathname.startsWith(`${TRACKING_EVENT_LINK.href}/`));
   const TrackingEventIcon = TRACKING_EVENT_LINK.icon;
+  const isVirtualOfficeActive =
+    pathname === VIRTUAL_OFFICE_LINK.href || pathname.startsWith(`${VIRTUAL_OFFICE_LINK.href}/`);
+  const VirtualOfficeIcon = VIRTUAL_OFFICE_LINK.icon;
   const currentLabel =
     pathname === HUB_HREF
       ? t("Dashboard Hub")
@@ -99,6 +109,7 @@ export function MobileNav({ division }: { division?: Division | null }) {
             (isChatActive ? CHAT_LINK.label : undefined) ??
             (isRealisasiEventActive ? REALISASI_EVENT_LINK.label : undefined) ??
             (isTrackingEventActive ? TRACKING_EVENT_LINK.label : undefined) ??
+            (isVirtualOfficeActive ? VIRTUAL_OFFICE_LINK.label : undefined) ??
             "Menu"
         );
 
@@ -243,6 +254,26 @@ export function MobileNav({ division }: { division?: Division | null }) {
                   </ul>
                 </div>
               )}
+
+              {/* Kantor Virtual (modul baru) -- SENGAJA tidak dibungkus
+                  showChat/isInvestor, karena modul ini harus kelihatan buat
+                  SEMUA divisi termasuk investor. */}
+              <div className="pt-5">
+                <ul className="space-y-1">
+                  <li>
+                    <Link
+                      href={VIRTUAL_OFFICE_LINK.href}
+                      className={linkClass(
+                        isVirtualOfficeActive,
+                        "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300"
+                      )}
+                    >
+                      <VirtualOfficeIcon className="h-[18px] w-[18px]" />
+                      {t(VIRTUAL_OFFICE_LINK.label)}
+                    </Link>
+                  </li>
+                </ul>
+              </div>
 
               {isInvestor && (
                 <div className="pt-5">

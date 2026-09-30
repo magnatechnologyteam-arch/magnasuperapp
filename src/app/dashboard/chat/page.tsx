@@ -20,7 +20,7 @@ import { ChatClient } from "./ChatClient";
 export default async function ChatPage({
   searchParams,
 }: {
-  searchParams: Promise<{ room?: string }>;
+  searchParams: Promise<{ room?: string; mention?: string }>;
 }) {
   const profile = await getCurrentProfile();
   if (!profile || profile.division === "investor") {
@@ -28,8 +28,12 @@ export default async function ChatPage({
   }
 
   const rooms = availableChatRooms(profile.division);
-  const { room } = await searchParams;
+  const { room, mention } = await searchParams;
   const initialRoom: ChatRoom = rooms.includes(room as ChatRoom) ? (room as ChatRoom) : "bersama";
+  // "?mention=username" -- deep-link dari Kantor Virtual (tombol "Chat
+  // dengan X" saat dua avatar berdekatan) supaya composer sudah terisi
+  // "@username " begitu halaman Chat terbuka, bukan cuma pindah ruang.
+  const initialMention = mention && mention.trim().length > 0 ? mention.trim() : null;
 
   const { messages } = await getChatMessages(initialRoom);
 
@@ -64,6 +68,7 @@ export default async function ChatPage({
           rooms={rooms}
           initialRoom={initialRoom}
           initialMessages={messages}
+          initialMention={initialMention}
           currentUser={{
             id: profile.id,
             username: profile.username,
