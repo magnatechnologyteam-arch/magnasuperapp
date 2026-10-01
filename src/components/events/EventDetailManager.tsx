@@ -35,6 +35,7 @@ import {
 } from "@/lib/events/actions";
 import { parseChecklistSheet } from "@/lib/events/importParser";
 import {
+  CHECKLIST_PHASE_LABELS,
   CHECKLIST_TEAM_PRESETS,
   EVENT_SOURCE_LABELS,
   EVENT_STATUSES,
@@ -479,8 +480,15 @@ export function EventDetailManager({
                           <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">{item.detail || "—"}</td>
                           <td className="px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">{item.qtyInfo || "—"}</td>
                           <td className="px-3 py-2">
-                            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-500 dark:bg-white/5 dark:text-zinc-400">
-                              {item.status}
+                            <span
+                              className={cn(
+                                "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                                item.currentPhase === "finish"
+                                  ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"
+                                  : "bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400"
+                              )}
+                            >
+                              {CHECKLIST_PHASE_LABELS[item.currentPhase]}
                             </span>
                           </td>
                           <td className="px-3 py-2">
