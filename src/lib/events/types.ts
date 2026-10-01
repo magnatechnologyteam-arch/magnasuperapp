@@ -193,7 +193,8 @@ export type ChecklistPhaseReview = {
  * Item `needsProduction=true`: 14 posisi (0-13) -- design/mockup/sample
  * masing-masing 3 sub-status (proposed/revised/approved) = 9, + production
  * selesai + completed + loading in + loading out + finish = 14.
- * Item `needsProduction=false`: 5 posisi (0-4) -- langsung dari completed.
+ * Item `needsProduction=false`: 4 posisi (0-3) -- completed/loading in/
+ * loading out/finish, langsung dari completed.
  */
 export function computeChecklistItemProgress(
   item: { needsProduction: boolean; currentPhase: ChecklistPhase },
@@ -206,8 +207,11 @@ export function computeChecklistItemProgress(
   };
 
   if (!item.needsProduction) {
-    const MAX = 4;
+    // Bugfix: order punya 4 posisi (index 0-3), jadi pembaginya harus
+    // order.length - 1 (= 3), BUKAN order.length (= 4) -- sebelumnya
+    // "Finish" (index 3) cuma dapat 3/4 = 75%, tidak pernah 100%.
     const order: ChecklistPhase[] = ["completed", "loading_in", "loading_out", "finish"];
+    const MAX = order.length - 1;
     const idx = order.indexOf(item.currentPhase);
     const step = idx === -1 ? 0 : idx;
     return Math.round((step / MAX) * 100);
