@@ -73,7 +73,11 @@ export function parseChecklistSheet(raw2d: unknown[][]): { rows: TemplateImportR
   }
 
   if (headerIdx === -1 || colIndexFor.itemName === undefined) {
-    return { rows: [], error: "Format file tidak dikenali -- pastikan ada kolom \"Item\" di salah satu baris." };
+    return {
+      rows: [],
+      error:
+        'Format file tidak dikenali -- pastikan baris pertama punya kolom bernama salah satu dari: "Item", "Nama", "Nama Item", atau "Pekerjaan" (nama kolom lain seperti "Uraian Pekerjaan" belum dikenali sistem).',
+    };
   }
 
   const hasCategoryColumn = colIndexFor.category !== undefined;

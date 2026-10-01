@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import NextLink from "next/link";
 import {
   Building2,
   CalendarClock,
   FileSpreadsheet,
   Link2,
+  ListChecks,
   Loader2,
   MapPin,
   Pencil,
@@ -213,6 +215,7 @@ export function EventDetailManager({
   const [importParsing, setImportParsing] = useState(false);
   const [importSubmitting, setImportSubmitting] = useState(false);
   const [importMode, setImportMode] = useState<"replace" | "append">("replace");
+  const [importNeedsProduction, setImportNeedsProduction] = useState(true);
   const [importSummary, setImportSummary] = useState<{ inserted: number; skipped: number; errors: string[] } | null>(
     null
   );
@@ -225,6 +228,7 @@ export function EventDetailManager({
     setImportSummary(null);
     setImportError(null);
     setImportMode("replace");
+    setImportNeedsProduction(true);
     setImportOpen(true);
   }
 
@@ -283,7 +287,7 @@ export function EventDetailManager({
     if (!importRows || importRows.length === 0) return;
     setImportSubmitting(true);
     setImportError(null);
-    const result = await bulkImportEventChecklistItems(event.id, importRows, importMode);
+    const result = await bulkImportEventChecklistItems(event.id, importRows, importMode, importNeedsProduction);
     setImportSubmitting(false);
 
     if (!result.ok) {
@@ -370,6 +374,13 @@ export function EventDetailManager({
             {event.notes && <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{event.notes}</p>}
           </div>
           <div className="flex items-center gap-2">
+            <NextLink
+              href={`/dashboard/tracking-event/${event.id}`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 px-3 py-1.5 text-xs font-semibold text-violet-700 transition-colors hover:bg-violet-50 dark:border-violet-500/30 dark:text-violet-300 dark:hover:bg-violet-500/10"
+            >
+              <ListChecks className="h-3.5 w-3.5" />
+              Papan Tracking
+            </NextLink>
             <span className={cn("rounded-full px-3 py-1.5 text-xs font-semibold", STATUS_BADGE[event.status])}>
               {event.status}
             </span>
@@ -380,8 +391,8 @@ export function EventDetailManager({
               className="rounded-lg border border-zinc-300 bg-transparent px-2.5 py-1.5 text-xs dark:border-zinc-700 dark:bg-zinc-950"
             >
               {EVENT_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  Ubah ke: {s}
+                <option key={s} value={s} disabled={s === event.status}>
+                  {s === event.status ? `${s} (status saat ini)` : `Ubah ke: ${s}`}
                 </option>
               ))}
             </select>
@@ -721,33 +732,38 @@ export function EventDetailManager({
               ))}
             </datalist>
           </div>
-          {!editingItem && (
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
-                Perlu Produksi?
-              </label>
-              <div className="flex gap-2">
-                {[
-                  { value: true, label: "Ya -- lewat Design/Mockup/Sample/Production dulu" },
-                  { value: false, label: "Tidak -- langsung mulai dari Completed" },
-                ].map((opt) => (
-                  <button
-                    key={String(opt.value)}
-                    type="button"
-                    onClick={() => setItemForm((f) => ({ ...f, needsProduction: opt.value }))}
-                    className={cn(
-                      "flex-1 rounded-lg border px-2.5 py-2 text-left text-[11px] font-medium transition-colors",
-                      itemForm.needsProduction === opt.value
-                        ? "border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-400 dark:bg-violet-500/10 dark:text-violet-300"
-                        : "border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+          <div>
+            <label className="mb-1 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+              Perlu Produksi?
+            </label>
+            <div className="flex gap-2">
+              {[
+                { value: true, label: "Ya -- lewat Design/Mockup/Sample/Production dulu" },
+                { value: false, label: "Tidak -- langsung mulai dari Completed" },
+              ].map((opt) => (
+                <button
+                  key={String(opt.value)}
+                  type="button"
+                  disabled={!!editingItem}
+                  onClick={() => setItemForm((f) => ({ ...f, needsProduction: opt.value }))}
+                  className={cn(
+                    "flex-1 rounded-lg border px-2.5 py-2 text-left text-[11px] font-medium transition-colors",
+                    editingItem && "cursor-not-allowed opacity-60",
+                    itemForm.needsProduction === opt.value
+                      ? "border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-400 dark:bg-violet-500/10 dark:text-violet-300"
+                      : "border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
             </div>
-          )}
+            {editingItem && (
+              <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                Sudah terkunci sesuai fase berjalan item ini -- untuk mengubahnya, buka Papan Tracking.
+              </p>
+            )}
+          </div>
           {itemError && (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
               {itemError}
@@ -852,6 +868,44 @@ export function EventDetailManager({
                   Tambahkan ke yang sudah ada
                 </button>
               </div>
+            </div>
+          )}
+
+          {importRows && !importSummary && (
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-zinc-600 dark:text-zinc-300">
+                Semua item di file ini perlu lewat Design/Mockup/Sample/Production dulu?
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setImportNeedsProduction(true)}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors",
+                    importNeedsProduction
+                      ? "border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-400 dark:bg-violet-500/10 dark:text-violet-300"
+                      : "border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400"
+                  )}
+                >
+                  Ya -- ada proses produksi
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportNeedsProduction(false)}
+                  className={cn(
+                    "flex-1 rounded-lg border px-3 py-2 text-xs font-semibold transition-colors",
+                    !importNeedsProduction
+                      ? "border-violet-500 bg-violet-50 text-violet-700 dark:border-violet-400 dark:bg-violet-500/10 dark:text-violet-300"
+                      : "border-zinc-200 text-zinc-500 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-400"
+                  )}
+                >
+                  Tidak -- langsung mulai dari Completed
+                </button>
+              </div>
+              <p className="mt-1.5 text-[11px] text-zinc-400 dark:text-zinc-500">
+                Berlaku untuk SEMUA item di file ini. Kalau campuran (sebagian perlu produksi, sebagian tidak), import
+                dulu lalu ubah per-item lewat Papan Tracking.
+              </p>
             </div>
           )}
 

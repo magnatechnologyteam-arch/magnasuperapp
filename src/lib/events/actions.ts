@@ -767,11 +767,17 @@ export async function deleteEventChecklistItem(id: string, eventId: string): Pro
 /** Import massal checklist AKTUAL satu event -- sama persis pola/parser
  * dengan `bulkImportTemplateItems`, cuma target tabelnya `event_checklist_
  * items` (status default "Belum Mulai", pic kosong -- diisi belakangan di
- * Papan Tracking, Tahap D). */
+ * Papan Tracking, Tahap D).
+ * `needsProduction` berlaku untuk SEMUA baris yang diimpor (dipilih Admin
+ * di modal import) -- sebelumnya field ini tidak diisi sama sekali saat
+ * import, jadi semua item diam-diam pakai default kolom DB (lewat Design/
+ * Mockup/Sample/Production dulu) walau item itu sebenarnya tidak perlu
+ * produksi, bikin Papan Tracking kelihatan "salah fase semua" buat PIC. */
 export async function bulkImportEventChecklistItems(
   eventId: string,
   rows: TemplateImportRow[],
-  mode: "replace" | "append"
+  mode: "replace" | "append",
+  needsProduction: boolean = true
 ): Promise<{ ok: true; summary: TemplateImportSummary } | { ok: false; error: string }> {
   if (!Array.isArray(rows) || rows.length === 0) {
     return { ok: false, error: "Tidak ada baris data untuk diimpor." };
@@ -802,6 +808,8 @@ export async function bulkImportEventChecklistItems(
     qty_info: string | null;
     notes: string | null;
     sort_order: number;
+    needs_production: boolean;
+    current_phase: "design" | "completed";
   }[] = [];
 
   rows.forEach((row, index) => {
@@ -820,6 +828,8 @@ export async function bulkImportEventChecklistItems(
       qty_info: row.qtyInfo?.trim() || null,
       notes: row.notes?.trim() || null,
       sort_order: index * 10,
+      needs_production: needsProduction,
+      current_phase: needsProduction ? "design" : "completed",
     });
   });
 

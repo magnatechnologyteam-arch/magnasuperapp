@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, useTransition, type FormEvent } from "react"
 import { useRouter } from "next/navigation";
 import {
   Camera,
+  Check,
   ChevronDown,
   ClipboardList,
   FileText,
@@ -17,6 +18,7 @@ import {
   Search,
   Trash2,
   Undo2,
+  X,
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
@@ -63,6 +65,26 @@ const STATUS_BADGE: Record<string, string> = {
   Berjalan: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
   Selesai: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
   Dibatalkan: "bg-zinc-100 text-zinc-500 dark:bg-white/5 dark:text-zinc-400",
+};
+
+/** Penjelasan singkat tiap istilah fase/sub-status buat staff lapangan
+ * yang tidak familiar istilah produksi -- ditampilkan lewat `title`
+ * (tooltip) di pill fase & badge sub-status, sebelumnya cuma label
+ * polos tanpa konteks. */
+const CHECKLIST_PHASE_HINTS: Record<ChecklistPhase, string> = {
+  design: "Design: sketsa/konsep awal diajukan PIC Produksi untuk direview.",
+  mockup: "Mockup: contoh bentuk/ukuran kasar, dibuat setelah Design disetujui.",
+  sample: "Sample: contoh jadi mendekati hasil akhir, direview sebelum produksi massal.",
+  production: "Production: barang diproduksi sesuai Sample yang sudah disetujui.",
+  completed: "Completed: produksi selesai, barang siap dibawa ke lokasi event.",
+  loading_in: "Loading In: barang sedang/sudah dibawa masuk ke lokasi event.",
+  loading_out: "Loading Out: barang sudah dibongkar & dibawa pulang dari lokasi event.",
+  finish: "Finish: seluruh proses item ini selesai.",
+};
+const CHECKLIST_SUB_STATUS_HINTS: Record<"proposed" | "revised" | "approved", string> = {
+  proposed: "Proposed: baru diajukan PIC Produksi, menunggu review Admin/Owner.",
+  revised: "Revised: sudah diunggah ulang setelah direvisi/ditolak, menunggu review lagi.",
+  approved: "Approved: sudah disetujui Admin/Owner, lanjut ke fase berikutnya.",
 };
 
 const DIVISION_LABEL: Record<string, string> = {
@@ -399,6 +421,7 @@ function PhaseStepper({ item }: { item: EventChecklistItem }) {
       {seq.map((phase, i) => (
         <span
           key={phase}
+          title={CHECKLIST_PHASE_HINTS[phase]}
           className={cn(
             "rounded-full px-2 py-0.5 text-[10px] font-semibold",
             i < currentIdx
@@ -440,6 +463,12 @@ function ReviewPhaseCard({
   // Owner: dulu approve/reject langsung eksekusi begitu tombol ditekan
   // (rawan "kepencet") -- sekarang WAJIB konfirmasi dulu lewat ConfirmDialog.
   const [confirmAction, setConfirmAction] = useState<"approve" | "reject" | null>(null);
+  // Reject MENGHAPUS baris review (lihat rejectChecklistPhaseReview) --
+  // tanpa penanda lokal ini, kartu balik kosong polos sama seperti item
+  // yang belum pernah diisi, bikin PIC mengira datanya hilang/error,
+  // bukan paham itu artinya "ditolak, unggah ulang". Reset otomatis
+  // begitu `review` ada lagi (submit ulang berhasil).
+  const [justRejected, setJustRejected] = useState(false);
   const subStatus = review?.subStatus;
 
   function submit() {
@@ -481,6 +510,7 @@ function ReviewPhaseCard({
         return;
       }
       showToast(`${CHECKLIST_PHASE_LABELS[phase]} ditolak, PIC perlu unggah ulang.`);
+      setJustRejected(true);
       onChanged();
     });
   }
@@ -488,15 +518,25 @@ function ReviewPhaseCard({
   return (
     <div className="mt-2 rounded-xl border border-zinc-100 p-3 dark:border-white/10">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500">
+        <p
+          title={CHECKLIST_PHASE_HINTS[phase]}
+          className="text-[10px] font-bold uppercase tracking-wide text-zinc-400 dark:text-zinc-500"
+        >
           {CHECKLIST_PHASE_LABELS[phase]}
         </p>
-        {subStatus && (
-          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500 dark:bg-white/10 dark:text-zinc-400">
+        {subStatus ? (
+          <span
+            title={CHECKLIST_SUB_STATUS_HINTS[subStatus]}
+            className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-500 dark:bg-white/10 dark:text-zinc-400"
+          >
             {CHECKLIST_SUB_STATUS_LABELS[subStatus]}
             {review && review.revisionCount > 0 ? ` (revisi ${review.revisionCount})` : ""}
           </span>
-        )}
+        ) : justRejected ? (
+          <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600 dark:bg-rose-500/10 dark:text-rose-300">
+            Ditolak
+          </span>
+        ) : null}
       </div>
 
       {review?.photoUrl && <AttachmentPreview url={review.photoUrl} alt="Lampiran konfirmasi" />}
@@ -509,6 +549,11 @@ function ReviewPhaseCard({
         <p className="mt-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">Disetujui.</p>
       ) : (
         <div className="mt-2 flex flex-wrap items-center gap-2">
+          {!review && justRejected && (
+            <p className="w-full text-xs font-medium text-rose-600 dark:text-rose-300">
+              Ditolak oleh Admin/Owner -- silakan unggah ulang foto/file konfirmasi.
+            </p>
+          )}
           <AttachmentPickerButtons
             file={file}
             onSelect={setFile}
@@ -521,10 +566,22 @@ function ReviewPhaseCard({
           </button>
           {isFullAccess && review?.photoUrl && (
             <>
-              <button type="button" onClick={() => setConfirmAction("approve")} disabled={pending} className={BTN_PRIMARY}>
+              <button
+                type="button"
+                onClick={() => setConfirmAction("approve")}
+                disabled={pending}
+                className={cn(BTN_PRIMARY, "inline-flex items-center gap-1")}
+              >
+                <Check className="h-3.5 w-3.5" />
                 Setujui
               </button>
-              <button type="button" onClick={() => setConfirmAction("reject")} disabled={pending} className={BTN_DANGER}>
+              <button
+                type="button"
+                onClick={() => setConfirmAction("reject")}
+                disabled={pending}
+                className={cn(BTN_DANGER, "ml-2 inline-flex items-center gap-1")}
+              >
+                <X className="h-3.5 w-3.5" />
                 Tolak
               </button>
             </>
@@ -551,8 +608,10 @@ function ReviewPhaseCard({
             ? `Fase ${CHECKLIST_PHASE_LABELS[phase]} untuk "${item.itemName}" akan disetujui dan lanjut ke fase berikutnya.`
             // Disederhanakan (Tahap 52) -- reject SEKARANG cuma mundurkan
             // fase ini sendiri (bukan lagi cascading balik ke Design),
-            // jadi pesannya sama untuk ketiga fase review.
-            : `Fase ${CHECKLIST_PHASE_LABELS[phase]} untuk "${item.itemName}" akan ditolak -- PIC perlu unggah ulang foto/file konfirmasi.`
+            // jadi pesannya sama untuk ketiga fase review. Ditegaskan di
+            // teks (bukan cuma di komentar kode) karena Admin/Owner yang
+            // masih ingat perilaku lama bisa ragu-ragu menekan Tolak.
+            : `Fase ${CHECKLIST_PHASE_LABELS[phase]} untuk "${item.itemName}" akan ditolak -- PIC perlu unggah ulang foto/file konfirmasi. Hanya fase ini yang diulang; fase lain yang sudah disetujui sebelumnya TIDAK ikut berubah.`
         }
         confirmLabel={confirmAction === "approve" ? "Setujui" : "Tolak"}
         confirmVariant={confirmAction === "approve" ? "primary" : "danger"}
@@ -1196,6 +1255,10 @@ export function EventTrackingBoard({
             <h2 className="text-sm font-bold text-zinc-900 dark:text-white">Checklist</h2>
             <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">
               Isi tiap fase sesuai progres pekerjaan divisimu -- foto konfirmasi wajib sebelum fase berikutnya terbuka.
+              <br />
+              <span className="font-medium">Design–Production</span> diisi <span className="font-medium">PIC
+              Produksi</span>, <span className="font-medium">Completed–Finish</span> diisi{" "}
+              <span className="font-medium">PIC Lapangan</span>.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
